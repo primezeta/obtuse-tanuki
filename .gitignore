@@ -31,6 +31,7 @@
 *.opensdf
 *.sdf
 *.suo
+*.pdb
 
 # Unreal Engine 4
 CosmicSafari/Binaries/*
@@ -42,6 +43,8 @@ CosmicSafari/Intermediate/ProjectFiles/obj/*
 CosmicSafari/Content/FirstPerson/*
 CosmicSafari/Content/FirstPersonCPP/*
 CosmicSafari/Content/Geometry/*
+CosmicSafari/Source/Intermediate/*
+CosmicSafari/Source/Build/*
 CosmicSafari/DerivedDataCache
 CosmicSafari/Intermediate/ReimportCache
 CosmicSafari/Intermediate/CachedAssetRegistry.bin
