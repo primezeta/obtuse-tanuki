@@ -11,8 +11,8 @@ public class OpenVDBModule : ModuleRules
         //Type = ModuleType.External;
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
 
-        PublicIncludePaths.AddRange(new string[] { Path.Combine(ModulePath, "Public") });
-        PrivateIncludePaths.AddRange(new string[] { Path.Combine(ModulePath, "Private") });
+        PublicIncludePaths.AddRange(new string[] { Path.Combine(ModulePath, "Public"), Path.Combine(ModulePath, "..", "..", "ThirdParty", "libovdb") });
+        PrivateIncludePaths.AddRange(new string[] { ModulePath, Path.Combine(ModulePath, "Private") });
         PublicLibraryPaths.AddRange(LibPaths);
         PublicAdditionalLibraries.AddRange(LibNames);
 	}
@@ -29,7 +29,11 @@ public class OpenVDBModule : ModuleRules
     {
         get
         {
-            return new string[] { Path.Combine(ModulePath, "Private") };
+            return new string[]
+            {
+                Path.Combine(ModulePath, "..", "..", "ThirdParty", "Build", "x64", "Debug"),
+                Path.Combine(ModulePath, "..", "..", "ThirdParty", "OpenVDB", "dependencies", "lib", "x64")
+            };
         }
     }
 

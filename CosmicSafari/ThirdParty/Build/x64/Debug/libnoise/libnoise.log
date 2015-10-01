@@ -1,0 +1,44 @@
+﻿  noiseutils.cpp
+c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\libnoise\noiseutils.h(1215): warning C4244: 'initializing' : conversion from 'const double' to 'float', possible loss of data
+noiseutils.cpp(61): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+noiseutils.cpp(62): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+noiseutils.cpp(867): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+  noisegen.cpp
+  voronoi.cpp
+  turbulence.cpp
+  translatepoint.cpp
+  terrace.cpp
+  spheres.cpp
+  select.cpp
+  scalepoint.cpp
+  scalebias.cpp
+  rotatepoint.cpp
+  ridgedmulti.cpp
+  power.cpp
+  perlin.cpp
+  multiply.cpp
+  modulebase.cpp
+  min.cpp
+  max.cpp
+  invert.cpp
+  exponent.cpp
+  Generating Code...
+  Compiling...
+  displace.cpp
+  cylinders.cpp
+  curve.cpp
+  const.cpp
+  clamp.cpp
+  checkerboard.cpp
+  cache.cpp
+  blend.cpp
+  billow.cpp
+  add.cpp
+  abs.cpp
+  sphere.cpp
+  plane.cpp
+  line.cpp
+  cylinder.cpp
+  latlon.cpp
+  Generating Code...
+  libnoise.vcxproj -> C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\ThirdParty\Build\x64\Debug\libnoise.lib

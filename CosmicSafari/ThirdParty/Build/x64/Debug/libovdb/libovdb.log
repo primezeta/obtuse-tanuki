@@ -1,0 +1,141 @@
+﻿  libovdb.cpp
+C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\ThirdParty\OpenVDB\src\openvdb/math/Math.h(476): warning C4244: 'argument' : conversion from 'int64_t' to 'long', possible loss of data
+C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\ThirdParty\OpenVDB\src\openvdb/util/NodeMasks.h(757): warning C4800: 'unsigned int' : forcing value to bool 'true' or 'false' (performance warning)
+C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\ThirdParty\OpenVDB\src\openvdb/util/NodeMasks.h(1317): warning C4800: 'openvdb::v3_1_0::Index32' : forcing value to bool 'true' or 'false' (performance warning)
+C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\ThirdParty\OpenVDB\src\openvdb/util/NodeMasks.h(1322): warning C4800: 'openvdb::v3_1_0::Index32' : forcing value to bool 'true' or 'false' (performance warning)
+C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\xutility(2715): warning C4996: 'std::_Fill_n': Function call with parameters that may be unsafe - this call relies on the caller to check that the passed values are correct. To disable this warning, use -D_SCL_SECURE_NO_WARNINGS. See documentation on how to use Visual C++ 'Checked Iterators'
+          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\xutility(2701) : see declaration of 'std::_Fill_n'
+          C:\boost\boost_1_59_0\boost/random/detail/polynomial.hpp(114) : see reference to function template instantiation '_OutIt std::fill_n<boost::random::detail::polynomial_ops::digit_t*,size_t,boost::random::detail::polynomial_ops::digit_t>(_OutIt,_Diff,const _Ty &)' being compiled
+          with
+          [
+              _OutIt=boost::random::detail::polynomial_ops::digit_t *
+  ,            _Diff=size_t
+  ,            _Ty=boost::random::detail::polynomial_ops::digit_t
+          ]
+c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\LeafNode.h(163): warning C4800: 'const openvdb::v3_1_0::Index32' : forcing value to bool 'true' or 'false' (performance warning)
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\LeafNode.h(163) : while compiling class template member function 'bool openvdb::v3_1_0::tree::LeafNode<T,3>::Buffer::isOutOfCore(void) const'
+          with
+          [
+              T=float
+          ]
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\LeafNode.h(453) : see reference to function template instantiation 'bool openvdb::v3_1_0::tree::LeafNode<T,3>::Buffer::isOutOfCore(void) const' being compiled
+          with
+          [
+              T=float
+          ]
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\LeafNode.h(1112) : see reference to class template instantiation 'openvdb::v3_1_0::tree::LeafNode<T,3>::Buffer' being compiled
+          with
+          [
+              T=float
+          ]
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\InternalNode.h(70) : see reference to class template instantiation 'openvdb::v3_1_0::tree::LeafNode<T,3>' being compiled
+          with
+          [
+              T=float
+          ]
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\InternalNode.h(70) : see reference to class template instantiation 'openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::LeafNode<T,3>,4>' being compiled
+          with
+          [
+              T=float
+          ]
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\RootNode.h(79) : see reference to class template instantiation 'openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::LeafNode<T,3>,4>,5>' being compiled
+          with
+          [
+              T=float
+          ]
+          C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\ThirdParty\OpenVDB\src\openvdb/tree/Tree.h(210) : see reference to class template instantiation 'openvdb::v3_1_0::tree::RootNode<openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::LeafNode<T,3>,4>,5>>' being compiled
+          with
+          [
+              T=float
+          ]
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\Grid.h(489) : see reference to class template instantiation 'openvdb::v3_1_0::tree::Tree<openvdb::v3_1_0::tree::RootNode<openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::LeafNode<T,3>,4>,5>>>' being compiled
+          with
+          [
+              T=float
+          ]
+          libovdb.cpp(12) : see reference to class template instantiation 'openvdb::v3_1_0::Grid<openvdb::v3_1_0::FloatTree>' being compiled
+C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\ThirdParty\OpenVDB\src\openvdb/io/Compression.h(443): warning C4800: 'const uint32_t' : forcing value to bool 'true' or 'false' (performance warning)
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\InternalNode.h(2082) : see reference to function template instantiation 'void openvdb::v3_1_0::io::writeCompressedValues<T,openvdb::v3_1_0::util::NodeMask<5>>(std::ostream &,ValueT *,openvdb::v3_1_0::Index,const MaskT &,const MaskT &,bool)' being compiled
+          with
+          [
+              T=float
+  ,            ValueT=float
+  ,            MaskT=openvdb::v3_1_0::util::NodeMask<5>
+          ]
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\InternalNode.h(2070) : while compiling class template member function 'void openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::LeafNode<T,3>,4>,5>::writeTopology(std::ostream &,bool) const'
+          with
+          [
+              T=float
+          ]
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\RootNode.h(2183) : see reference to function template instantiation 'void openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::LeafNode<T,3>,4>,5>::writeTopology(std::ostream &,bool) const' being compiled
+          with
+          [
+              T=float
+          ]
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\InternalNode.h(865) : while compiling class template member function 'openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::LeafNode<T,3>,4>,5>::InternalNode(const openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::LeafNode<T,3>,4>,5> &)'
+          with
+          [
+              T=float
+          ]
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\RootNode.h(1158) : see reference to function template instantiation 'openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::LeafNode<T,3>,4>,5>::InternalNode(const openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::LeafNode<T,3>,4>,5> &)' being compiled
+          with
+          [
+              T=float
+          ]
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\InternalNode.h(963) : while compiling class template member function 'openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::LeafNode<T,3>,4>,5>::~InternalNode(void)'
+          with
+          [
+              T=float
+          ]
+C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\ThirdParty\OpenVDB\src\openvdb/io/Compression.h(334): warning C4800: 'const uint32_t' : forcing value to bool 'true' or 'false' (performance warning)
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\InternalNode.h(2128) : see reference to function template instantiation 'void openvdb::v3_1_0::io::readCompressedValues<T,openvdb::v3_1_0::util::NodeMask<5>>(std::istream &,ValueT *,openvdb::v3_1_0::Index,const MaskT &,bool)' being compiled
+          with
+          [
+              T=float
+  ,            ValueT=float
+  ,            MaskT=openvdb::v3_1_0::util::NodeMask<5>
+          ]
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\InternalNode.h(2094) : while compiling class template member function 'void openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::LeafNode<T,3>,4>,5>::readTopology(std::istream &,bool)'
+          with
+          [
+              T=float
+          ]
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\RootNode.h(2249) : see reference to function template instantiation 'void openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::InternalNode<openvdb::v3_1_0::tree::LeafNode<T,3>,4>,5>::readTopology(std::istream &,bool)' being compiled
+          with
+          [
+              T=float
+          ]
+C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\xutility(2132): warning C4996: 'std::_Copy_impl': Function call with parameters that may be unsafe - this call relies on the caller to check that the passed values are correct. To disable this warning, use -D_SCL_SECURE_NO_WARNINGS. See documentation on how to use Visual C++ 'Checked Iterators'
+          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\xutility(2113) : see declaration of 'std::_Copy_impl'
+          C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\ThirdParty\OpenVDB\src\openvdb/io/Compression.h(228) : see reference to function template instantiation '_OutIt std::copy<std::_Vector_iterator<std::_Vector_val<std::_Simple_types<half>>>,T*>(_InIt,_InIt,_OutIt)' being compiled
+          with
+          [
+              _OutIt=float *
+  ,            T=float
+  ,            _InIt=std::_Vector_iterator<std::_Vector_val<std::_Simple_types<half>>>
+          ]
+          C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\ThirdParty\OpenVDB\src\openvdb/io/Compression.h(223) : while compiling class template member function 'void openvdb::v3_1_0::io::HalfReader<true,ValueT>::read(std::istream &,T *,openvdb::v3_1_0::Index,uint32_t)'
+          with
+          [
+              ValueT=float
+  ,            T=float
+          ]
+          C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\ThirdParty\OpenVDB\src\openvdb/io/Compression.h(391) : see reference to function template instantiation 'void openvdb::v3_1_0::io::HalfReader<true,ValueT>::read(std::istream &,T *,openvdb::v3_1_0::Index,uint32_t)' being compiled
+          with
+          [
+              ValueT=float
+  ,            T=float
+          ]
+          C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\ThirdParty\OpenVDB\src\openvdb/io/Compression.h(391) : see reference to class template instantiation 'openvdb::v3_1_0::io::HalfReader<true,ValueT>' being compiled
+          with
+          [
+              ValueT=float
+          ]
+          c:\users\zach\documents\unreal projects\obtuse-tanuki\cosmicsafari\thirdparty\openvdb\src\openvdb\tree\InternalNode.h(2128) : see reference to function template instantiation 'void openvdb::v3_1_0::io::readCompressedValues<T,openvdb::v3_1_0::util::NodeMask<5>>(std::istream &,ValueT *,openvdb::v3_1_0::Index,const MaskT &,bool)' being compiled
+          with
+          [
+              T=float
+  ,            ValueT=float
+  ,            MaskT=openvdb::v3_1_0::util::NodeMask<5>
+          ]
+  libovdb.vcxproj -> C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\ThirdParty\Build\x64\Debug\libovdb.lib
