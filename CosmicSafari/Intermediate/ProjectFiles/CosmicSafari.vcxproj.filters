@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <None Include="..\..\CosmicSafari.uproject" />
+    <Filter Include="Source">
+      <UniqueIdentifier>{C7AFF92C-0C39-4B03-B1C0-BA2AE7D03F4C}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Source\CosmicSafari.Target.cs">
+      <Filter>Source</Filter>
+    </None>
+    <None Include="..\..\Source\CosmicSafariEditor.Target.cs">
+      <Filter>Source</Filter>
+    </None>
+    <Filter Include="Config">
+      <UniqueIdentifier>{04F1C41F-610C-4B2D-A8AA-5A8205386FE2}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Config\DefaultEditor.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultEditorPerProjectUserSettings.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultEngine.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultGame.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultInput.ini">
+      <Filter>Config</Filter>
+    </None>
+    <Filter Include="Source\CosmicSafari">
+      <UniqueIdentifier>{DDFAAD93-7D3C-4DD0-90CF-5E0AB4FB86BA}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Source\CosmicSafari\CosmicSafari.Build.cs">
+      <Filter>Source\CosmicSafari</Filter>
+    </None>
+    <ClCompile Include="..\..\Source\CosmicSafari\CosmicSafari.cpp">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\CosmicSafari\CosmicSafari.h">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\CosmicSafari\CosmicSafariCharacter.cpp">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\CosmicSafari\CosmicSafariCharacter.h">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\CosmicSafari\CosmicSafariGameMode.cpp">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\CosmicSafari\CosmicSafariGameMode.h">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\CosmicSafari\CosmicSafariHUD.cpp">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\CosmicSafari\CosmicSafariHUD.h">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\CosmicSafari\CosmicSafariProjectile.cpp">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\CosmicSafari\CosmicSafariProjectile.h">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClInclude>
+    <Filter Include="Source\OpenVDBModule">
+      <UniqueIdentifier>{1350517C-D732-4C23-9EFF-ADC6EA60FAB6}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Source\OpenVDBModule\OpenVDBModule.Build.cs">
+      <Filter>Source\OpenVDBModule</Filter>
+    </None>
+    <Filter Include="Source\OpenVDBModule\Public">
+      <UniqueIdentifier>{B04C44B9-5F2C-4DCF-887C-6609CF20347F}</UniqueIdentifier>
+    </Filter>
+    <ClInclude Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.h">
+      <Filter>Source\OpenVDBModule\Public</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.cpp">
+      <Filter>Source\OpenVDBModule\Public</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

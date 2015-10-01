@@ -1,0 +1,18 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "4.9",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "CosmicSafari",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "OpenVDBModule",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

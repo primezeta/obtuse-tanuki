@@ -1,0 +1,47 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Visual Studio
+*.opensdf
+*.sdf
+*.suo
+
+# Unreal Engine 4
+CosmicSafari/Binaries/*
+CosmicSafari/Intermediate/Build/*
+CosmicSafari/Intermediate/Config/*
+CosmicSafari/Intermediate/Staging/*
+CosmicSafari/Saved/*
+CosmicSafari/Intermediate/ProjectFiles/obj/*
+CosmicSafari/Content/FirstPerson/*
+CosmicSafari/Content/FirstPersonCPP/*
+CosmicSafari/Content/Geometry/*
+CosmicSafari/DerivedDataCache
+CosmicSafari/Intermediate/ReimportCache
+CosmicSafari/Intermediate/CachedAssetRegistry.bin
