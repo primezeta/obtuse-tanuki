@@ -43,8 +43,7 @@ CosmicSafari/Intermediate/ProjectFiles/obj/*
 CosmicSafari/Content/FirstPerson/*
 CosmicSafari/Content/FirstPersonCPP/*
 CosmicSafari/Content/Geometry/*
-CosmicSafari/Source/Intermediate/*
-CosmicSafari/Source/Build/*
+CosmicSafari/Source/bin/*
 CosmicSafari/DerivedDataCache
 CosmicSafari/Intermediate/ReimportCache
 CosmicSafari/Intermediate/CachedAssetRegistry.bin
