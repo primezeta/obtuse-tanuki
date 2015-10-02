@@ -35,6 +35,7 @@
 
 # Unreal Engine 4
 CosmicSafari/Binaries/*
+CosmicSafari/Build/Receipts/*
 CosmicSafari/Intermediate/Build/*
 CosmicSafari/Intermediate/Config/*
 CosmicSafari/Intermediate/Staging/*
@@ -43,7 +44,7 @@ CosmicSafari/Intermediate/ProjectFiles/obj/*
 CosmicSafari/Content/FirstPerson/*
 CosmicSafari/Content/FirstPersonCPP/*
 CosmicSafari/Content/Geometry/*
-CosmicSafari/Source/bin/*
+CosmicSafari/ThirdParty/Build/*
 CosmicSafari/DerivedDataCache
 CosmicSafari/Intermediate/ReimportCache
 CosmicSafari/Intermediate/CachedAssetRegistry.bin

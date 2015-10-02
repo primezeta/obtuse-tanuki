@@ -83,7 +83,7 @@
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)OpenVDB\src;$(SolutionDir)OpenVDB\dependencies\include;C:\boost\boost_1_59_0</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);LIB_OVDB_EXPORT</PreprocessorDefinitions>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -101,7 +101,7 @@
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)OpenVDB\src;$(SolutionDir)OpenVDB\dependencies\include;C:\boost\boost_1_59_0</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);LIB_OVDB_EXPORT</PreprocessorDefinitions>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -118,7 +118,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);LIB_OVDB_EXPORT</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
-      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <SDLCheck>false</SDLCheck>
       <ProgramDataBaseFileName>$(IntDir)$(ProjectName).pdb</ProgramDataBaseFileName>
     </ClCompile>
@@ -133,7 +133,7 @@
       <AdditionalIncludeDirectories>$(SolutionDir)OpenVDB\src;$(SolutionDir)OpenVDB\dependencies\include;C:\boost\boost_1_59_0</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);LIB_OVDB_EXPORT</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <SDLCheck>false</SDLCheck>
     </ClCompile>
     <Link>
