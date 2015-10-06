@@ -11,15 +11,15 @@ void CreateTestVdb(const std::string &filename)
 {
 	openvdb::FloatGrid::Ptr sparseGrid = nullptr;
 	openvdb::io::File file(filename);
-	//file.open();
-	//if (file.isOpen())
-	//{
-	//	sparseGrid = openvdb::gridPtrCast<openvdb::FloatGrid>(file.readGrid("TestGrid"));
+	if (file.getSize() > 0)
+	{
+		file.open();
+		sparseGrid = openvdb::gridPtrCast<openvdb::FloatGrid>(file.readGrid("TestGrid"));
 	//	//sparseGrid->
 
-	//}
-	//else
-	//{
+	}
+	else
+	{
 		openvdb::tools::Dense<float> denseGrid(openvdb::CoordBBox(openvdb::Coord(), openvdb::Coord(100, 100, 100)), 0.0f);
 		float fillValue = 1.0f;
 		denseGrid.fill(fillValue);
@@ -32,7 +32,7 @@ void CreateTestVdb(const std::string &filename)
 		openvdb::GridPtrVec grids;
 		grids.push_back(sparseGrid);
 		file.write(grids);
-	//}
+	}
 	file.close();
 }
 
