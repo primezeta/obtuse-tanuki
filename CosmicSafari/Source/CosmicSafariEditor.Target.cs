@@ -8,7 +8,7 @@ public class CosmicSafariEditorTarget : TargetRules
 	public CosmicSafariEditorTarget(TargetInfo Target)
 	{
 		Type = TargetType.Editor;
-    }
+	}
 
 	//
 	// TargetRules interface.
@@ -20,6 +20,6 @@ public class CosmicSafariEditorTarget : TargetRules
 		ref List<string> OutExtraModuleNames
 		)
 	{
-        OutExtraModuleNames.AddRange(new string[] { "CosmicSafari", "OpenVDBModule" });
+		OutExtraModuleNames.AddRange(new string[] { "CosmicSafari", "OpenVDBModule" });
 	}
 }

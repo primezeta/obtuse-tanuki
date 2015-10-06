@@ -8,8 +8,9 @@
 	#define LIB_OVDB_API
 #endif
 
+#include <string>
 //namespace ovdb
 //{
-	LIB_OVDB_API void OvdbInitialize();
+	LIB_OVDB_API void OvdbInitialize(const std::string filename);
 	LIB_OVDB_API void OvdbUninitialize();
 //}

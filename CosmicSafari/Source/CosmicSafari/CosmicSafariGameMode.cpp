@@ -2,19 +2,10 @@
 
 #include "CosmicSafari.h"
 #include "CosmicSafariGameMode.h"
-#include "CosmicSafariHUD.h"
-#include "CosmicSafariCharacter.h"
-#include "OpenVDBModule.h"
+#include "CosmicSafariPawn.h"
 
 ACosmicSafariGameMode::ACosmicSafariGameMode()
-	: Super()
 {
-	// set default pawn class to our Blueprinted character
-	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnClassFinder(TEXT("/Game/FirstPersonCPP/Blueprints/FirstPersonCharacter"));
-	DefaultPawnClass = PlayerPawnClassFinder.Class;
-
-	// use our custom HUD class
-	HUDClass = ACosmicSafariHUD::StaticClass();
-
-
+	// set default pawn class to our flying pawn
+	DefaultPawnClass = ACosmicSafariPawn::StaticClass();
 }

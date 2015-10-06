@@ -3,5 +3,8 @@
 #include "CosmicSafari.h"
 
 
-IMPLEMENT_PRIMARY_GAME_MODULE( FDefaultGameModuleImpl, CosmicSafari, "CosmicSafari" );
+IMPLEMENT_PRIMARY_GAME_MODULE(FDefaultGameModuleImpl, CosmicSafari, "CosmicSafari");
+
+DEFINE_LOG_CATEGORY(LogFlying)
+
  

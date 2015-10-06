@@ -44,6 +44,8 @@ CosmicSafari/Intermediate/ProjectFiles/obj/*
 CosmicSafari/Content/FirstPerson/*
 CosmicSafari/Content/FirstPersonCPP/*
 CosmicSafari/Content/Geometry/*
+CosmicSafari/Content/Flying/*
+CosmicSafari/Content/FlyingCPP/*
 CosmicSafari/ThirdParty/Build/*
 CosmicSafari/DerivedDataCache
 CosmicSafari/Intermediate/ReimportCache

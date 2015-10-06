@@ -82,8 +82,9 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)OpenVDB\src;$(SolutionDir)OpenVDB\dependencies\include;C:\boost\boost_1_59_0</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);LIB_OVDB_EXPORT</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENVDB_OPENEXR_STATICLIB</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -91,6 +92,10 @@
       <AdditionalLibraryDirectories>;C:\Program Files\boost\1_58_0\lib</AdditionalLibraryDirectories>
       <AdditionalOptions>/nodefaultlib:MSVCRT %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <Lib>
+      <AdditionalDependencies>openvdb.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\Build\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -100,7 +105,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)OpenVDB\src;$(SolutionDir)OpenVDB\dependencies\include;C:\boost\boost_1_59_0</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);LIB_OVDB_EXPORT</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENVDB_OPENEXR_STATICLIB</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -111,12 +116,16 @@
       <AdditionalLibraryDirectories>;C:\Program Files\boost\1_58_0\lib</AdditionalLibraryDirectories>
       <AdditionalOptions>/nodefaultlib:MSVCRT %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <Lib>
+      <AdditionalDependencies>openvdb.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\Build\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>$(SolutionDir)OpenVDB\src;$(SolutionDir)OpenVDB\dependencies\include;C:\boost\boost_1_59_0</AdditionalIncludeDirectories>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);LIB_OVDB_EXPORT</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENVDB_OPENEXR_STATICLIB</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <SDLCheck>false</SDLCheck>
@@ -127,11 +136,15 @@
       <AdditionalDependencies>openvdb.lib;Half.lib;Iex-2_2.lib;IexMath-2_2.lib;IlmThread-2_2.lib;Imath-2_2.lib;zlibstatic.lib;tbb.lib;tbbmalloc.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/nodefaultlib:MSVCRT %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <Lib>
+      <AdditionalDependencies>openvdb.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\Build\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>$(SolutionDir)OpenVDB\src;$(SolutionDir)OpenVDB\dependencies\include;C:\boost\boost_1_59_0</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);LIB_OVDB_EXPORT</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENVDB_OPENEXR_STATICLIB</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <SDLCheck>false</SDLCheck>
@@ -141,6 +154,10 @@
       <AdditionalDependencies>openvdb.lib;Half.lib;Iex-2_2.lib;IexMath-2_2.lib;IlmThread-2_2.lib;Imath-2_2.lib;zlibstatic.lib;tbb.lib;tbbmalloc.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/nodefaultlib:MSVCRT %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <Lib>
+      <AdditionalDependencies>openvdb.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\Build\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="libovdb.h" />

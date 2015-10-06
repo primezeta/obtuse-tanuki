@@ -9,10 +9,10 @@
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		},
-		{
-			"Name": "OpenVDBModule",
-			"Type": "Runtime",
-			"LoadingPhase": "Default"
-		}
+    {
+      "Name": "OpenVDBModule",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
 	]
 }

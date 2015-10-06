@@ -11,8 +11,8 @@ public class OpenVDBModule : ModuleRules
         Platform = Target.Platform;
         Config = Target.Configuration;
 
-        //Type = ModuleType.CPlusPlus;
-        Type = ModuleType.External;
+        Type = ModuleType.CPlusPlus;
+        //Type = ModuleType.External;
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
         //System.Console.WriteLine(string.Format("ModulePath {0}:\nThirdPartyPath: {1}\nThirdPublicIncludes: {2}\nPrivateIncludes: {3}\nPublicLibraryPaths: {4}\nPublicAdditionalLibraries: {5}\nPlatformPath: {6}\nConfigurationPath: {7}", ModulePath, ThirdPartyPath, PublicIncludes, PrivateIncludes, LibPaths, LibNames, PlatformPath, ConfigurationPath));
         PublicIncludePaths.AddRange(PublicIncludes);
@@ -22,6 +22,7 @@ public class OpenVDBModule : ModuleRules
 
         //AddThirdPartyPrivateStaticDependencies(Target, );
         Definitions.AddRange(new string[] { "OPENVDB_OPENEXR_STATICLIB", "OPENVDB_STATICLIB" });
+        //Definitions.AddRange(new string[] { "OPENVDB_DLL" });        
 	}
 
     private UnrealTargetPlatform Platform;
@@ -102,7 +103,8 @@ public class OpenVDBModule : ModuleRules
             return new string[]
             {
                 Path.Combine(ThirdPartyPath, "Build", PlatformPath, ConfigurationPath),
-                Path.Combine(ThirdPartyPath, "OpenVDB", "dependencies", "lib", PlatformPath)
+                Path.Combine(ThirdPartyPath, "OpenVDB", "dependencies", "lib", PlatformPath),
+                Path.Combine(ThirdPartyPath, "boost")
             };
         }
     }
@@ -113,7 +115,9 @@ public class OpenVDBModule : ModuleRules
         {
             return new string[]
             {
-                "libovdb.lib"
+                "libovdb.lib",
+                "zlibstat.lib",
+                "Half.lib"
             };
         }
     }
