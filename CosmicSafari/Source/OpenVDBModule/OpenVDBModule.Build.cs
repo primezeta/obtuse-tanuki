@@ -12,9 +12,8 @@ public class OpenVDBModule : ModuleRules
         Config = Target.Configuration;
 
         Type = ModuleType.CPlusPlus;
-        //Type = ModuleType.External;
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
-        //System.Console.WriteLine(string.Format("ModulePath {0}:\nThirdPartyPath: {1}\nThirdPublicIncludes: {2}\nPrivateIncludes: {3}\nPublicLibraryPaths: {4}\nPublicAdditionalLibraries: {5}\nPlatformPath: {6}\nConfigurationPath: {7}", ModulePath, ThirdPartyPath, PublicIncludes, PrivateIncludes, LibPaths, LibNames, PlatformPath, ConfigurationPath));
+        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "ProceduralMeshComponent" });
+        //PrivateDependencyModuleNames.AddRange(new string[] { "ProceduralMeshComponent" });
         PublicIncludePaths.AddRange(PublicIncludes);
         PrivateIncludePaths.AddRange(PrivateIncludes);
         PublicLibraryPaths.AddRange(LibPaths);
