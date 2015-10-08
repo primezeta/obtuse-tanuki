@@ -21,7 +21,10 @@ public class OpenVDBModule : ModuleRules
 
         //AddThirdPartyPrivateStaticDependencies(Target, );
         Definitions.AddRange(new string[] { "OPENVDB_OPENEXR_STATICLIB", "OPENVDB_STATICLIB" });
-        //Definitions.AddRange(new string[] { "OPENVDB_DLL" });        
+        //Definitions.AddRange(new string[] { "OPENVDB_DLL" });
+
+        MinFilesUsingPrecompiledHeaderOverride = 1;
+        bFasterWithoutUnity = true;
 	}
 
     private UnrealTargetPlatform Platform;

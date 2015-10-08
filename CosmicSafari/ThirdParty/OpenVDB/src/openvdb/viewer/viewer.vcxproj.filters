@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="ClipBox.h" />
+    <ClInclude Include="Font.h" />
+    <ClInclude Include="RenderModules.h" />
+    <ClInclude Include="Viewer.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Camera.cc" />
+    <ClCompile Include="ClipBox.cc" />
+    <ClCompile Include="Font.cc" />
+    <ClCompile Include="RenderModules.cc" />
+    <ClCompile Include="Viewer.cc" />
+    <ClCompile Include="glew.c" />
+    <ClCompile Include="..\cmd\openvdb_view\main.cc">
+      <Filter>cmd\openvdb_view</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="cmd">
+      <UniqueIdentifier>{65635a95-c0e3-4e7b-abc3-69192b8f8c0f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cmd\openvdb_view">
+      <UniqueIdentifier>{ac6931eb-864c-4e96-9124-42b48012036a}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

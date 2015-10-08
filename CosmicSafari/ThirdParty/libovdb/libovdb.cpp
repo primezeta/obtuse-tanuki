@@ -89,7 +89,7 @@ int OvdbVolumeToMesh(std::string &errorMsg,
 
 	try
 	{
-		openvdb::tools::volumeToMesh<openvdb::FloatGrid>(*sparseGrid, points, quads, 0.5);
+		openvdb::tools::volumeToMesh<openvdb::FloatGrid>(*sparseGrid, points, quads, 50000.0);
 	}
 	catch (openvdb::Exception e)
 	{

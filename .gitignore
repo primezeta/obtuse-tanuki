@@ -47,6 +47,7 @@ CosmicSafari/Content/Geometry/*
 CosmicSafari/Content/Flying/*
 CosmicSafari/Content/FlyingCPP/*
 CosmicSafari/ThirdParty/Build/*
+CosmicSafari/ThirdParty/OpenVDB/src/openvdb/viewer/glfw-legacy-master/examples/*
 CosmicSafari/DerivedDataCache
 CosmicSafari/Intermediate/ReimportCache
 CosmicSafari/Intermediate/CachedAssetRegistry.bin

@@ -44,7 +44,9 @@
 #include <OpenGL/gl.h>
 #include <OpenGL/glu.h>
 #else
-#include <GL/gl.h>
+//#include <GL/glew.h>
+//#include <GL/gl.h>
+#include <GL/glew.h>
 #include <GL/glu.h>
 #endif
 

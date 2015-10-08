@@ -56,8 +56,9 @@
 #include <OpenGL/gl.h>
 #include <OpenGL/glu.h>
 #else
-#include <GL/gl.h>
-#include <GL/glu.h>
+//#include <GL/gl.h>
+//#include <GL/glu.h>
+#include <GL/glew.h>
 #endif
 #include <GL/glfw.h>
 #endif // !defined(OPENVDB_USE_GLFW_3)
@@ -248,6 +249,7 @@ windowRefreshCB()
 Viewer
 init(const std::string& progName, bool background)
 {
+	glewInit();
     if (sViewer == NULL) {
         tbb::mutex::scoped_lock lock(sLock);
         if (sViewer == NULL) {
@@ -835,8 +837,9 @@ ViewerImpl::sleep(double secs)
 {
     secs = fabs(secs);
     int isecs = int(secs);
-    struct timespec sleepTime = { isecs /*sec*/, int(1.0e9 * (secs - isecs)) /*nsec*/ };
-    nanosleep(&sleepTime, /*remainingTime=*/NULL);
+    //struct timespec sleepTime = { isecs /*sec*/, int(1.0e9 * (secs - isecs)) /*nsec*/ };
+    //nanosleep(&sleepTime, /*remainingTime=*/NULL);
+	Sleep((DWORD)(secs*1000.0));
 }
 
 
