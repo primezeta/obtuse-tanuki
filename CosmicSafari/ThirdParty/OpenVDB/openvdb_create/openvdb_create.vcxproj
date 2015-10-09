@@ -19,8 +19,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{262F2F8B-58D1-4A44-A141-2D30564AA30B}</ProjectGuid>
-    <RootNamespace>viewer</RootNamespace>
+    <ProjectGuid>{E04C9F0E-05BC-4F26-A381-4DBB53944EEB}</ProjectGuid>
+    <RootNamespace>openvdb_create</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -88,14 +88,13 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Program Files (x86)\NVIDIA Corporation\NVIDIA OpenGL SDK 10\common\GLEW\include;$(SolutionDir)\OpenVDB\src;C:\boost\boost_1_59_0;$(SolutionDir)\OpenVDB\dependencies\include;$(SolutionDir)\OpenVDB\src\openvdb\viewer\glfw-legacy-master\include</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENVDB_OPENEXR_STATICLIB;OPENVDB_STATICLIB;GLEW_STATIC</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)OpenVDB\src;C:\boost\boost_1_59_0;$(SolutionDir)OpenVDB\dependencies\include</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENVDB_OPENEXR_STATICLIB;OPENVDB_STATICLIB</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Program Files (x86)\NVIDIA Corporation\NVIDIA OpenGL SDK 10\common\GLEW\lib;$(SolutionDir)\OpenVDB\dependencies\lib\x64;$(SolutionDir)\boost;$(SolutionDir)\OpenVDB\src\openvdb\viewer\glfw-legacy-master\support\msvc110\Release\x64;$(SolutionDir)\Build\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
-      <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);GLFW.lib;GLFWDLL.lib;glew32.lib;openvdb.lib;opengl32.lib;glu32.lib;zlibstat.lib;Half.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)OpenVDB\dependencies\lib\x64;$(SolutionDir)boost;$(SolutionDir)Build\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);openvdb.lib;Half.lib;zlibstat.lib</AdditionalDependencies>
       <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
     </Link>
   </ItemDefinitionGroup>
@@ -120,34 +119,20 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Program Files (x86)\NVIDIA Corporation\NVIDIA OpenGL SDK 10\common\GLEW\include;$(SolutionDir)\OpenVDB\src;C:\boost\boost_1_59_0;$(SolutionDir)\OpenVDB\dependencies\include;$(SolutionDir)\OpenVDB\src\openvdb\viewer\glfw-legacy-master\include</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENVDB_OPENEXR_STATICLIB;OPENVDB_STATICLIB;GLEW_STATIC</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)OpenVDB\src;C:\boost\boost_1_59_0;$(SolutionDir)OpenVDB\dependencies\include</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENVDB_OPENEXR_STATICLIB;OPENVDB_STATICLIB</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\Program Files (x86)\NVIDIA Corporation\NVIDIA OpenGL SDK 10\common\GLEW\lib;$(SolutionDir)\OpenVDB\dependencies\lib\x64;$(SolutionDir)\boost;$(SolutionDir)\OpenVDB\src\openvdb\viewer\glfw-legacy-master\support\msvc110\Release\x64;$(SolutionDir)\Build\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
-      <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);GLFW.lib;GLFWDLL.lib;glew32.lib;openvdb.lib;opengl32.lib;glu32.lib;zlibstat.lib;Half.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)OpenVDB\dependencies\lib\x64;$(SolutionDir)boost;$(SolutionDir)Build\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);openvdb.lib;Half.lib;zlibstat.lib</AdditionalDependencies>
       <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Camera.h" />
-    <ClInclude Include="ClipBox.h" />
-    <ClInclude Include="Font.h" />
-    <ClInclude Include="RenderModules.h" />
-    <ClInclude Include="Viewer.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\cmd\openvdb_view\main.cc" />
-    <ClCompile Include="Camera.cc" />
-    <ClCompile Include="ClipBox.cc" />
-    <ClCompile Include="Font.cc" />
-    <ClCompile Include="glew.c" />
-    <ClCompile Include="RenderModules.cc" />
-    <ClCompile Include="Viewer.cc" />
+    <ClCompile Include="main.cc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
