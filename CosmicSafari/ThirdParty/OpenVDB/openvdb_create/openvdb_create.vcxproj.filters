@@ -3,4 +3,7 @@
   <ItemGroup>
     <ClCompile Include="main.cc" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="openvdbnoise.h" />
+  </ItemGroup>
 </Project>
