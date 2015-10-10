@@ -3,7 +3,7 @@
 #include <noise.h>
 #include <noiseutils.h>
 
-void CreateFlatTerrain(noise::module::ScaleBias &flatTerrain, double baseFrequency, double scale, double bias);
+void CreateFlatTerrain(noise::module::ScaleBias &flatTerrain, noise::module::Billow &baseFlatTerrain, double baseFrequency, double scale, double bias);
 void CreatePerlinNoise(noise::module::Perlin &terrainType, double frequency, double persistence);
 void CreateTerrainSelector(noise::module::Select &terrainSelector,
 	noise::module::Perlin &terrainType,

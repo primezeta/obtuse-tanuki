@@ -10,7 +10,6 @@
 
 int main(int argc, char * argv[])
 {
-	printf("a");
 	int exitStatus = EXIT_SUCCESS;
 	try
 	{
@@ -20,7 +19,6 @@ int main(int argc, char * argv[])
 		std::string gridType = argv[1];
 		openvdb::FloatGrid::Ptr sparseGrid = openvdb::FloatGrid::create();
 		sparseGrid->setName(gridName);
-		printf("0");
 
 		std::ostringstream filename;
 		if (gridType == "dense")
@@ -50,6 +48,7 @@ int main(int argc, char * argv[])
 		}
 		else if (gridType == "noise")
 		{
+			float worldHeight = std::stof(argv[2]);
 			noise::utils::NoiseMap heightMap;
 			double baseFrequency = 2.0;
 			double baseScale = 0.125;
@@ -67,7 +66,6 @@ int main(int argc, char * argv[])
 			double boundsUpperX = 10.0;
 			double boundsLowerZ = 1.0;
 			double boundsUpperZ = 5.0;
-			printf("1");
 			CreateNoiseHeightMap(heightMap,
 				                 baseFrequency, baseScale, baseBias,
 				                 perlinFrequency, perlinPersistence,
@@ -75,7 +73,6 @@ int main(int argc, char * argv[])
 								 finalFrequency, finalPower,
 								 sizeX, sizeY, boundsLowerX, boundsUpperX, boundsLowerZ, boundsUpperZ);
 
-			printf("2");
 			noise::utils::RendererImage renderer;
 			noise::utils::Image image;
 			renderer.SetSourceNoiseMap(heightMap);
@@ -89,12 +86,64 @@ int main(int argc, char * argv[])
 			renderer.SetLightContrast(3.0);
 			renderer.SetLightBrightness(2.0);
 			renderer.Render();
-			printf("3");
 
 			noise::utils::WriterBMP writer;
 			writer.SetSourceImage(image);
 			writer.SetDestFilename("vdbs/tutorial.bmp");
 			writer.WriteDestFile();
+
+			int coordX = heightMap.GetWidth();
+			int coordY = heightMap.GetHeight();
+			int coordZ = INT_MIN;
+			printf("height map w = %d, h = %d\n", coordX, coordY);
+
+			std::vector<int> coordZs;
+			float minValue = INT_MAX;
+			float maxValue = INT_MIN;
+			for (int i = 0; i < coordX; i++)
+			{
+				for (int j = 0; j < coordY; j++)
+				{
+					float value = heightMap.GetValue(i, j);
+					if (value < minValue)
+					{
+						minValue = value;
+					}
+					if (value > maxValue)
+					{
+						maxValue = value;
+					}
+					int z = (int)ceilf(value);
+					coordZs.push_back(z);
+					if (coordZ < z)
+					{
+						coordZ = z;
+					}
+				}
+			}
+			float voxelUnit = (abs(minValue) + maxValue) / worldHeight;
+			printf("min value: %f\n", minValue);
+			printf("max value: %f\n", maxValue);
+			printf("voxel unit: %f\n", voxelUnit);
+
+			openvdb::CoordBBox boundingBox(openvdb::Coord(0, 0, 0), openvdb::Coord(coordX, coordY, coordZ));
+			openvdb::tools::Dense<float> denseGrid(boundingBox);
+			for (int i = 0; i < coordX; i++)
+			{
+				for (int j = 0; j < coordY; j++)
+				{
+					float height = heightMap.GetValue(i, j) / voxelUnit;
+					denseGrid.setValue(openvdb::Coord(i, j, (int)roundf(height)), height);
+
+					//for (std::vector<int>::iterator k = coordZs.begin(); k != coordZs.end(); k++)
+					//{
+					//	printf("height(%d,%d,%d) = %f\n", i, j, *k, height);
+					//	denseGrid.setValue(openvdb::Coord(i, j, *k), height);
+					//}
+				}
+			}
+			openvdb::tools::copyFromDense(denseGrid, *sparseGrid, 0.0f);
+			filename << gridType << ".h" << worldHeight;
 		}
 
 		openvdb::GridPtrVec grids;
@@ -102,7 +151,7 @@ int main(int argc, char * argv[])
 		openvdb::io::File file("vdbs/" + filename.str() + ".vdb");
 		file.write(grids);
 		file.close();
-		printf("Created %s", file.filename().c_str());
+		printf("Created %s\n", file.filename().c_str());
 
 		openvdb::uninitialize();
 	}
@@ -119,12 +168,9 @@ int main(int argc, char * argv[])
 	return exitStatus;
 }
 
-void CreateFlatTerrain(noise::module::ScaleBias &flatTerrain, double baseFrequency, double scale, double bias)
+void CreateFlatTerrain(noise::module::ScaleBias &flatTerrain, noise::module::Billow &baseFlatTerrain, double baseFrequency, double scale, double bias)
 {
-	noise::module::RidgedMulti mountainTerrain; //TODO: Set as a parameter
-	noise::module::Billow baseFlatTerrain; //TODO: Set as a parameter
 	baseFlatTerrain.SetFrequency(baseFrequency);
-
 	flatTerrain.SetSourceModule(0, baseFlatTerrain); //TODO: Make a vector for multiple source modules
 	flatTerrain.SetScale(scale);
 	flatTerrain.SetBias(bias);
@@ -179,8 +225,9 @@ void CreateNoiseHeightMap(noise::utils::NoiseMap &heightMap,
 	double finalFrequency, double finalPower,
 	int sizeX, int sizeY, double boundsLowerX, double boundsUpperX, double boundsLowerZ, double boundsUpperZ)
 {
+	noise::module::Billow baseFlatTerrain; //TODO: Set as a parameter
 	noise::module::ScaleBias flatTerrain;
-	CreateFlatTerrain(flatTerrain, baseFrequency, baseScale, baseBias);
+	CreateFlatTerrain(flatTerrain, baseFlatTerrain, baseFrequency, baseScale, baseBias);
 
 	noise::module::Perlin terrainType;
 	CreatePerlinNoise(terrainType, perlinFrequency, perlinPersistence);
