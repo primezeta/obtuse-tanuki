@@ -6,7 +6,24 @@
 //typedef bool DenseType;
 //typedef openvdb::BoolGrid VoxelGridType;
 
-void CreateNoiseHeightMap(noise::utils::NoiseMap &heightMap, double scale, int width, int height);
+typedef struct _noisemapbounds
+{
+	double x0;
+	double x1;
+	double y0;
+	double y1;
+} NoiseMapBounds;
+
+typedef struct _terraindata
+{
+	std::string tileName;
+	openvdb::CoordBBox worldBounds;
+	NoiseMapBounds noiseMapBounds;
+	noise::utils::NoiseMap heightMap;
+} TerrainData;
+
+const NoiseMapBounds GetNoiseHeightMapExtents();
+void CreateNoiseHeightMap(TerrainData &terrainData, double scale, int width, int height);
 void CreateFlatTerrain(noise::module::ScaleBias &flatTerrain, noise::module::Billow &baseFlatTerrain, double baseFrequency, double scale, double bias);
 void CreatePerlinNoise(noise::module::Perlin &terrainType, double frequency, double persistence);
 void CreateTerrainSelector(noise::module::Select &terrainSelector,

@@ -9,6 +9,8 @@
 #include <openvdb/tools/MeshToVolume.h>
 #include "openvdbnoise.h"
 
+void usage();
+
 int main(int argc, char * argv[])
 {
 	int exitStatus = EXIT_SUCCESS;
@@ -18,6 +20,13 @@ int main(int argc, char * argv[])
 
 		std::string gridName = std::string(argv[argc - 1]);
 		std::string gridType = argv[1];
+		if (gridType != "dense" &&
+			gridType != "sphere" &&
+			gridType != "noise")
+		{
+			usage();
+		}
+
 		openvdb::FloatGrid::Ptr sparseGrid = openvdb::FloatGrid::create();
 		sparseGrid->setName(gridName);
 
@@ -50,70 +59,129 @@ int main(int argc, char * argv[])
 		else if (gridType == "noise")
 		{
 			int mapWidth = std::stoi(argv[2]);
-			int mapHeight = std::stoi(argv[3]);
-			int mapLength = std::stoi(argv[4]);
-			float mapScale = std::stof(argv[5]);
-			float tolerance = std::stof(argv[6]);
-			filename << gridType << "_w" << mapWidth << "_h" << mapHeight << "_l" << mapLength << "_s" << mapScale << "_t" << tolerance;
+			int tileCount = std::stoi(argv[3]);
+			float mapScale = std::stof(argv[4]);
+			float tolerance = std::stof(argv[5]);
 
-			openvdb::CoordBBox boundingBox(openvdb::Coord(0, 0, 0), openvdb::Coord(mapWidth, mapHeight, mapLength));
-			openvdb::tools::Dense<float> denseGrid(boundingBox);
+			//int mapHeight = std::stoi(argv[3]);
+			//int mapLength = std::stoi(argv[4]);
+			//Assume the world is a cube
+			int mapHeight = mapWidth;
+			int mapLength = mapWidth;
 
-			noise::utils::NoiseMap heightMap;
-			CreateNoiseHeightMap(heightMap, (double)mapScale, mapWidth, mapHeight);
-
-			int heightMapWidth = heightMap.GetWidth();
-			int heightMapHeight = heightMap.GetHeight();
-
-			//Find the largest height value to determine the height of the world space
-			float maxValue = FLT_MIN;
-			float minValue = FLT_MAX;
-			for (int i = 0; i < heightMapWidth; i++)
+			//Ensure the tile count evenly divides the world
+			if (mapWidth % tileCount != 0)
 			{
-				for (int j = 0; j < heightMapHeight; j++)
+				std::cout << "Tile count of " << tileCount << "does not evenly divide map width of " << mapWidth << std::endl;
+				return 1;
+			}			
+			filename << gridType << "_w" << mapWidth << "_h" << mapHeight << "_l" << mapLength << "_t" << tileCount << "_s" << mapScale << "_t" << tolerance;
+			
+			//Build the bounding box of each tile
+			std::vector<TerrainData> terrainTiles;
+			int tileSideLength = mapWidth / tileCount;
+			double noiseWidth = GetNoiseHeightMapExtents().x1 - GetNoiseHeightMapExtents().x0;
+			double noiseHeight = GetNoiseHeightMapExtents().y1 - GetNoiseHeightMapExtents().y0;
+			float maxHeightMapValue = FLT_MIN;
+			float minHeightMapValue = FLT_MAX;
+
+			for (int i = 0; i < tileCount; i++)
+			{
+				TerrainData terrainData;
+				for (int x = 0; x < mapWidth; x += tileSideLength)
 				{
-					float x = heightMap.GetValue(i, j);
-					if (x > maxValue)
+					terrainData.noiseMapBounds.x0 = (double(x)*noiseWidth) / double(tileCount);
+					terrainData.noiseMapBounds.x1 = terrainData.noiseMapBounds.x0 + noiseWidth;
+					for (int y = 0; y < mapHeight; y += tileSideLength)
 					{
-						maxValue = x;
-					}
-					if (x < minValue)
-					{
-						minValue = x;
+						terrainData.noiseMapBounds.y0 = (double(y)*noiseHeight) / double(tileCount);
+						terrainData.noiseMapBounds.y1 = terrainData.noiseMapBounds.y0 + noiseHeight;
+
+						//The z value will always be from 0 to max height
+						int z0 = 0;
+						int z1 = z0 + tileSideLength;
+						openvdb::Coord lower(x, y, z0);
+						openvdb::Coord upper(x + tileSideLength, y + tileSideLength, z1);
+						terrainData.worldBounds = openvdb::CoordBBox(lower, upper);
+
+						//Build the height map with these bounding boxes
+						//TODO: Review libnoise to ensure that it is desirable to set the noise map size to the map size.
+						//The actual perlin noise currently spans a plane hardcoded as (x0,x1)=(2.0,6.0) and (y0,y1)=(1.0,5.0)
+						//The noise map is set here as the size of the world. Which I believe means libnoise interpolates
+						//values from the perlin noise to span the height map size. Should determine if this is a true assumption.
+						CreateNoiseHeightMap(terrainData, (double)mapScale, tileSideLength, tileSideLength);
+
+						for (int w = 0; w < terrainData.heightMap.GetWidth(); w++)
+						{
+							for (int h = 0; h < terrainData.heightMap.GetHeight(); h++)
+							{
+								float value = terrainData.heightMap.GetValue(w, h);
+								if (value > maxHeightMapValue)
+								{
+									maxHeightMapValue = value;
+								}
+								if (value < minHeightMapValue)
+								{
+									minHeightMapValue = value;
+								}
+							}
+						}
+
+						std::ostringstream tileInfo;
+						tileInfo << "tile[" << x << "," << y << "]";
+						terrainData.tileName = tileInfo.str();
+						terrainTiles.push_back(terrainData);
 					}
 				}
 			}
-			float heightSpan = maxValue + abs(minValue);
-			int voxelCount = mapLength / openvdb::LEVEL_SET_HALF_WIDTH * 2;
-			float voxelUnit = openvdb::LEVEL_SET_HALF_WIDTH * 2 * heightSpan / voxelCount;
-			printf("map (w,h) = (%d,%d), height span = %f, vertical voxel count = %d, voxel unit = %f\n", heightMapWidth, heightMapHeight, heightSpan, voxelCount, voxelUnit);
 
-			//Grab values from the height map and build a dense grid
-			for (int i = 0; i < mapWidth; i++)
+			//Create a dense grid from the bounding boxes of each tile
+			float tileLength = maxHeightMapValue + abs(minHeightMapValue);
+			float tileVoxelCount = float(mapLength) / float(openvdb::LEVEL_SET_HALF_WIDTH * 2);
+			for (std::vector<TerrainData>::const_iterator i = terrainTiles.begin(); i < terrainTiles.end(); i++)
 			{
-				for (int j = 0; j < mapHeight; j++)
+				int tileWidth = i->heightMap.GetWidth();
+				int tileHeight = i->heightMap.GetHeight();
+				float tileVoxelUnit = float(openvdb::LEVEL_SET_HALF_WIDTH) * 2.0f * tileLength / tileVoxelCount;
+				std::cout << "tile (w,h) = (" << tileWidth << "," << tileHeight
+					<< "), height span = " << tileLength
+					<< ", vertical voxel count = " << tileVoxelCount
+					<< ", voxel unit = " << tileVoxelUnit << std::endl;
+
+				//Grab values from the height map and build a dense grid
+				openvdb::tools::Dense<float> denseGrid(i->worldBounds);
+				for (int w = 0; w < tileWidth; w++)
 				{
-					float heightValue = heightMap.GetValue(i, j) + abs(minValue);
-					int voxelIndex = voxelCount*(heightValue / heightSpan);
-					float voxelPos = heightValue * voxelUnit;
-					denseGrid.setValue(openvdb::Coord(i, j, voxelIndex), voxelPos);
-					for (int k = 0; k < voxelIndex; k++)
+					for (int h = 0; h < tileHeight; h++)
 					{
-						//Set these voxels to not be visible
-						denseGrid.setValue(openvdb::Coord(i, j, k), tolerance);
+						float lengthValue = i->heightMap.GetValue(w, h) + abs(minHeightMapValue);
+						float voxelPos = lengthValue * tileVoxelUnit;
+						int voxelIndex = int(tileVoxelCount*(lengthValue / tileLength));
+
+						denseGrid.setValue(openvdb::Coord(w, h, voxelIndex), voxelPos);
+						for (int k = 0; k < voxelIndex; k++)
+						{
+							//Set these voxels to not be visible
+							//TODO: This probably is not working like I assume it is
+							denseGrid.setValue(openvdb::Coord(w, h, k), 0.0f);
+						}
 					}
 				}
+				std::cout << "voxel count = " << denseGrid.valueCount()
+					<< ", grid width = " << denseGrid.xStride()
+					<< ", grid height = " << denseGrid.yStride()
+					<< ", grid length = " << denseGrid.zStride() << std::endl;
+				//sparseGrid->treePtr()->addTile()
+				//openvdb::tools::copyFromDense(denseGrid, *sparseGrid, tolerance);
 			}
-			printf("voxel count = %d, grid width = %d, grid height = %d, grid length = %d\n", denseGrid.valueCount(), denseGrid.xStride(), denseGrid.yStride(), denseGrid.zStride());
-			openvdb::tools::copyFromDense(denseGrid, *sparseGrid, tolerance);
 		}
 
-		openvdb::GridPtrVec grids;
-		grids.push_back(sparseGrid);
-		openvdb::io::File file("vdbs/" + filename.str() + ".vdb");
-		file.write(grids);
-		file.close();
-		printf("Created %s\n", file.filename().c_str());
+		//openvdb::GridPtrVec grids;
+		//grids.push_back(sparseGrid);
+		//openvdb::io::File file("vdbs/" + filename.str() + ".vdb");
+		//file.write(grids);
+		//file.close();
+		//std::cout << "Created " << file.filename() << std::endl;
 
 		openvdb::uninitialize();
 	}
@@ -130,8 +198,23 @@ int main(int argc, char * argv[])
 	return exitStatus;
 }
 
+void usage()
+{
+	std::cout << "Usage:" << std::endl
+		<< "\topenvdb_create dense boundsX boundsY boundsZ fillValue tolerance" << std::endl
+		<< "\topenvdb_create sphere centerX centerY centerZ radius voxelSize [levelSetHalfWidth=3.0]" << std::endl
+		<< "\topenvdb_create noise mapWidth tileCount mapScale tolerance" << std::endl
+		<< std::endl;
+}
+
+const NoiseMapBounds GetNoiseHeightMapExtents()
+{
+	//This is the entirety of the noise map bounds
+	return NoiseMapBounds { 2.0, 6.0, 1.0, 5.0 };
+}
+
 //Not sure what the scale actually means in the noise map...it's a double while height map values are floats
-void CreateNoiseHeightMap(noise::utils::NoiseMap &heightMap, double scale, int width, int height)
+void CreateNoiseHeightMap(TerrainData &terrainData, double scale, int width, int height)
 {
 	double baseFrequency = 2.0;
 	double baseBias = 1.0;
@@ -140,10 +223,6 @@ void CreateNoiseHeightMap(noise::utils::NoiseMap &heightMap, double scale, int w
 	double edgeFalloff = 0.125;
 	double finalFrequency = 4.0;
 	double finalPower = 0.125;
-	double boundsX0 = 2.0;
-	double boundsX1 = 6.0;
-	double boundsY0 = 1.0;
-	double boundsY1 = 5.0;
 
 	noise::module::Billow baseFlatTerrain; //TODO: Set as a parameter
 	noise::module::ScaleBias flatTerrain;
@@ -154,12 +233,12 @@ void CreateNoiseHeightMap(noise::utils::NoiseMap &heightMap, double scale, int w
 
 	noise::module::Select terrainSelector;
 	noise::module::RidgedMulti mountainTerrain; //TODO: Pass this as a parameter
-	CreateTerrainSelector(terrainSelector, terrainType, flatTerrain, mountainTerrain, boundsX0, boundsX1, edgeFalloff);
+	CreateTerrainSelector(terrainSelector, terrainType, flatTerrain, mountainTerrain, terrainData.noiseMapBounds.x0, terrainData.noiseMapBounds.x1, edgeFalloff);
 
 	noise::module::Turbulence finalTerrain;
 	CreateFinalTerrain(finalTerrain, terrainSelector, finalFrequency, finalPower);
 
-	BuildHeightMap(heightMap, finalTerrain, width, height, boundsX0, boundsX1, boundsY0, boundsY1);
+	BuildHeightMap(terrainData.heightMap, finalTerrain, width, height, terrainData.noiseMapBounds.x0, terrainData.noiseMapBounds.x1, terrainData.noiseMapBounds.y0, terrainData.noiseMapBounds.y1);
 }
 
 void CreateFlatTerrain(noise::module::ScaleBias &flatTerrain, noise::module::Billow &baseFlatTerrain, double baseFrequency, double scale, double bias)
