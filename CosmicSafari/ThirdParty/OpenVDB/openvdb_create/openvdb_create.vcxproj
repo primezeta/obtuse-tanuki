@@ -91,11 +91,11 @@
       <AdditionalIncludeDirectories>$(SolutionDir)OpenVDB\src;C:\boost\boost_1_59_0;$(SolutionDir)OpenVDB\dependencies\include;$(SolutionDir)LibNoise</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENVDB_OPENEXR_STATICLIB;OPENVDB_STATICLIB</PreprocessorDefinitions>
       <BufferSecurityCheck>false</BufferSecurityCheck>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)OpenVDB\dependencies\lib\x64;$(SolutionDir)boost;$(SolutionDir)Build\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)OpenVDB\dependencies\lib\x64\$(Configuration);$(SolutionDir)boost;$(SolutionDir)Build\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies);openvdb.lib;Half.lib;zlibstat.lib;libnoise.lib</AdditionalDependencies>
       <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
     </Link>

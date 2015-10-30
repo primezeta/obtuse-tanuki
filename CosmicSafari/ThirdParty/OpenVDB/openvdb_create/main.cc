@@ -78,93 +78,106 @@ int main(int argc, char * argv[])
 			filename << gridType << "_w" << mapWidth << "_h" << mapHeight << "_l" << mapLength << "_t" << tileCount << "_s" << mapScale << "_t" << tolerance;
 			
 			//Build the bounding box of each tile
-			std::vector<TerrainData> terrainTiles;
 			int tileSideLength = mapWidth / tileCount;
 			double noiseWidth = GetNoiseHeightMapExtents().x1 - GetNoiseHeightMapExtents().x0;
 			double noiseHeight = GetNoiseHeightMapExtents().y1 - GetNoiseHeightMapExtents().y0;
+			double noiseTileWidth = noiseWidth / tileCount;
+			double noiseTileHeight = noiseHeight / tileCount;
 			float maxHeightMapValue = FLT_MIN;
 			float minHeightMapValue = FLT_MAX;
 
-			for (int i = 0; i < tileCount; i++)
+			std::cout << "Tile side length is " << tileSideLength << " with map width " << mapWidth << " and tile count " << tileCount << std::endl;
+			std::cout << "Noise map bounds are x[" << GetNoiseHeightMapExtents().x0 << "," << GetNoiseHeightMapExtents().x1 << "] by "
+				<< "y[" << GetNoiseHeightMapExtents().y0 << ", " << GetNoiseHeightMapExtents().y1 << "]" << std::endl;
+			std::cout << "Noise map width is " << noiseWidth << " and height " << noiseHeight << std::endl << std::endl;
+
+			std::vector<TerrainData> terrainTiles;
+			for (int x = 0; x < mapWidth; x += tileSideLength)
 			{
 				TerrainData terrainData;
-				for (int x = 0; x < mapWidth; x += tileSideLength)
+				terrainData.noiseMapBounds.x0 = GetNoiseHeightMapExtents().x0 + double((x / tileSideLength))*noiseTileWidth;
+				terrainData.noiseMapBounds.x1 = terrainData.noiseMapBounds.x0 + noiseTileWidth;
+				std::ostringstream logstrX;
+				logstrX << "\tnoise map x bounds(" << terrainData.noiseMapBounds.x0 << "," << terrainData.noiseMapBounds.x1 << ")" << std::endl;
+
+				for (int y = 0; y < mapHeight; y += tileSideLength)
 				{
-					terrainData.noiseMapBounds.x0 = (double(x)*noiseWidth) / double(tileCount);
-					terrainData.noiseMapBounds.x1 = terrainData.noiseMapBounds.x0 + noiseWidth;
-					for (int y = 0; y < mapHeight; y += tileSideLength)
+					terrainData.noiseMapBounds.y0 = GetNoiseHeightMapExtents().y0 + double((x / tileSideLength))*noiseTileHeight;
+					terrainData.noiseMapBounds.y1 = terrainData.noiseMapBounds.y0 + noiseTileHeight;
+					std::ostringstream logstrY;
+					logstrY << "\tnoise map y bounds(" << terrainData.noiseMapBounds.y0 << "," << terrainData.noiseMapBounds.y1 << ")" << std::endl;
+
+					//The z value will always be from 0 to max height
+					int z0 = 0;
+					int z1 = z0 + tileSideLength;
+					openvdb::Coord lower(x, y, z0);
+					openvdb::Coord upper(x + tileSideLength, y + tileSideLength, z1);
+					terrainData.worldBounds = openvdb::CoordBBox(lower, upper);
+
+					//Build the height map with these bounding boxes
+					//TODO: Review libnoise to ensure that it is desirable to set the noise map size to the map size.
+					//The actual perlin noise currently spans a plane hardcoded as (x0,x1)=(2.0,6.0) and (y0,y1)=(1.0,5.0)
+					//The noise map is set here as the size of the world. Which I believe means libnoise interpolates
+					//values from the perlin noise to span the height map size. Should determine if this is a true assumption.
+					CreateNoiseHeightMap(terrainData, (double)mapScale, tileSideLength, tileSideLength);
+
+					for (int w = 0; w < terrainData.heightMap.GetWidth(); w++)
 					{
-						terrainData.noiseMapBounds.y0 = (double(y)*noiseHeight) / double(tileCount);
-						terrainData.noiseMapBounds.y1 = terrainData.noiseMapBounds.y0 + noiseHeight;
-
-						//The z value will always be from 0 to max height
-						int z0 = 0;
-						int z1 = z0 + tileSideLength;
-						openvdb::Coord lower(x, y, z0);
-						openvdb::Coord upper(x + tileSideLength, y + tileSideLength, z1);
-						terrainData.worldBounds = openvdb::CoordBBox(lower, upper);
-
-						//Build the height map with these bounding boxes
-						//TODO: Review libnoise to ensure that it is desirable to set the noise map size to the map size.
-						//The actual perlin noise currently spans a plane hardcoded as (x0,x1)=(2.0,6.0) and (y0,y1)=(1.0,5.0)
-						//The noise map is set here as the size of the world. Which I believe means libnoise interpolates
-						//values from the perlin noise to span the height map size. Should determine if this is a true assumption.
-						CreateNoiseHeightMap(terrainData, (double)mapScale, tileSideLength, tileSideLength);
-
-						for (int w = 0; w < terrainData.heightMap.GetWidth(); w++)
+						for (int h = 0; h < terrainData.heightMap.GetHeight(); h++)
 						{
-							for (int h = 0; h < terrainData.heightMap.GetHeight(); h++)
+							float value = terrainData.heightMap.GetValue(w, h);
+							if (value > maxHeightMapValue)
 							{
-								float value = terrainData.heightMap.GetValue(w, h);
-								if (value > maxHeightMapValue)
-								{
-									maxHeightMapValue = value;
-								}
-								if (value < minHeightMapValue)
-								{
-									minHeightMapValue = value;
-								}
+								maxHeightMapValue = value;
+							}
+							if (value < minHeightMapValue)
+							{
+								minHeightMapValue = value;
 							}
 						}
-
-						std::ostringstream tileInfo;
-						tileInfo << "tile[" << x << "," << y << "]";
-						terrainData.tileName = tileInfo.str();
-						terrainTiles.push_back(terrainData);
 					}
+
+					std::ostringstream name;
+					name << "tile[" << x << ", " << y << "]";
+					terrainData.tileName = name.str();
+					terrainTiles.push_back(terrainData);
+
+					logstrY << "\ttile name = " << name.str() << std::endl;
+					std::cout << "processing map(" << x << "," << y << ")" << std::endl << logstrX.str() << logstrY.str() << std::endl;
 				}
 			}
-
+			
 			//Create a dense grid from the bounding boxes of each tile
-			float tileLength = maxHeightMapValue + abs(minHeightMapValue);
-			float tileVoxelCount = float(mapLength) / float(openvdb::LEVEL_SET_HALF_WIDTH * 2);
+			float heightMapTotalHeight = maxHeightMapValue + abs(minHeightMapValue);
+			float voxelUnitConversion = float(tileSideLength) / heightMapTotalHeight;
+			std::cout << "noise map max = " << maxHeightMapValue << std::endl
+				<< "noise map min = " << minHeightMapValue << std::endl
+				<< "noise map total height = " << heightMapTotalHeight << std::endl
+				<< "noise map unit conversion = " << voxelUnitConversion << std::endl;
+
 			for (std::vector<TerrainData>::const_iterator i = terrainTiles.begin(); i < terrainTiles.end(); i++)
 			{
-				int tileWidth = i->heightMap.GetWidth();
-				int tileHeight = i->heightMap.GetHeight();
-				float tileVoxelUnit = float(openvdb::LEVEL_SET_HALF_WIDTH) * 2.0f * tileLength / tileVoxelCount;
-				std::cout << "tile (w,h) = (" << tileWidth << "," << tileHeight
-					<< "), height span = " << tileLength
-					<< ", vertical voxel count = " << tileVoxelCount
-					<< ", voxel unit = " << tileVoxelUnit << std::endl;
-
 				//Grab values from the height map and build a dense grid
-				openvdb::tools::Dense<float> denseGrid(i->worldBounds);
-				for (int w = 0; w < tileWidth; w++)
-				{
-					for (int h = 0; h < tileHeight; h++)
-					{
-						float lengthValue = i->heightMap.GetValue(w, h) + abs(minHeightMapValue);
-						float voxelPos = lengthValue * tileVoxelUnit;
-						int voxelIndex = int(tileVoxelCount*(lengthValue / tileLength));
+				int heightMapWidth = i->heightMap.GetWidth();
+				int heightMapHeight = i->heightMap.GetHeight();
 
-						denseGrid.setValue(openvdb::Coord(w, h, voxelIndex), voxelPos);
-						for (int k = 0; k < voxelIndex; k++)
-						{
-							//Set these voxels to not be visible
-							//TODO: This probably is not working like I assume it is
-							denseGrid.setValue(openvdb::Coord(w, h, k), 0.0f);
-						}
+				openvdb::tools::Dense<float> denseGrid(i->worldBounds);
+				std::cout << "world z " << i->worldBounds.getEnd().z() << std::endl;
+				std::cout << "z stride " << denseGrid.zStride() << std::endl;
+
+				float fillValue = 0.0f;
+				denseGrid.fill(fillValue);
+				for (int w = 0; w < heightMapWidth; w++)
+				{
+					for (int h = 0; h < heightMapHeight; h++)
+					{
+						float heightValue = i->heightMap.GetValue(w, h) + abs(minHeightMapValue);
+						float voxelPos = heightValue * voxelUnitConversion; 
+						int voxelIndex = openvdb::math::Floor(voxelPos);
+						//std::cout << "voxel index " << voxelIndex << ", x " << i->worldBounds.min().x() + w << ", y " << i->worldBounds.min().y() + h << std::endl;
+
+						openvdb::Coord denseCoord(i->worldBounds.min().x() + w, i->worldBounds.min().y() + h, voxelIndex);
+						denseGrid.setValue(denseCoord, voxelPos);
 					}
 				}
 				std::cout << "voxel count = " << denseGrid.valueCount()
@@ -172,16 +185,16 @@ int main(int argc, char * argv[])
 					<< ", grid height = " << denseGrid.yStride()
 					<< ", grid length = " << denseGrid.zStride() << std::endl;
 				//sparseGrid->treePtr()->addTile()
-				//openvdb::tools::copyFromDense(denseGrid, *sparseGrid, tolerance);
+				openvdb::tools::copyFromDense(denseGrid, *sparseGrid, tolerance);
 			}
 		}
 
-		//openvdb::GridPtrVec grids;
-		//grids.push_back(sparseGrid);
-		//openvdb::io::File file("vdbs/" + filename.str() + ".vdb");
-		//file.write(grids);
-		//file.close();
-		//std::cout << "Created " << file.filename() << std::endl;
+		openvdb::GridPtrVec grids;
+		grids.push_back(sparseGrid);
+		openvdb::io::File file("vdbs/" + filename.str() + ".vdb");
+		file.write(grids);
+		file.close();
+		std::cout << "Created " << file.filename() << std::endl;
 
 		openvdb::uninitialize();
 	}
@@ -217,7 +230,7 @@ const NoiseMapBounds GetNoiseHeightMapExtents()
 void CreateNoiseHeightMap(TerrainData &terrainData, double scale, int width, int height)
 {
 	double baseFrequency = 2.0;
-	double baseBias = 1.0;
+	double baseBias = 0.0;
 	double perlinFrequency = 0.5;
 	double perlinPersistence = 0.25;
 	double edgeFalloff = 0.125;

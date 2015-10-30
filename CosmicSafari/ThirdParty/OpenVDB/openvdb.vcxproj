@@ -114,7 +114,7 @@
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>.\src;.\dependencies\include;C:\boost\boost_1_59_0</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);OPENVDB_PRIVATE</PreprocessorDefinitions>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <BufferSecurityCheck>true</BufferSecurityCheck>
       <StructMemberAlignment>Default</StructMemberAlignment>
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>

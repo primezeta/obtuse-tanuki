@@ -12,6 +12,7 @@ typedef struct _noisemapbounds
 	double x1;
 	double y0;
 	double y1;
+	double max;
 } NoiseMapBounds;
 
 typedef struct _terraindata
