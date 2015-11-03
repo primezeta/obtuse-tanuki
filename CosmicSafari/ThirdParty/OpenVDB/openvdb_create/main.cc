@@ -7,7 +7,12 @@
 #include <openvdb/tools/LevelSetSphere.h>
 #include <openvdb/tools/Dense.h>
 #include <openvdb/tools/MeshToVolume.h>
+#include <openvdb/tools/VolumeToMesh.h>
 #include "openvdbnoise.h"
+#include "../libovdb/libovdb.h"
+
+typedef float TreeDataType;
+typedef openvdb::FloatGrid GridDataType;
 
 void usage();
 
@@ -18,8 +23,12 @@ int main(int argc, char * argv[])
 	{
 		openvdb::initialize();
 
-		std::string gridName = std::string(argv[argc - 1]);
+		if (argc == 1)
+		{
+			usage();
+		}
 		std::string gridType = argv[1];
+		std::string gridName = gridType;
 		if (gridType != "dense" &&
 			gridType != "sphere" &&
 			gridType != "noise")
@@ -27,41 +36,56 @@ int main(int argc, char * argv[])
 			usage();
 		}
 
-		openvdb::FloatGrid::Ptr sparseGrid = openvdb::FloatGrid::create();
+		GridDataType::Ptr sparseGrid = GridDataType::create();
 		sparseGrid->setName(gridName);
+		sparseGrid->setGridClass(openvdb::GRID_LEVEL_SET);
 
 		std::ostringstream filename;
 		if (gridType == "dense")
 		{
+			if (argc != 6)
+			{
+				usage();
+			}
+
 			openvdb::Vec3I bounds(std::stoi(argv[2]), std::stoi(argv[3]), std::stoi(argv[4]));
-			float fillValue = std::stof(argv[5]);
-			openvdb::FloatGrid::ValueType tolerance = std::stof(argv[6]);
+			TreeDataType fillValue = std::stof(argv[5]);
+			GridDataType::ValueType tolerance = std::stof(argv[6]);
 			filename << gridType << "_x" << bounds.x() << "_y" << bounds.y() << "_z" << bounds.z() << "_f" << fillValue << "_t" << tolerance;
 
 			openvdb::CoordBBox boundingBox(openvdb::Coord(0, 0, 0), openvdb::Coord(bounds.x(), bounds.y(), bounds.z()));
-			openvdb::tools::Dense<float> denseGrid(boundingBox);
+			openvdb::tools::Dense<TreeDataType> denseGrid(boundingBox);
 			denseGrid.fill(fillValue);
 			openvdb::tools::copyFromDense(denseGrid, *sparseGrid, tolerance);
 		}
 		else if (gridType == "sphere")
 		{
+			if (argc != 7)
+			{
+				usage();
+			}
 			openvdb::Vec3f center(std::stof(argv[2]), std::stof(argv[3]), std::stof(argv[4]));
-			float radius = std::stof(argv[5]);
-			float voxelSize = std::stof(argv[6]);
-			float levelSetHalfWidth = (float)openvdb::LEVEL_SET_HALF_WIDTH;
+			TreeDataType radius = std::stof(argv[5]);
+			TreeDataType voxelSize = std::stof(argv[6]);
+			TreeDataType levelSetHalfWidth = (TreeDataType)openvdb::LEVEL_SET_HALF_WIDTH;
 			if (argc >= 8)
 			{
 				levelSetHalfWidth = std::stof(argv[7]);
 			}
 			filename << gridType << "_x" << center.x() << "_y" << center.y() << "_z" << center.z() << "_r" << radius << "_v" << voxelSize << "_h" << levelSetHalfWidth;
-			sparseGrid = openvdb::tools::createLevelSetSphere<openvdb::FloatGrid>(radius, center, voxelSize, levelSetHalfWidth);
+			sparseGrid = openvdb::tools::createLevelSetSphere<GridDataType>(radius, center, voxelSize, levelSetHalfWidth);
 		}
 		else if (gridType == "noise")
 		{
+			if (argc != 6)
+			{
+				usage();
+			}
+
 			int mapWidth = std::stoi(argv[2]);
 			int tileCount = std::stoi(argv[3]);
-			float mapScale = std::stof(argv[4]);
-			float tolerance = std::stof(argv[5]);
+			TreeDataType mapScale = std::stof(argv[4]);
+			TreeDataType tolerance = std::stof(argv[5]);
 
 			//int mapHeight = std::stoi(argv[3]);
 			//int mapLength = std::stoi(argv[4]);
@@ -72,7 +96,7 @@ int main(int argc, char * argv[])
 			//Ensure the tile count evenly divides the world
 			if (mapWidth % tileCount != 0)
 			{
-				std::cout << "Tile count of " << tileCount << "does not evenly divide map width of " << mapWidth << std::endl;
+				std::cout << "Tile count of " << tileCount << " does not evenly divide map width of " << mapWidth << std::endl;
 				return 1;
 			}			
 			filename << gridType << "_w" << mapWidth << "_h" << mapHeight << "_l" << mapLength << "_t" << tileCount << "_s" << mapScale << "_t" << tolerance;
@@ -83,14 +107,15 @@ int main(int argc, char * argv[])
 			double noiseHeight = GetNoiseHeightMapExtents().y1 - GetNoiseHeightMapExtents().y0;
 			double noiseTileWidth = noiseWidth / tileCount;
 			double noiseTileHeight = noiseHeight / tileCount;
-			float maxHeightMapValue = FLT_MIN;
-			float minHeightMapValue = FLT_MAX;
+			TreeDataType maxHeightMapValue = FLT_MIN;
+			TreeDataType minHeightMapValue = FLT_MAX;
 
+#ifdef _DEBUG
 			std::cout << "Tile side length is " << tileSideLength << " with map width " << mapWidth << " and tile count " << tileCount << std::endl;
 			std::cout << "Noise map bounds are x[" << GetNoiseHeightMapExtents().x0 << "," << GetNoiseHeightMapExtents().x1 << "] by "
-				<< "y[" << GetNoiseHeightMapExtents().y0 << ", " << GetNoiseHeightMapExtents().y1 << "]" << std::endl;
+				      << "y[" << GetNoiseHeightMapExtents().y0 << ", " << GetNoiseHeightMapExtents().y1 << "]" << std::endl;
 			std::cout << "Noise map width is " << noiseWidth << " and height " << noiseHeight << std::endl << std::endl;
-
+#endif
 			std::vector<TerrainData> terrainTiles;
 			for (int x = 0; x < mapWidth; x += tileSideLength)
 			{
@@ -102,7 +127,7 @@ int main(int argc, char * argv[])
 
 				for (int y = 0; y < mapHeight; y += tileSideLength)
 				{
-					terrainData.noiseMapBounds.y0 = GetNoiseHeightMapExtents().y0 + double((x / tileSideLength))*noiseTileHeight;
+					terrainData.noiseMapBounds.y0 = GetNoiseHeightMapExtents().y0 + double((y / tileSideLength))*noiseTileHeight;
 					terrainData.noiseMapBounds.y1 = terrainData.noiseMapBounds.y0 + noiseTileHeight;
 					std::ostringstream logstrY;
 					logstrY << "\tnoise map y bounds(" << terrainData.noiseMapBounds.y0 << "," << terrainData.noiseMapBounds.y1 << ")" << std::endl;
@@ -125,7 +150,7 @@ int main(int argc, char * argv[])
 					{
 						for (int h = 0; h < terrainData.heightMap.GetHeight(); h++)
 						{
-							float value = terrainData.heightMap.GetValue(w, h);
+							TreeDataType value = terrainData.heightMap.GetValue(w, h);
 							if (value > maxHeightMapValue)
 							{
 								maxHeightMapValue = value;
@@ -142,18 +167,22 @@ int main(int argc, char * argv[])
 					terrainData.tileName = name.str();
 					terrainTiles.push_back(terrainData);
 
+#ifdef _DEBUG
 					logstrY << "\ttile name = " << name.str() << std::endl;
 					std::cout << "processing map(" << x << "," << y << ")" << std::endl << logstrX.str() << logstrY.str() << std::endl;
+#endif
 				}
 			}
 			
 			//Create a dense grid from the bounding boxes of each tile
-			float heightMapTotalHeight = maxHeightMapValue + abs(minHeightMapValue);
-			float voxelUnitConversion = float(tileSideLength) / heightMapTotalHeight;
+			TreeDataType heightMapTotalHeight = maxHeightMapValue + abs(minHeightMapValue);
+			TreeDataType voxelUnitConversion = TreeDataType(tileSideLength) / heightMapTotalHeight;
+#ifdef _DEBUG
 			std::cout << "noise map max = " << maxHeightMapValue << std::endl
-				<< "noise map min = " << minHeightMapValue << std::endl
-				<< "noise map total height = " << heightMapTotalHeight << std::endl
-				<< "noise map unit conversion = " << voxelUnitConversion << std::endl;
+				      << "noise map min = " << minHeightMapValue << std::endl
+				      << "noise map total height = " << heightMapTotalHeight << std::endl
+				      << "noise map unit conversion = " << voxelUnitConversion << std::endl;
+#endif
 
 			for (std::vector<TerrainData>::const_iterator i = terrainTiles.begin(); i < terrainTiles.end(); i++)
 			{
@@ -161,18 +190,25 @@ int main(int argc, char * argv[])
 				int heightMapWidth = i->heightMap.GetWidth();
 				int heightMapHeight = i->heightMap.GetHeight();
 
-				openvdb::tools::Dense<float> denseGrid(i->worldBounds);
-				std::cout << "world z " << i->worldBounds.getEnd().z() << std::endl;
-				std::cout << "z stride " << denseGrid.zStride() << std::endl;
+				openvdb::tools::Dense<TreeDataType> denseGrid(i->worldBounds);
+#ifdef _DEBUG
+				std::cout << "world bounds" << std::endl
+				          << "\t" << i->worldBounds.getStart().x() << "," << i->worldBounds.getStart().y() << "," << i->worldBounds.getStart().z() << std::endl
+						  << "\t" << i->worldBounds.getEnd().x() << "," << i->worldBounds.getEnd().y() << "," << i->worldBounds.getEnd().z() << std::endl;
+#endif
 
-				float fillValue = 0.0f;
+				//openvdb::Coord initialCoord(i->worldBounds.getStart().x(), i->worldBounds.getStart().y(), i->worldBounds.getStart().z());
+				//TreeDataType tileValue = 0.0f;
+				//sparseGrid->treePtr()->addTile(GridDataType::TreeType::RootNodeType::LEVEL+1, initialCoord, tileValue, true);
+				TreeDataType fillValue = 0.0f;
 				denseGrid.fill(fillValue);
+				
 				for (int w = 0; w < heightMapWidth; w++)
 				{
 					for (int h = 0; h < heightMapHeight; h++)
 					{
-						float heightValue = i->heightMap.GetValue(w, h) + abs(minHeightMapValue);
-						float voxelPos = heightValue * voxelUnitConversion; 
+						TreeDataType heightValue = i->heightMap.GetValue(w, h) + abs(minHeightMapValue);
+						TreeDataType voxelPos = heightValue * voxelUnitConversion;
 						int voxelIndex = openvdb::math::Floor(voxelPos);
 						//std::cout << "voxel index " << voxelIndex << ", x " << i->worldBounds.min().x() + w << ", y " << i->worldBounds.min().y() + h << std::endl;
 
@@ -180,11 +216,11 @@ int main(int argc, char * argv[])
 						denseGrid.setValue(denseCoord, voxelPos);
 					}
 				}
-				std::cout << "voxel count = " << denseGrid.valueCount()
-					<< ", grid width = " << denseGrid.xStride()
-					<< ", grid height = " << denseGrid.yStride()
-					<< ", grid length = " << denseGrid.zStride() << std::endl;
-				//sparseGrid->treePtr()->addTile()
+#ifdef _DEBUG
+				std::cout << "grid stride" << std::endl					      
+					      << "\t" << denseGrid.xStride() << "," << denseGrid.yStride() << "," << denseGrid.zStride() << std::endl;
+#endif
+
 				openvdb::tools::copyFromDense(denseGrid, *sparseGrid, tolerance);
 			}
 		}
@@ -216,8 +252,8 @@ void usage()
 	std::cout << "Usage:" << std::endl
 		<< "\topenvdb_create dense boundsX boundsY boundsZ fillValue tolerance" << std::endl
 		<< "\topenvdb_create sphere centerX centerY centerZ radius voxelSize [levelSetHalfWidth=3.0]" << std::endl
-		<< "\topenvdb_create noise mapWidth tileCount mapScale tolerance" << std::endl
-		<< std::endl;
+		<< "\topenvdb_create noise mapWidth tileCount mapScale tolerance" << std::endl;
+	exit(0);
 }
 
 const NoiseMapBounds GetNoiseHeightMapExtents()

@@ -19,6 +19,8 @@ public class OpenVDBModule : ModuleRules
         PublicLibraryPaths.AddRange(LibPaths);
         PublicAdditionalLibraries.AddRange(LibNames);
 
+        //DynamicallyLoadedModuleNames.AddRange(new string[] { "ProceduralMeshComponent" });
+
         //AddThirdPartyPrivateStaticDependencies(Target, );
         Definitions.AddRange(new string[] { "OPENVDB_OPENEXR_STATICLIB", "OPENVDB_STATICLIB" });
         //Definitions.AddRange(new string[] { "OPENVDB_DLL" });

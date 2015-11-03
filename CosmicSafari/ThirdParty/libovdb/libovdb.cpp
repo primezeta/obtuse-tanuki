@@ -4,111 +4,160 @@
 #include <openvdb/tools/Dense.h>
 #include <openvdb/tools/VolumeToMesh.h>
 
-//using namespace openvdb;
-//using namespace tools;
-static openvdb::FloatGrid::Ptr sparseGrid = nullptr;
+typedef float TreeDataType;
+typedef openvdb::FloatGrid GridDataType;
+typedef openvdb::math::Vec3s VertexType;
+typedef openvdb::Vec3I TriangleType;
+typedef openvdb::Vec4I QuadType;
 
-void CreateTestVdb(const std::string &filename)
-{
-	openvdb::io::File file(filename);
-	try
-	{
-		if (file.getSize() > 0)
-		{
-			file.open();
-			sparseGrid = openvdb::gridPtrCast<openvdb::FloatGrid>(file.readGrid("TestGrid"));
-			//	//sparseGrid->
-		}
-		else
-		{
-			openvdb::tools::Dense<float> denseGrid(openvdb::CoordBBox(openvdb::Coord(), openvdb::Coord(100, 100, 100)), 0.0f);
-			float fillValue = 1.0f;
-			denseGrid.fill(fillValue);
+static GridDataType::Ptr SparseGrid = nullptr;
+static std::vector<VertexType> Vertices;
+static std::vector<TriangleType> Triangles;
+static std::vector<QuadType> Quads;
 
-			sparseGrid = openvdb::FloatGrid::create();
-			openvdb::FloatGrid::ValueType tolerance = 0.0f;
-			copyFromDense(denseGrid, *sparseGrid, tolerance);
-			sparseGrid->setName("TestGrid");
-
-			openvdb::GridPtrVec grids;
-			grids.push_back(sparseGrid);
-			file.write(grids);
-		}
-	}
-	catch (openvdb::Exception &e)
-	{
-		throw(e);
-	}
-	file.close();
-}
-
-int OvdbInitialize(std::string errorMsg, const std::string filename)
+int OvdbInitialize()
 {
 	int error = 0;
 	try
 	{
 		openvdb::initialize();
-		CreateTestVdb(filename);
 	}
 	catch (openvdb::Exception &e)
 	{
-		errorMsg = e.what();
+		//TODO: Log openvdb exception messages to file
+		//errorMsg = e.what();
 		error = 1;
 	}
 	return error;
 }
 
-//int OvdbUninitialize(std::string &errorMsg)
-//{
-//	int error = 0;
-//	try
-//	{
-//		openvdb::uninitialize();
-//	}
-//	catch (openvdb::Exception &e)
-//	{
-//		errorMsg = e.what();
-//		error = 1;
-//	}
-//	return error;
-//}
-
-void OvdbUninitialize()
-{
-	sparseGrid->clear();
-	openvdb::uninitialize();
-}
-
-int OvdbVolumeToMesh(std::string &errorMsg,
-	                 std::vector<float> &pxs, std::vector<float> &pys, std::vector<float> &pzs,
-					 std::vector<uint32_t> &qxs, std::vector<unsigned int> &qys, std::vector<unsigned int> &qzs, std::vector<unsigned int> &qws)
+int OvdbUninitialize()
 {
 	int error = 0;
-	std::vector<openvdb::math::Vec3s> points;
-	std::vector<openvdb::Vec4I> quads;
-
 	try
 	{
-		openvdb::tools::volumeToMesh<openvdb::FloatGrid>(*sparseGrid, points, quads, 50000.0);
+		if (SparseGrid != nullptr)
+		{
+			SparseGrid->clear();
+		}
+		openvdb::uninitialize();
 	}
-	catch (openvdb::Exception e)
+	catch (openvdb::Exception &e)
 	{
-		errorMsg = e.what();
+		//TODO: Log openvdb exception messages to file
+		//errorMsg = e.what();
 		error = 1;
 	}
+	return error;
+}
 
-	for (std::vector<openvdb::math::Vec3s>::iterator i = points.begin(); i != points.end(); i++)
+int OvdbLoadVdb(const std::string &filename)
+{
+	int error = 0;
+	try
 	{
-		pxs.push_back(i->x());
-		pys.push_back(i->y());
-		pzs.push_back(i->z());
+		openvdb::io::File file(filename);
+		file.open();
+		if (file.getSize() > 0)
+		{
+			SparseGrid = openvdb::gridPtrCast<openvdb::FloatGrid>(file.readGrid("noise"));
+			file.close();
+		}
 	}
-	for (std::vector<openvdb::Vec4I>::iterator i = quads.begin(); i != quads.end(); i++)
+	catch (openvdb::Exception &e)
 	{
-		qxs.push_back(i->x());
-		qys.push_back(i->y());
-		qzs.push_back(i->z());
-		qws.push_back(i->w());
+		//TODO: Log openvdb exception messages to file
+		//errorMsg = e.what();
+		error = 1;
+	}
+	return error;
+}
+
+int OvdbVolumeToMesh(double isovalue, double adaptivity)
+{
+	int error = 0;
+	try
+	{
+		openvdb::tools::volumeToMesh<openvdb::FloatGrid>(*SparseGrid, Vertices, Triangles, Quads, isovalue, adaptivity);
+	}
+	catch (openvdb::Exception &e)
+	{
+		//TODO: Log openvdb exception messages to file
+		//errorMsg = e.what();
+		error = 1;
+	}
+	return error;
+}
+
+int OvdbGetNextMeshPoint(float &px, float &py, float &pz)
+{
+	int error = 0;
+	try
+	{
+		if (Vertices.empty())
+		{
+			return 0;
+		}
+		VertexType ps = Vertices.back();
+		Vertices.pop_back();
+		px = ps.x();
+		py = ps.y();
+		pz = ps.z();
+	}
+	catch (openvdb::Exception &e)
+	{
+		//TODO: Log openvdb exception messages to file
+		//errorMsg = e.what();
+		error = 1;
+	}
+	return error;
+}
+
+int OvdbGetNextMeshTriangle(uint32_t &tx, uint32_t &ty, uint32_t &tz)
+{
+	int error = 0;
+	try
+	{
+		if (Triangles.empty())
+		{
+			return 0;
+		}
+		TriangleType ts = Triangles.back();
+		Triangles.pop_back();
+		tx = ts.x();
+		ty = ts.y();
+		tz = ts.z();
+	}
+	catch (openvdb::Exception &e)
+	{
+		//TODO: Log openvdb exception messages to file
+		//errorMsg = e.what();
+		error = 1;
+	}
+	return error;
+}
+
+int OvdbGetNextMeshQuad(uint32_t &qw, uint32_t &qx, uint32_t &qy, uint32_t &qz)
+{
+	int error = 0;
+	try
+	{
+		if (Quads.empty())
+		{
+			return 0;
+		}
+		QuadType qs = Quads.back();
+		Quads.pop_back();
+		qw = qs.w();
+		qx = qs.x();
+		qy = qs.y();
+		qz = qs.z();
+	}
+	catch (openvdb::Exception &e)
+	{
+		//TODO: Log openvdb exception messages to file
+		//errorMsg = e.what();
+		error = 1;
 	}
 	return error;
 }

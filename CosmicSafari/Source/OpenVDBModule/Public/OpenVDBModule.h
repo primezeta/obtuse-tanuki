@@ -2,7 +2,7 @@
 #define __OPENVDBMODULE_H__
 
 #include "EngineMinimal.h"
-#include "ProceduralMeshComponent.h"
+//#include "Engine/"
 
 class FOpenVDBModule : public IModuleInterface
 {
