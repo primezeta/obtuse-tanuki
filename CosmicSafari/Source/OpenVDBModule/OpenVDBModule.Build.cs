@@ -71,7 +71,11 @@ public class OpenVDBModule : ModuleRules
                 Config == UnrealTargetConfiguration.DebugGame ||
                 Config == UnrealTargetConfiguration.Development)
             {
-                path = "Debug";
+                //Note that we will still link to Release directories because the UE4 build system
+                //is made to mainly build release builds. The OpenVDB stuff can still be built with
+                //the debug database to allow debugging.
+                //path = "Debug";
+                path = "Release";
             }
             return path;
         }
@@ -107,7 +111,7 @@ public class OpenVDBModule : ModuleRules
             return new string[]
             {
                 Path.Combine(ThirdPartyPath, "Build", PlatformPath, ConfigurationPath),
-                Path.Combine(ThirdPartyPath, "OpenVDB", "dependencies", "lib", PlatformPath),
+                Path.Combine(ThirdPartyPath, "OpenVDB", "dependencies", "lib", PlatformPath, ConfigurationPath),
                 Path.Combine(ThirdPartyPath, "boost")
             };
         }

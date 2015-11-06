@@ -8,7 +8,7 @@ public class CosmicSafariEditorTarget : TargetRules
 	public CosmicSafariEditorTarget(TargetInfo Target)
 	{
 		Type = TargetType.Editor;
-	}
+    }
 
 	//
 	// TargetRules interface.

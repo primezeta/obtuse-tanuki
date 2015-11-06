@@ -11,6 +11,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UE4", "Intermediate\Project
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CosmicSafari", "Intermediate\ProjectFiles\CosmicSafari.vcxproj", "{94AEE21B-FD5E-4EBE-B99B-964ACE456924}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C2E6CD0C-3609-42A9-91E6-E958ADC1C244}"
+	ProjectSection(SolutionItems) = preProject
+		..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealBuildTool\System\UnrealBuildTool.cs = ..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealBuildTool\System\UnrealBuildTool.cs
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		DebugGame Editor|Win32 = DebugGame Editor|Win32

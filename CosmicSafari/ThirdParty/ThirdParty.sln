@@ -6,6 +6,9 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "openvdb", "OpenVDB\openvdb.vcxproj", "{EEFF6F37-B361-41BD-9F7D-745C20EA4C90}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libovdb", "libovdb\libovdb.vcxproj", "{138186A8-91EC-4F94-9475-E753F5CF06B1}"
+	ProjectSection(ProjectDependencies) = postProject
+		{EEFF6F37-B361-41BD-9F7D-745C20EA4C90} = {EEFF6F37-B361-41BD-9F7D-745C20EA4C90}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libnoise", "LibNoise\libnoise.vcxproj", "{A1400C34-8DD2-4C9C-968D-6C4372722F91}"
 EndProject
@@ -14,6 +17,10 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "openvdb_viewer", "OpenVDB\src\openvdb\cmd\openvdb_view\viewer.vcxproj", "{262F2F8B-58D1-4A44-A141-2D30564AA30B}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "openvdb_create", "OpenVDB\openvdb_create\openvdb_create.vcxproj", "{E04C9F0E-05BC-4F26-A381-4DBB53944EEB}"
+	ProjectSection(ProjectDependencies) = postProject
+		{A1400C34-8DD2-4C9C-968D-6C4372722F91} = {A1400C34-8DD2-4C9C-968D-6C4372722F91}
+		{EEFF6F37-B361-41BD-9F7D-745C20EA4C90} = {EEFF6F37-B361-41BD-9F7D-745C20EA4C90}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
