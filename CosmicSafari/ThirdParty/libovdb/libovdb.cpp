@@ -4,13 +4,14 @@
 #include <openvdb/tools/Dense.h>
 #include <openvdb/tools/VolumeToMesh.h>
 
-typedef float TreeDataType;
-typedef openvdb::FloatGrid GridDataType;
+typedef bool TreeDataType;
+typedef openvdb::BoolGrid GridDataType;
 typedef openvdb::math::Vec3s VertexType;
 typedef openvdb::Vec3I TriangleType;
 typedef openvdb::Vec4I QuadType;
 
-static GridDataType::Ptr SparseGrid = nullptr;
+//static GridDataType::Ptr SparseGrids = nullptr;
+static openvdb::GridPtrVec Grids;
 static std::vector<VertexType> Vertices;
 static std::vector<TriangleType> Triangles;
 static std::vector<QuadType> Quads;
@@ -36,10 +37,6 @@ int OvdbUninitialize()
 	int error = 0;
 	try
 	{
-		if (SparseGrid != nullptr)
-		{
-			SparseGrid->clear();
-		}
 		openvdb::uninitialize();
 	}
 	catch (openvdb::Exception &e)
@@ -60,8 +57,16 @@ int OvdbLoadVdb(const std::string &filename)
 		file.open();
 		if (file.getSize() > 0)
 		{
-			SparseGrid = openvdb::gridPtrCast<openvdb::FloatGrid>(file.readGrid("noise"));
+			std::string s;
+			for (openvdb::GridPtrVecIter i = file.getGrids()->begin(); i < file.getGrids()->end(); i++)
+			{
+				GridDataType::Ptr grid = openvdb::gridPtrCast<GridDataType>(*i);
+				s = grid->getName();
+				//GridDataType::Ptr grid = openvdb::gridPtrCast<GridDataType>(file.readGrid(i->get()->getName()));
+				//Grids.push_back(grid->copyGrid());
+			}
 			file.close();
+
 		}
 	}
 	catch (openvdb::Exception &e)
@@ -78,7 +83,7 @@ int OvdbVolumeToMesh(double isovalue, double adaptivity)
 	int error = 0;
 	try
 	{
-		openvdb::tools::volumeToMesh<openvdb::FloatGrid>(*SparseGrid, Vertices, Triangles, Quads, isovalue, adaptivity);
+		//openvdb::tools::volumeToMesh<GridDataType>(*SparseGrid, Vertices, Triangles, Quads, isovalue, adaptivity);
 	}
 	catch (openvdb::Exception &e)
 	{
