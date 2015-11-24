@@ -11,8 +11,8 @@
 #include "openvdbnoise.h"
 #include "../libovdb/libovdb.h"
 
-typedef bool NoiseTreeDataType;
-typedef openvdb::BoolGrid NoiseGridDataType;
+typedef float NoiseTreeDataType;
+typedef openvdb::FloatGrid NoiseGridDataType;
 const NoiseTreeDataType fillValue = false;
 
 void usage();
@@ -155,10 +155,10 @@ int main(int argc, char * argv[])
 					  << "\t" << i->worldBounds.getEnd().x() << "," << i->worldBounds.getEnd().y() << "," << i->worldBounds.getEnd().z() << std::endl;
 #endif
 
-			//openvdb::Coord initialCoord(i->worldBounds.getStart().x(), i->worldBounds.getStart().y(), i->worldBounds.getStart().z());
-			//TreeDataType tileValue = 0.0f;
-			//sparseGrid->treePtr()->addTile(GridDataType::TreeType::RootNodeType::LEVEL+1, initialCoord, tileValue, true);			
-			//denseGrid.fill(fillValue);
+			openvdb::Coord initialCoord(i->worldBounds.getStart().x(), i->worldBounds.getStart().y(), i->worldBounds.getStart().z());
+			NoiseTreeDataType tileValue = 0.0f;
+			sparseGrid->treePtr()->addTile(NoiseGridDataType::TreeType::RootNodeType::LEVEL+1, initialCoord, tileValue, true);			
+			denseGrid.fill(fillValue);
 				
 			for (int w = 0; w < heightMapWidth; w++)
 			{
@@ -170,17 +170,17 @@ int main(int argc, char * argv[])
 					openvdb::Coord denseCoord(i->worldBounds.min().x() + w, i->worldBounds.min().y() + h, voxelIndex);
 
 					//Set the location of the height map value to true to make a boundary						
-					denseGrid.setValue(denseCoord, true);
-					////Set locations below the height map value to negative, proportionally decreasing
-					//for (int z = -(voxelIndex+1); z < 0; z++)
-					//{
-					//	denseGrid.setValue(denseCoord, z * voxelPos / voxelIndex);
-					//}
-					////Set locations below the height map value to positive, proportionally decreasing
-					//for (int z = i->worldBounds.max().z(); z > 0; z--)
-					//{
-					//	denseGrid.setValue(denseCoord, z * voxelPos / voxelIndex);
-					//}
+					//denseGrid.setValue(denseCoord, true);
+					//Set locations below the height map value to negative, proportionally decreasing
+					for (int z = -(voxelIndex+1); z < 0; z++)
+					{
+						denseGrid.setValue(denseCoord, z * voxelPos / voxelIndex);
+					}
+					//Set locations below the height map value to positive, proportionally decreasing
+					for (int z = i->worldBounds.max().z(); z > 0; z--)
+					{
+						denseGrid.setValue(denseCoord, z * voxelPos / voxelIndex);
+					}
 				}
 			}
 #ifdef _DEBUG

@@ -34,21 +34,14 @@ void FOpenVDBModule::StartupModule()
 	TArray<FVector> vertices;
 	while (OvdbGetNextMeshPoint(vertex.X, vertex.Y, vertex.Z))
 	{
-		vertices.Add(vertex);
+		vertices.Insert(vertex, 0);
 	}
 
-	TArray<int32> triangles;
-	uint32_t tris[3];
-	while (OvdbGetNextMeshTriangle(tris[0], tris[1], tris[2]))
+	uint32_t vertexIndex = 0;
+	TArray<uint32_t> triangles;
+	while (OvdbGetNextMeshTriangle(vertexIndex))
 	{
-		if (tris[0] > INT_MAX || tris[1] > INT_MAX || tris[2] > INT_MAX)
-		{
-			int x = 0; //for breakpoint until I decide what to do
-			return;
-		}
-		triangles.Add((int32)tris[0]);
-		triangles.Add((int32)tris[1]);
-		triangles.Add((int32)tris[2]);
+		triangles.Add(vertexIndex);
 	}
 	return;
 }
