@@ -3,7 +3,7 @@
   <ItemGroup>
     <None Include="..\..\CosmicSafari.uproject" />
     <Filter Include="Source">
-      <UniqueIdentifier>{1800B773-46FA-46F5-B71E-9FB1045EB1D1}</UniqueIdentifier>
+      <UniqueIdentifier>{3100930B-46E9-4577-B8DF-96AF946F6BDE}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Source\CosmicSafari.Target.cs">
       <Filter>Source</Filter>
@@ -12,7 +12,7 @@
       <Filter>Source</Filter>
     </None>
     <Filter Include="Config">
-      <UniqueIdentifier>{EAB44BBB-8018-4B89-B06C-8A435262B639}</UniqueIdentifier>
+      <UniqueIdentifier>{410027A3-ACA8-4435-A3F8-791F23332457}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Config\DefaultEditor.ini">
       <Filter>Config</Filter>
@@ -30,7 +30,7 @@
       <Filter>Config</Filter>
     </None>
     <Filter Include="Source\CosmicSafari">
-      <UniqueIdentifier>{2DC62592-FCEE-461C-9BF1-2CD8C80E948E}</UniqueIdentifier>
+      <UniqueIdentifier>{755FA466-053B-4AD7-A469-9D3BFD924BE6}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Source\CosmicSafari\CosmicSafari.Build.cs">
       <Filter>Source\CosmicSafari</Filter>
@@ -53,29 +53,26 @@
     <ClInclude Include="..\..\Source\CosmicSafari\CosmicSafariPawn.h">
       <Filter>Source\CosmicSafari</Filter>
     </ClInclude>
-    <None Include="..\..\Source\OpenVDBModule\OpenVDBModule.Build.cs">
-      <Filter>Source\OpenVDB</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <Filter Include="Source\OpenVDB">
-      <UniqueIdentifier>{09533d38-d8b9-48a2-be92-fc668dd6ae95}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\OpenVDB\Public">
-      <UniqueIdentifier>{006f102a-c3dd-4d72-b9aa-59fd01e6eaad}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\OpenVDB\Private">
-      <UniqueIdentifier>{9a90b04d-5142-44ee-a673-9e9758ec81df}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.cpp">
-      <Filter>Source\OpenVDB\Public</Filter>
+    <ClCompile Include="..\..\Source\CosmicSafari\ProceduralTerrain.cpp">
+      <Filter>Source\CosmicSafari</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
+    <ClInclude Include="..\..\Source\CosmicSafari\ProceduralTerrain.h">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClInclude>
+    <Filter Include="Source\OpenVDBModule">
+      <UniqueIdentifier>{393901C7-C78E-4C29-915B-30CB9913E8C3}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Source\OpenVDBModule\OpenVDBModule.Build.cs">
+      <Filter>Source\OpenVDBModule</Filter>
+    </None>
+    <Filter Include="Source\OpenVDBModule\Public">
+      <UniqueIdentifier>{48645D7C-D8BC-45D9-B2F8-7EF097A4CCFD}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.cpp">
+      <Filter>Source\OpenVDBModule\Public</Filter>
+    </ClCompile>
     <ClInclude Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.h">
-      <Filter>Source\OpenVDB\Public</Filter>
+      <Filter>Source\OpenVDBModule\Public</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

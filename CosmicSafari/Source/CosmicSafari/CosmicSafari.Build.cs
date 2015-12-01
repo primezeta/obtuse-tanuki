@@ -6,6 +6,16 @@ public class CosmicSafari : ModuleRules
 {
 	public CosmicSafari(TargetInfo Target)
 	{
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "OpenVDBModule" });
+        //PrivateDependencyModuleNames.AddRange(new string[] { "OpenVDBModule" });
 	}
+
+    public virtual void SetupGlobalEnvironment(
+        TargetInfo Target,
+        ref LinkEnvironmentConfiguration OutLinkEnvironmentConfiguration,
+        ref CPPEnvironmentConfiguration OutCPPEnvironmentConfiguration
+        )
+    {
+        OutCPPEnvironmentConfiguration.Definitions.Add("OPENVDBMODULE_IMPORT");
+    }
 }

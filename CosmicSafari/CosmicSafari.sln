@@ -3,18 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Engine", "Engine", "{34F9C107-7344-414A-9EB1-A5CA64FD0540}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Engine", "Engine", "{C5766791-C05D-4DED-86B8-3EF2CCF6936C}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Games", "Games", "{736AC61A-696E-4989-A769-2F99AF0E6643}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Games", "Games", "{9B91EAF7-2E47-4B36-BEF2-E3FCA16451C5}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UE4", "Intermediate\ProjectFiles\UE4.vcxproj", "{8C9CEAD0-2D7E-44BB-ADBB-DCC87CAA8679}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CosmicSafari", "Intermediate\ProjectFiles\CosmicSafari.vcxproj", "{94AEE21B-FD5E-4EBE-B99B-964ACE456924}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C2E6CD0C-3609-42A9-91E6-E958ADC1C244}"
-	ProjectSection(SolutionItems) = preProject
-		..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealBuildTool\System\UnrealBuildTool.cs = ..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealBuildTool\System\UnrealBuildTool.cs
-	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -70,7 +65,7 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{8C9CEAD0-2D7E-44BB-ADBB-DCC87CAA8679} = {34F9C107-7344-414A-9EB1-A5CA64FD0540}
-		{94AEE21B-FD5E-4EBE-B99B-964ACE456924} = {736AC61A-696E-4989-A769-2F99AF0E6643}
+		{8C9CEAD0-2D7E-44BB-ADBB-DCC87CAA8679} = {C5766791-C05D-4DED-86B8-3EF2CCF6936C}
+		{94AEE21B-FD5E-4EBE-B99B-964ACE456924} = {9B91EAF7-2E47-4B36-BEF2-E3FCA16451C5}
 	EndGlobalSection
 EndGlobal

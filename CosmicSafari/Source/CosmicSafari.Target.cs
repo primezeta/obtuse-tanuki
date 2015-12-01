@@ -8,6 +8,11 @@ public class CosmicSafariTarget : TargetRules
 	public CosmicSafariTarget(TargetInfo Target)
 	{
 		Type = TargetType.Game;
+        //The following does not seem to be working...
+        //PrivateDependencyModuleNames.AddRange(new string[] { "ProceduralMeshComponent" });
+        //PrivateIncludePathModuleNames.AddRange(new string[] { "ProceduralMeshComponent" });
+        //Does this need to be called instead of having OpenVDBModule in OutExtraModuleNames?
+        //DynamicallyLoadedModuleNames.AddRange(new string[] { "OpenVDBModule" });
 	}
 
 	//

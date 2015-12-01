@@ -3,9 +3,9 @@
 #include <openvdb/Exceptions.h>
 #include <openvdb/tools/Dense.h>
 #include <openvdb/tools/VolumeToMesh.h>
+#include <fstream>
 
-typedef openvdb::FloatGrid GridDataType;
-typedef GridDataType::TreeType TreeDataType;
+typedef openvdb::FloatGrid::TreeType TreeDataType;
 typedef openvdb::math::Vec3s VertexType;
 typedef openvdb::Vec3d PointType;
 typedef openvdb::Vec4I QuadType;
@@ -26,11 +26,13 @@ struct CubeFaces
 	Vertex f6[NUMCORNERS];
 };
 
-static GridDataType::Ptr SparseGrids = nullptr;
-static openvdb::GridPtrVec Grids;
+static openvdb::FloatGrid::Ptr SparseGrids = nullptr;
+//static openvdb::GridPtrVec Grids;
 static std::vector<VertexType> Vertices;
 static std::vector<openvdb::Index32> Triangles;
 static std::vector<QuadType> Quads;
+
+std::string gridNamesList(const openvdb::io::File &file);
 
 int OvdbInitialize()
 {
@@ -41,8 +43,10 @@ int OvdbInitialize()
 	}
 	catch (openvdb::Exception &e)
 	{
-		//TODO: Log openvdb exception messages to file
-		//errorMsg = e.what();
+		std::ofstream logfile;
+		logfile.open("C:\\Users\\zach\\Documents\\Unreal Projects\\obtuse-tanuki\\CosmicSafari\\ThirdParty\\exceptions.log");
+		logfile << "OvdbInitialize: " << e.what() << std::endl;
+		logfile.close();
 		error = 1;
 	}
 	return error;
@@ -57,39 +61,54 @@ int OvdbUninitialize()
 	}
 	catch (openvdb::Exception &e)
 	{
-		//TODO: Log openvdb exception messages to file
-		//errorMsg = e.what();
+		std::ofstream logfile;
+		logfile.open("C:\\Users\\zach\\Documents\\Unreal Projects\\obtuse-tanuki\\CosmicSafari\\ThirdParty\\exceptions.log");
+		logfile << "OvdbUninitialize: " << e.what() << std::endl;
+		logfile.close();
 		error = 1;
 	}
 	return error;
 }
 
-int OvdbLoadVdb(const std::string &filename)
+int OvdbLoadVdb(const std::string &filename, const std::string &gridName)
 {
 	int error = 0;
 	try
 	{
+		openvdb::GridBase::Ptr baseGrid = nullptr;
+		std::string gridNames;
+
 		openvdb::io::File file(filename);
-		file.open();
+		file.open();		
 		if (file.getSize() > 0)
 		{
-			//std::string s;
-			//for (openvdb::GridPtrVecIter i = file.getGrids()->begin(); i < file.getGrids()->end(); i++)
-			//{
-			//	//GridDataType::Ptr grid = openvdb::gridPtrCast<GridDataType>(*i);
-			//	//s = grid->getName();
-			//	SparseGrids = openvdb::gridPtrCast<GridDataType>(file.readGrid(i->get()->getName()));
-			//	Grids.push_back(SparseGrids->copyGrid());
-			//}
-			SparseGrids = openvdb::gridPtrCast<GridDataType>(file.readGrid("noise"));
-			Grids.push_back(SparseGrids->copyGrid());
-			file.close();
+			baseGrid = file.readGrid(gridName);
+			gridNames = gridNamesList(file);
+		}
+		else
+		{
+			OPENVDB_THROW(openvdb::IoError, "Could not read " + filename);
+		}
+		file.close();
+
+		if (baseGrid == nullptr)
+		{
+			OPENVDB_THROW(openvdb::RuntimeError, "Failed to read grid \"" + gridName + "\" from " + filename + ". Valid grid names are: " + gridNames);
+		}
+
+		SparseGrids = openvdb::gridPtrCast<openvdb::FloatGrid>(baseGrid);
+
+		if (SparseGrids == nullptr)
+		{
+			OPENVDB_THROW(openvdb::RuntimeError, "Failed to cast grid \"" + gridName + "\". Valid grid names are: " + gridNames);
 		}
 	}
 	catch (openvdb::Exception &e)
 	{
-		//TODO: Log openvdb exception messages to file
-		//errorMsg = e.what();
+		std::ofstream logfile;
+		logfile.open("C:\\Users\\zach\\Documents\\Unreal Projects\\obtuse-tanuki\\CosmicSafari\\ThirdParty\\exceptions.log");
+		logfile << "OvdbLoadVdb: " << e.what() << std::endl;
+		logfile.close();
 		error = 1;
 	}
 	return error;
@@ -103,16 +122,16 @@ int OvdbVolumeToMesh(double isovalue, double adaptivity)
 		//for (GridIterType i = Grids.begin(); i != Grids.end(); i++)
 		//{
 		//	GridTreeType tree = static_cast<GridTreeType>i->get()->;
-		//	openvdb::tools::volumeToMesh<GridDataType>(, Vertices, Triangles, Quads, isovalue, adaptivity);
+		//	openvdb::tools::volumeToMesh<openvdb::FloatGrid>(, Vertices, Triangles, Quads, isovalue, adaptivity);
 		//}
 		openvdb::CoordBBox bbox;
 		openvdb::Index32 vertexIndex = 0;
 		for (TreeDataType::NodeCIter i = SparseGrids->tree().cbeginNode(); i; ++i)
 		{
 			//From openvdb_viewer RenderModules.cc: Nodes are rendered as cell-centered
+			i.getBoundingBox(bbox);
 			const openvdb::Vec3d min(bbox.min().x() - 0.5, bbox.min().y() - 0.5, bbox.min().z() - 0.5);
 			const openvdb::Vec3d max(bbox.max().x() + 0.5, bbox.max().y() + 0.5, bbox.max().z() + 0.5);
-			i.getBoundingBox(bbox);
 
 			//Get the 8 vertices of the cube
 			PointType corners[NUMCORNERS];
@@ -249,12 +268,33 @@ int OvdbVolumeToMesh(double isovalue, double adaptivity)
 			Triangles.push_back(cubefaces.f6[F6[3]].i);
 		}
 
-		//Reverse the 
+		////Check if any Triangles index is greater than int32 max since UE4 uses int32 indices
+		//std::ostringstream errorMsg;
+		//for (std::vector<uint32_t>::const_iterator i = Triangles.begin(); i != Triangles.end(); i++)
+		//{
+		//	if (*i > INT32_MAX)
+		//	{
+		//		if (errorMsg.str() == "")
+		//		{
+		//			errorMsg << (*i);
+		//		}
+		//		else
+		//		{
+		//			errorMsg << ", " << (*i);
+		//		}
+		//	}
+		//}
+		//if (errorMsg.str() != "")
+		//{
+		//	OPENVDB_THROW(openvdb::RuntimeError, "Vertex indices are out of int32 bounds: " + errorMsg.str());
+		//}
 	}
 	catch (openvdb::Exception &e)
 	{
-		//TODO: Log openvdb exception messages to file
-		//errorMsg = e.what();
+		std::ofstream logfile;
+		logfile.open("C:\\Users\\zach\\Documents\\Unreal Projects\\obtuse-tanuki\\CosmicSafari\\ThirdParty\\exceptions.log");
+		logfile << "OvdbVolumeToMesh: " << e.what() << std::endl;
+		logfile.close();
 		error = 1;
 	}
 	return error;
@@ -262,70 +302,57 @@ int OvdbVolumeToMesh(double isovalue, double adaptivity)
 
 int OvdbGetNextMeshPoint(float &px, float &py, float &pz)
 {
-	int error = 0;
-	try
+	if (Vertices.empty())
 	{
-		if (Vertices.empty())
-		{
-			return 0;
-		}
-		VertexType ps = Vertices.back();
-		Vertices.pop_back();
-		px = ps.x();
-		py = ps.y();
-		pz = ps.z();
+		return 0;
 	}
-	catch (openvdb::Exception &e)
-	{
-		//TODO: Log openvdb exception messages to file
-		//errorMsg = e.what();
-		error = 1;
-	}
-	return error;
+	VertexType ps = Vertices.back();
+	Vertices.pop_back();
+	px = ps.x();
+	py = ps.y();
+	pz = ps.z();
+	return 1;
 }
 
 int OvdbGetNextMeshTriangle(uint32_t &vertexIndex)
 {
-	int error = 0;
-	try
+	if (Triangles.empty())
 	{
-		if (Triangles.empty())
-		{
-			return 0;
-		}
-		vertexIndex = Triangles.back();
-		Triangles.pop_back();
+		return 0;
 	}
-	catch (openvdb::Exception &e)
-	{
-		//TODO: Log openvdb exception messages to file
-		//errorMsg = e.what();
-		error = 1;
-	}
-	return error;
+	vertexIndex = Triangles.back();
+	Triangles.pop_back();
+	return 1;
 }
 
 int OvdbGetNextMeshQuad(uint32_t &qw, uint32_t &qx, uint32_t &qy, uint32_t &qz)
 {
-	int error = 0;
-	try
+	if (Quads.empty())
 	{
-		if (Quads.empty())
+		return 0;
+	}
+	QuadType qs = Quads.back();
+	Quads.pop_back();
+	qw = qs.w();
+	qx = qs.x();
+	qy = qs.y();
+	qz = qs.z();
+	return 1;
+}
+
+std::string gridNamesList(const openvdb::io::File &file)
+{
+	//Must call with an open file
+	std::string validNames;
+	openvdb::io::File::NameIterator nameIter = file.beginName();
+	while (nameIter != file.endName())
+	{
+		validNames += nameIter.gridName();
+		nameIter++;
+		if (nameIter != file.endName())
 		{
-			return 0;
+			validNames += ", ";
 		}
-		QuadType qs = Quads.back();
-		Quads.pop_back();
-		qw = qs.w();
-		qx = qs.x();
-		qy = qs.y();
-		qz = qs.z();
 	}
-	catch (openvdb::Exception &e)
-	{
-		//TODO: Log openvdb exception messages to file
-		//errorMsg = e.what();
-		error = 1;
-	}
-	return error;
+	return validNames;
 }

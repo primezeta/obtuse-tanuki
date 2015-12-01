@@ -1,49 +1,60 @@
 #include "OpenVDBModule.h"
 #include "libovdb.h"
-#include "../Plugins/Runtime/ProceduralMeshComponent/Source/Public/ProceduralMeshComponent.h"
 #include <string>
 #include <vector>
 
 void FOpenVDBModule::StartupModule()
 {
-	//std::string filename = "C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w3008_h3008_l3008_t16_s1_t1.vdb";
-	//std::string filename = "C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w288_h288_l288_t16_s1_t1.vdb";
-	std::string filename = "C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w288_h288_l288_t16_s1_t0.vdb";
-	//std::string filename = "C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Debug/vdbs/noise_w288_h288_l288_t16_s1_t0.vdb";
-
-	double isovalue = 0.0;
-	double adaptivity = 0.0;
-
 	if (OvdbInitialize())
 	{
 		//TODO: Handle Ovdb errors
 	}
-	if(OvdbLoadVdb(filename))
-	{
-		//TODO: Handle Ovdb errors
-	}
-	if(OvdbVolumeToMesh(isovalue, adaptivity))
-	{
-		//TODO: Handle Ovdb errors
-	}
+	return;
+}
 
-	UProceduralMeshComponent * mesh = nullptr;
-	//mesh.CreateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FColor>& VertexColors, const TArray<FProcMeshTangent>& Tangents, bool bCreateCollision)
+bool FOpenVDBModule::LoadVdbFile(FString vdbFilename, FString gridName)
+{
+	//std::string filename = "C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w3008_h3008_l3008_t16_s1_t1.vdb";
+	//std::string filename = "C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w288_h288_l288_t16_s1_t1.vdb";
+	//std::string filename = "C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w100_h100_l100_t10_s1_t0.vdb";
+	//std::string filename = "C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Debug/vdbs/noise_w288_h288_l288_t16_s1_t0.vdb";
+	//std::string filename = "C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w512_h512_l512_t8_s1_t1.vdb";
+
+	std::wstring wfname = *vdbFilename;
+	std::wstring wgname = *gridName;
+	std::string fname = std::string(wfname.begin(), wfname.end());
+	std::string gname = std::string(wgname.begin(), wgname.end());
+	if (OvdbLoadVdb(fname, gname))
+	{
+		//TODO: Handle Ovdb errors
+		return false;
+	}
+	return true;
+}
+bool FOpenVDBModule::GetVDBGeometry(double isovalue, double adaptivity, TQueue<FVector> &Vertices, TQueue<uint32_t> &TriangleIndices)
+{
+	//TODO: Sanity check to see if a VDB file has been loaded
+
+	if (OvdbVolumeToMesh(isovalue, adaptivity))
+	{
+		//TODO: Handle Ovdb errors
+		return false;
+	}
 
 	FVector vertex;
-	TArray<FVector> vertices;
 	while (OvdbGetNextMeshPoint(vertex.X, vertex.Y, vertex.Z))
 	{
-		vertices.Insert(vertex, 0);
+		//Vertices are taken from the back of the Ovdb vector, so enqueue them to preserve the order
+		Vertices.Enqueue(vertex);
 	}
 
 	uint32_t vertexIndex = 0;
-	TArray<uint32_t> triangles;
 	while (OvdbGetNextMeshTriangle(vertexIndex))
 	{
-		triangles.Add(vertexIndex);
+		TriangleIndices.Enqueue(vertexIndex);
 	}
-	return;
+
+	return true;
 }
 
 void FOpenVDBModule::ShutdownModule()

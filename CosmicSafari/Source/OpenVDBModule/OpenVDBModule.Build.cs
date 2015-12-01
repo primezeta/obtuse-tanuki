@@ -12,19 +12,12 @@ public class OpenVDBModule : ModuleRules
         Config = Target.Configuration;
 
         Type = ModuleType.CPlusPlus;
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "ProceduralMeshComponent" });
-        //PrivateDependencyModuleNames.AddRange(new string[] { "ProceduralMeshComponent" });
+        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
         PublicIncludePaths.AddRange(PublicIncludes);
         PrivateIncludePaths.AddRange(PrivateIncludes);
         PublicLibraryPaths.AddRange(LibPaths);
         PublicAdditionalLibraries.AddRange(LibNames);
-
-        //DynamicallyLoadedModuleNames.AddRange(new string[] { "ProceduralMeshComponent" });
-
-        //AddThirdPartyPrivateStaticDependencies(Target, );
         Definitions.AddRange(new string[] { "OPENVDB_OPENEXR_STATICLIB", "OPENVDB_STATICLIB" });
-        //Definitions.AddRange(new string[] { "OPENVDB_DLL" });
-
         MinFilesUsingPrecompiledHeaderOverride = 1;
         bFasterWithoutUnity = true;
 	}
@@ -74,8 +67,8 @@ public class OpenVDBModule : ModuleRules
                 //Note that we will still link to Release directories because the UE4 build system
                 //is made to mainly build release builds. The OpenVDB stuff can still be built with
                 //the debug database to allow debugging.
-                //path = "Debug";
-                path = "Release";
+                path = "Debug";
+                //path = "Release";
             }
             return path;
         }
