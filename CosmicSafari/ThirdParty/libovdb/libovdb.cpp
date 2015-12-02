@@ -4,34 +4,22 @@
 #include <openvdb/tools/Dense.h>
 #include <openvdb/tools/VolumeToMesh.h>
 #include <fstream>
+#include <map>
 
 typedef openvdb::FloatGrid::TreeType TreeDataType;
 typedef openvdb::math::Vec3s VertexType;
 typedef openvdb::Vec3d PointType;
 typedef openvdb::Vec4I QuadType;
+typedef openvdb::Index32 IndexType;
 
-enum PolyVertices { STARTCORNERS, MXMYMZ = STARTCORNERS, NXNYNZ, MXMYNZ, MXNYMZ, NXMYMZ, MXNYNZ, NXMYNZ, NXNYMZ, NUMCORNERS };
-struct Vertex
-{
-	PointType v;
-	openvdb::Index32 i;
-};
-struct CubeFaces
-{
-	Vertex f1[NUMCORNERS];
-	Vertex f2[NUMCORNERS];
-	Vertex f3[NUMCORNERS];
-	Vertex f4[NUMCORNERS];
-	Vertex f5[NUMCORNERS];
-	Vertex f6[NUMCORNERS];
-};
+enum PolyIndices { MXMYMZ, NXNYNZ, MXMYNZ, MXNYMZ, NXMYMZ, MXNYNZ, NXMYNZ, NXNYMZ, NUMCORNERS = NXNYMZ };
 
 static openvdb::FloatGrid::Ptr SparseGrids = nullptr;
-//static openvdb::GridPtrVec Grids;
 static std::vector<VertexType> Vertices;
-static std::vector<openvdb::Index32> Triangles;
+static std::vector<IndexType> Triangles;
 static std::vector<QuadType> Quads;
 
+PointType CubeVertex(PolyIndices corner, const PointType &boundsMin, const PointType &boundsMax);
 std::string gridNamesList(const openvdb::io::File &file);
 
 int OvdbInitialize()
@@ -114,180 +102,113 @@ int OvdbLoadVdb(const std::string &filename, const std::string &gridName)
 	return error;
 }
 
+struct comparePointType
+{
+	bool operator()(const PointType &lhs, const PointType &rhs) const
+	{
+		const static double eps = 0.00000001;
+		return ((lhs.x() - rhs.x()) <= eps &&
+			    (lhs.y() - rhs.y()) <= eps &&
+			    (lhs.z() - rhs.z()) <= eps);
+	}
+};
+
+PointType CubeVertex(PolyIndices corner, const PointType &boundsMin, const PointType &boundsMax)
+{
+	PointType v;
+	if (corner == MXMYMZ)
+	{
+		v = boundsMax;
+	}
+	else if (corner == NXNYNZ)
+	{
+		v = boundsMin;
+	}
+	else if (corner == MXMYNZ)
+	{
+		v = PointType(boundsMax.x(), boundsMax.y(), boundsMin.z());
+	}
+	else if (corner == MXNYMZ)
+	{
+		v = PointType(boundsMax.x(), boundsMin.y(), boundsMax.z());
+	}
+	else if (corner == NXMYMZ)
+	{
+		v = PointType(boundsMin.x(), boundsMax.y(), boundsMax.z());
+	}
+	else if (corner == MXNYNZ)
+	{
+		v = PointType(boundsMax.x(), boundsMin.y(), boundsMin.z());
+	}
+	else if (corner == NXMYNZ)
+	{
+		v = PointType(boundsMin.x(), boundsMax.y(), boundsMin.z());
+	}
+	else //if (corner == NXNYMZ)
+	{
+		v = PointType(boundsMin.x(), boundsMin.y(), boundsMax.z());
+	}
+	return v;
+}
+
 int OvdbVolumeToMesh(double isovalue, double adaptivity)
 {
 	int error = 0;
 	try
 	{
-		//for (GridIterType i = Grids.begin(); i != Grids.end(); i++)
-		//{
-		//	GridTreeType tree = static_cast<GridTreeType>i->get()->;
-		//	openvdb::tools::volumeToMesh<openvdb::FloatGrid>(, Vertices, Triangles, Quads, isovalue, adaptivity);
-		//}
 		openvdb::CoordBBox bbox;
-		openvdb::Index32 vertexIndex = 0;
+		IndexType vertexIndex = 0;
+		std::map<PointType, IndexType, comparePointType> polyVerticesByIndex;
+
+		//First collect all the vertices of each cube mapped to an index
 		for (TreeDataType::NodeCIter i = SparseGrids->tree().cbeginNode(); i; ++i)
 		{
 			//From openvdb_viewer RenderModules.cc: Nodes are rendered as cell-centered
 			i.getBoundingBox(bbox);
-			const openvdb::Vec3d min(bbox.min().x() - 0.5, bbox.min().y() - 0.5, bbox.min().z() - 0.5);
-			const openvdb::Vec3d max(bbox.max().x() + 0.5, bbox.max().y() + 0.5, bbox.max().z() + 0.5);
+			const PointType min(bbox.min().x() - 0.5, bbox.min().y() - 0.5, bbox.min().z() - 0.5);
+			const PointType max(bbox.max().x() + 0.5, bbox.max().y() + 0.5, bbox.max().z() + 0.5);
 
-			//Get the 8 vertices of the cube
-			PointType corners[NUMCORNERS];
-			corners[MXMYMZ] = SparseGrids->indexToWorld(max);
-			corners[NXNYNZ] = SparseGrids->indexToWorld(min);
-			corners[MXMYNZ] = SparseGrids->indexToWorld(PointType(max.x(), max.y(), min.z()));
-			corners[MXNYMZ] = SparseGrids->indexToWorld(PointType(max.x(), min.y(), max.z()));
-			corners[NXMYMZ] = SparseGrids->indexToWorld(PointType(min.x(), max.y(), max.z()));
-			corners[MXNYNZ] = SparseGrids->indexToWorld(PointType(max.x(), min.y(), min.z()));
-			corners[NXMYNZ] = SparseGrids->indexToWorld(PointType(min.x(), max.y(), min.z()));
-			corners[NXNYMZ] = SparseGrids->indexToWorld(PointType(min.x(), min.y(), max.z()));
-			
-			CubeFaces cubefaces;
-			cubefaces.f1[NXNYMZ].v = corners[NXNYMZ];
-			cubefaces.f1[NXNYMZ].i = vertexIndex;
-			cubefaces.f4[NXNYMZ].v = corners[NXNYMZ];
-			cubefaces.f4[NXNYMZ].i = vertexIndex;
-			cubefaces.f5[NXNYMZ].v = corners[NXNYMZ];
-			cubefaces.f5[NXNYMZ].i = vertexIndex;
-			Vertices.push_back(corners[NXNYMZ]);
+			//Each corner is shared by 3 faces
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(NXNYNZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(NXNYNZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(NXNYNZ, min, max), vertexIndex++));
 
-			vertexIndex++;
-			cubefaces.f1[NXNYNZ].v = corners[NXNYNZ];
-			cubefaces.f1[NXNYNZ].i = vertexIndex;
-			cubefaces.f4[NXNYNZ].v = corners[NXNYNZ];
-			cubefaces.f4[NXNYNZ].i = vertexIndex;
-			cubefaces.f6[NXNYNZ].v = corners[NXNYNZ];
-			cubefaces.f6[NXNYNZ].i = vertexIndex;
-			Vertices.push_back(corners[NXNYNZ]);
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(NXNYMZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(NXNYMZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(NXNYMZ, min, max), vertexIndex++));
 
-			vertexIndex++;
-			cubefaces.f1[MXNYNZ].v = corners[MXNYNZ];
-			cubefaces.f1[MXNYNZ].i = vertexIndex;
-			cubefaces.f2[MXNYNZ].v = corners[MXNYNZ];
-			cubefaces.f2[MXNYNZ].i = vertexIndex;
-			cubefaces.f6[MXNYNZ].v = corners[MXNYNZ];
-			cubefaces.f6[MXNYNZ].i = vertexIndex;
-			Vertices.push_back(corners[MXNYNZ]);
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(MXNYMZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(MXNYMZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(MXNYMZ, min, max), vertexIndex++));
 
-			vertexIndex++;
-			cubefaces.f1[MXNYMZ].v = corners[MXNYMZ];
-			cubefaces.f1[MXNYMZ].i = vertexIndex;
-			cubefaces.f2[MXNYMZ].v = corners[MXNYMZ];
-			cubefaces.f2[MXNYMZ].i = vertexIndex;
-			cubefaces.f5[MXNYMZ].v = corners[MXNYMZ];
-			cubefaces.f5[MXNYMZ].i = vertexIndex;
-			Vertices.push_back(corners[MXNYMZ]);
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(MXNYNZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(MXNYNZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(MXNYNZ, min, max), vertexIndex++));
 
-			vertexIndex++;
-			cubefaces.f2[MXMYNZ].v = corners[MXMYNZ];
-			cubefaces.f2[MXMYNZ].i = vertexIndex;
-			cubefaces.f3[MXMYNZ].v = corners[MXMYNZ];
-			cubefaces.f3[MXMYNZ].i = vertexIndex;
-			cubefaces.f6[MXMYNZ].v = corners[MXMYNZ];
-			cubefaces.f6[MXMYNZ].i = vertexIndex;
-			Vertices.push_back(corners[MXMYNZ]);
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(MXMYNZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(MXMYNZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(MXMYNZ, min, max), vertexIndex++));
 
-			vertexIndex++;
-			cubefaces.f2[MXMYMZ].v = corners[MXMYMZ];
-			cubefaces.f2[MXMYMZ].i = vertexIndex;
-			cubefaces.f3[MXMYMZ].v = corners[MXMYMZ];
-			cubefaces.f3[MXMYMZ].i = vertexIndex;
-			cubefaces.f5[MXMYMZ].v = corners[MXMYMZ];
-			cubefaces.f5[MXMYMZ].i = vertexIndex;
-			Vertices.push_back(corners[MXMYMZ]);
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(MXMYMZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(MXMYMZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(MXMYMZ, min, max), vertexIndex++));
 
-			vertexIndex++;
-			cubefaces.f3[NXMYNZ].v = corners[NXMYNZ];
-			cubefaces.f3[NXMYNZ].i = vertexIndex;
-			cubefaces.f4[NXMYNZ].v = corners[NXMYNZ];
-			cubefaces.f4[NXMYNZ].i = vertexIndex;
-			cubefaces.f6[NXMYNZ].v = corners[NXMYNZ];
-			cubefaces.f6[NXMYNZ].i = vertexIndex;
-			Vertices.push_back(corners[NXMYNZ]);
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(NXMYMZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(NXMYMZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(NXMYMZ, min, max), vertexIndex++));
 
-			vertexIndex++;
-			cubefaces.f3[NXMYMZ].v = corners[NXMYMZ];
-			cubefaces.f3[NXMYMZ].i = vertexIndex;
-			cubefaces.f4[NXMYMZ].v = corners[NXMYMZ];
-			cubefaces.f4[NXMYMZ].i = vertexIndex;
-			cubefaces.f5[NXMYMZ].v = corners[NXMYMZ];
-			cubefaces.f5[NXMYMZ].i = vertexIndex;
-			Vertices.push_back(corners[NXMYMZ]);
-
-			//Get the indices of the two polygons on each face of the cube
-			PolyVertices F1[4] = { NXNYMZ, NXNYNZ, MXNYNZ, MXNYMZ };
-			PolyVertices F2[4] = { MXNYMZ, MXNYNZ, MXMYNZ, MXMYMZ };
-			PolyVertices F3[4] = { MXMYMZ, MXMYNZ, NXMYNZ, NXMYMZ };
-			PolyVertices F4[4] = { NXMYMZ, NXMYNZ, NXNYNZ, NXNYMZ };
-			PolyVertices F5[4] = { NXMYMZ, NXNYMZ, MXNYMZ, MXMYMZ };
-			PolyVertices F6[4] = { NXNYNZ, NXMYNZ, MXMYNZ, MXNYNZ };
-
-			//Face #1
-			Triangles.push_back(cubefaces.f1[F1[0]].i);
-			Triangles.push_back(cubefaces.f1[F1[1]].i);
-			Triangles.push_back(cubefaces.f1[F1[2]].i);
-			Triangles.push_back(cubefaces.f1[F1[0]].i);
-			Triangles.push_back(cubefaces.f1[F1[2]].i);
-			Triangles.push_back(cubefaces.f1[F1[3]].i);
-			//Face #2
-			Triangles.push_back(cubefaces.f2[F2[0]].i);
-			Triangles.push_back(cubefaces.f2[F2[1]].i);
-			Triangles.push_back(cubefaces.f2[F2[2]].i);
-			Triangles.push_back(cubefaces.f2[F2[0]].i);
-			Triangles.push_back(cubefaces.f2[F2[2]].i);
-			Triangles.push_back(cubefaces.f2[F2[3]].i);
-			//Face #3
-			Triangles.push_back(cubefaces.f3[F3[0]].i);
-			Triangles.push_back(cubefaces.f3[F3[1]].i);
-			Triangles.push_back(cubefaces.f3[F3[2]].i);
-			Triangles.push_back(cubefaces.f3[F3[0]].i);
-			Triangles.push_back(cubefaces.f3[F3[2]].i);
-			Triangles.push_back(cubefaces.f3[F3[3]].i);
-			//Face #4
-			Triangles.push_back(cubefaces.f4[F4[0]].i);
-			Triangles.push_back(cubefaces.f4[F4[1]].i);
-			Triangles.push_back(cubefaces.f4[F4[2]].i);
-			Triangles.push_back(cubefaces.f4[F4[0]].i);
-			Triangles.push_back(cubefaces.f4[F4[2]].i);
-			Triangles.push_back(cubefaces.f4[F4[3]].i);
-			//Face #5
-			Triangles.push_back(cubefaces.f5[F6[0]].i);
-			Triangles.push_back(cubefaces.f5[F6[1]].i);
-			Triangles.push_back(cubefaces.f5[F6[2]].i);
-			Triangles.push_back(cubefaces.f5[F6[0]].i);
-			Triangles.push_back(cubefaces.f5[F6[2]].i);
-			Triangles.push_back(cubefaces.f5[F6[3]].i);
-			//Face #6
-			Triangles.push_back(cubefaces.f6[F6[0]].i);
-			Triangles.push_back(cubefaces.f6[F6[1]].i);
-			Triangles.push_back(cubefaces.f6[F6[2]].i);
-			Triangles.push_back(cubefaces.f6[F6[0]].i);
-			Triangles.push_back(cubefaces.f6[F6[2]].i);
-			Triangles.push_back(cubefaces.f6[F6[3]].i);
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(NXMYNZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(NXMYNZ, min, max), vertexIndex++));
+			polyVerticesByIndex.insert(std::pair<PointType, IndexType>(CubeVertex(NXMYNZ, min, max), vertexIndex++));
 		}
 
-		////Check if any Triangles index is greater than int32 max since UE4 uses int32 indices
-		//std::ostringstream errorMsg;
-		//for (std::vector<uint32_t>::const_iterator i = Triangles.begin(); i != Triangles.end(); i++)
-		//{
-		//	if (*i > INT32_MAX)
-		//	{
-		//		if (errorMsg.str() == "")
-		//		{
-		//			errorMsg << (*i);
-		//		}
-		//		else
-		//		{
-		//			errorMsg << ", " << (*i);
-		//		}
-		//	}
-		//}
-		//if (errorMsg.str() != "")
-		//{
-		//	OPENVDB_THROW(openvdb::RuntimeError, "Vertex indices are out of int32 bounds: " + errorMsg.str());
-		//}
+		for (std::map<PointType, IndexType, comparePointType>::const_iterator i = polyVerticesByIndex.begin(); i != polyVerticesByIndex.end(); i++)
+		{
+			PointType p = i->first;
+			IndexType x = i->second;
+			Vertices.push_back(VertexType((float)p.x(), (float)p.y(), (float)p.z()));
+			Triangles.push_back(IndexType(x));
+		}
 	}
 	catch (openvdb::Exception &e)
 	{

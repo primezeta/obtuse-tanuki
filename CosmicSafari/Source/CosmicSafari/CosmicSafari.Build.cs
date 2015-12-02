@@ -6,8 +6,10 @@ public class CosmicSafari : ModuleRules
 {
 	public CosmicSafari(TargetInfo Target)
 	{
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "OpenVDBModule" });
-        //PrivateDependencyModuleNames.AddRange(new string[] { "OpenVDBModule" });
+        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "OpenVDBModule", "ProceduralMeshComponent" });
+        //The other approach with dynamic loading would require use of LoadModule
+        //DynamicallyLoadedModuleNames.AddRange(new string[] { "ProceduralMeshComponent" });        
+        PrivateIncludePathModuleNames.AddRange(new string[] { "ProceduralMeshComponent" });
 	}
 
     public virtual void SetupGlobalEnvironment(

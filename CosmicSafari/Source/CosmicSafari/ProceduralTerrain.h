@@ -2,29 +2,33 @@
 
 #pragma once
 
-#include "Components/SceneComponent.h"
+#include "GameFramework/Actor.h"
+#include "ProceduralMeshComponent.h"
 #include "ProceduralTerrain.generated.h"
 
-UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
-class COSMICSAFARI_API UProceduralTerrain : public USceneComponent
+UCLASS()
+class COSMICSAFARI_API AProceduralTerrain : public AActor
 {
 	GENERATED_BODY()
 	
 public:	
 	// Sets default values for this actor's properties
-	UProceduralTerrain();
+	AProceduralTerrain();
 
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
 	// Called every frame
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void Tick(float DeltaSeconds) override;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
 	float MeshIsovalue;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
 	float MeshAdaptivity;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
+	UProceduralMeshComponent * TerrainMesh;
 
 	UFUNCTION(BlueprintCallable, Category = "ProceduralTerrain")
 	bool LoadVdbFile(FString vdbFilename, FString gridName);

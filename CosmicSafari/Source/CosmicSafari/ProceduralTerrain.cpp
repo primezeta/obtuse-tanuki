@@ -2,32 +2,28 @@
 
 #include "CosmicSafari.h"
 #include "OpenVDBModule/Public/OpenVDBModule.h"
-#include <string>
 #include "ProceduralTerrain.h"
 
 // Sets default values
-UProceduralTerrain::UProceduralTerrain()
+AProceduralTerrain::AProceduralTerrain()
 {
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
-	bWantsBeginPlay = true;
-	PrimaryComponentTick.bCanEverTick = true;
-	// ...
+	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	PrimaryActorTick.bCanEverTick = true;
 }
 
 // Called when the game starts or when spawned
-void UProceduralTerrain::BeginPlay()
+void AProceduralTerrain::BeginPlay()
 {
 	Super::BeginPlay();
 }
 
 // Called every frame
-void UProceduralTerrain::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+void AProceduralTerrain::Tick(float DeltaTime)
 {
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	Super::Tick(DeltaTime);
 }
 
-bool UProceduralTerrain::LoadVdbFile(FString vdbFilename, FString gridName)
+bool AProceduralTerrain::LoadVdbFile(FString vdbFilename, FString gridName)
 {
 	//Note: Blueprints do not currently support double
 	static FOpenVDBModule * openVDBModule = nullptr;
@@ -62,20 +58,18 @@ bool UProceduralTerrain::LoadVdbFile(FString vdbFilename, FString gridName)
 	return geometryLoaded;
 }
 
-bool UProceduralTerrain::GetNextMeshVertex(FVector &vertex)
+bool AProceduralTerrain::GetNextMeshVertex(FVector &vertex)
 {
-	bool empty = Vertices.IsEmpty();
-	if (!empty)
+	if (!Vertices.IsEmpty())
 	{
 		Vertices.Dequeue(vertex);
 	}
-	return empty;
+	return !Vertices.IsEmpty();
 }
 
-bool UProceduralTerrain::GetNextTriangleIndex(int32 &index)
+bool AProceduralTerrain::GetNextTriangleIndex(int32 &index)
 {
-	bool empty = TriangleIndices.IsEmpty();
-	if (!empty)
+	if (!TriangleIndices.IsEmpty())
 	{
 		uint32_t testIndex = 0;
 		TriangleIndices.Dequeue(testIndex);
@@ -83,6 +77,7 @@ bool UProceduralTerrain::GetNextTriangleIndex(int32 &index)
 		{
 			UE_LOG(LogFlying, Fatal, TEXT("Triangle index too large!"));
 		}
+		index = (int32)testIndex;
 	}
-	return empty;
+	return !TriangleIndices.IsEmpty();
 }
