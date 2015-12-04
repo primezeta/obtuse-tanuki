@@ -75,4 +75,14 @@
       <Filter>Source\OpenVDBModule\Public</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\Source\CosmicSafari\ProceduralTerrainMeshComponent.h">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Source\CosmicSafari\ProceduralTerrainMeshComponent.cpp">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClCompile>
+  </ItemGroup>
 </Project>

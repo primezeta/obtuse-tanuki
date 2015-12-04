@@ -9,12 +9,53 @@ AProceduralTerrain::AProceduralTerrain()
 {
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+
+	//Just to give something to see, setup a basic sphere as the root component. The procedural terrain mesh will be attached to this sphere
+	USphereComponent* SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("RootComponent"));
+	this->RootComponent = SphereComponent;
+	SphereComponent->InitSphereRadius(1.0f);
+	SphereComponent->SetCollisionProfileName(TEXT("Pawn")); //Don't know what the collision profile name does. Got this from a tutorial
+
+	//Visual mesh of the sphere
+	UStaticMeshComponent * SphereVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("AProceduralTerrain.RootComponent.Mesh"));
+	SphereVisual->AttachTo(RootComponent);
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereVisualAsset(TEXT("StaticMesh'/Engine/EngineMeshes/Sphere.Sphere'"));
+
+	if (SphereVisualAsset.Succeeded())
+	{
+		SphereVisual->SetStaticMesh(SphereVisualAsset.Object);
+		SphereVisual->SetRelativeLocation(FVector(0.0f));
+		SphereVisual->SetWorldScale3D(FVector(1.0f));
+	}
+
+	TerrainMeshComponent = CreateDefaultSubobject<UProceduralTerrainMeshComponent>(TEXT("GeneratedTerrain"));
+	TerrainMeshComponent->AttachTo(SphereComponent);
+	TerrainMeshComponent->SetRelativeLocation(FVector(0.0f));
+	TerrainMeshComponent->SetWorldScale3D(FVector(1.0f));
 }
 
 // Called when the game starts or when spawned
 void AProceduralTerrain::BeginPlay()
 {
 	Super::BeginPlay();
+
+	//C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w3008_h3008_l3008_t16_s1_t1.vdb;
+	//C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w288_h288_l288_t16_s1_t1.vdb;
+	//C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w100_h100_l100_t10_s1_t0.vdb;
+	//C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Debug/vdbs/noise_w288_h288_l288_t16_s1_t0.vdb;
+	//C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w512_h512_l512_t8_s1_t1.vdb;
+	FString vdbFilename = TEXT("C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w100_h100_l100_t10_s1_t0.vdb");
+	FString gridName = TEXT("noise");
+	if (!LoadVdbFile(vdbFilename, gridName))
+	{
+		UE_LOG(LogFlying, Warning, TEXT("%s %s %s %s"), TEXT("Failed to load"), *vdbFilename, TEXT(", grid"), *gridName);
+	}
+	else
+	{
+		int32 meshSectionIndex = 0;
+		TerrainMeshComponent->CreateTerrainMeshSection(meshSectionIndex, MeshSectionVertices, MeshSectionTriangleIndices);
+		TerrainMeshComponent->SetMeshSectionVisible(meshSectionIndex, true);
+	}
 }
 
 // Called every frame
@@ -23,7 +64,7 @@ void AProceduralTerrain::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 }
 
-bool AProceduralTerrain::LoadVdbFile(FString vdbFilename, FString gridName)
+bool AProceduralTerrain::LoadVdbFile(const FString &vdbFilename, const FString &gridName)
 {
 	//Note: Blueprints do not currently support double
 	static FOpenVDBModule * openVDBModule = nullptr;
@@ -33,10 +74,12 @@ bool AProceduralTerrain::LoadVdbFile(FString vdbFilename, FString gridName)
 		openVDBModule = &FOpenVDBModule::Get();
 		if (!openVDBModule->IsAvailable())
 		{
-			UE_LOG(LogFlying, Warning, TEXT("Failed to load OpenVDBModule!"));
-			return false;
+			UE_LOG(LogFlying, Warning, TEXT("Failed to start OpenVDBModule!"));
 		}
-		openVDBModule->StartupModule();
+		else
+		{
+			openVDBModule->StartupModule();
+		}
 	}
 	
 	static bool isLoaded = false;
@@ -44,40 +87,10 @@ bool AProceduralTerrain::LoadVdbFile(FString vdbFilename, FString gridName)
 	if (!isLoaded)
 	{
 		isLoaded = openVDBModule->LoadVdbFile(vdbFilename, gridName);
-	}
-
-	bool geometryLoaded = false;
-	if (isLoaded)
-	{
-		geometryLoaded = openVDBModule->GetVDBGeometry((double)MeshIsovalue, (double)MeshAdaptivity, Vertices, TriangleIndices);
-	}
-	else
-	{
-		UE_LOG(LogFlying, Warning, TEXT("%s %s %s %s"), TEXT("Failed to load"), *vdbFilename, TEXT(", grid"), *gridName);
-	}
-	return geometryLoaded;
-}
-
-bool AProceduralTerrain::GetNextMeshVertex(FVector &vertex)
-{
-	if (!Vertices.IsEmpty())
-	{
-		Vertices.Dequeue(vertex);
-	}
-	return !Vertices.IsEmpty();
-}
-
-bool AProceduralTerrain::GetNextTriangleIndex(int32 &index)
-{
-	if (!TriangleIndices.IsEmpty())
-	{
-		uint32_t testIndex = 0;
-		TriangleIndices.Dequeue(testIndex);
-		if (int32(testIndex) < 0)
+		if (!isLoaded)
 		{
-			UE_LOG(LogFlying, Fatal, TEXT("Triangle index too large!"));
+			UE_LOG(LogFlying, Warning, TEXT("VDB file %s %s"), *vdbFilename, TEXT("unable to load"));
 		}
-		index = (int32)testIndex;
 	}
-	return !TriangleIndices.IsEmpty();
+	return isLoaded && openVDBModule->GetVDBGeometry((double)MeshIsovalue, (double)MeshAdaptivity, MeshSectionVertices, MeshSectionTriangleIndices);
 }

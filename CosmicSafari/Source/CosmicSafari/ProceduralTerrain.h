@@ -3,7 +3,7 @@
 #pragma once
 
 #include "GameFramework/Actor.h"
-#include "ProceduralMeshComponent.h"
+#include "ProceduralTerrainMeshComponent.h"
 #include "ProceduralTerrain.generated.h"
 
 UCLASS()
@@ -28,18 +28,12 @@ public:
 	float MeshAdaptivity;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
-	UProceduralMeshComponent * TerrainMesh;
+	UProceduralTerrainMeshComponent * TerrainMeshComponent;
 
 	UFUNCTION(BlueprintCallable, Category = "ProceduralTerrain")
-	bool LoadVdbFile(FString vdbFilename, FString gridName);
-
-	UFUNCTION(BlueprintCallable, Category = "ProceduralTerrain")
-	bool GetNextMeshVertex(FVector &vertex);
-
-	UFUNCTION(BlueprintCallable, Category = "ProceduralTerrain")
-	bool GetNextTriangleIndex(int32 & index);
+	bool LoadVdbFile(const FString &vdbFilename, const FString &gridName);
 
 private:
-	TQueue<FVector> Vertices;
-	TQueue<uint32_t> TriangleIndices;
+	TArray<FVector> MeshSectionVertices;
+	TArray<int32> MeshSectionTriangleIndices;
 };

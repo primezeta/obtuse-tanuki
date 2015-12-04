@@ -1,7 +1,8 @@
 #include "OpenVDBModule.h"
 #include "libovdb.h"
 #include <string>
-#include <vector>
+
+DEFINE_LOG_CATEGORY(LogOpenVDBModule)
 
 void FOpenVDBModule::StartupModule()
 {
@@ -14,12 +15,6 @@ void FOpenVDBModule::StartupModule()
 
 bool FOpenVDBModule::LoadVdbFile(FString vdbFilename, FString gridName)
 {
-	//std::string filename = "C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w3008_h3008_l3008_t16_s1_t1.vdb";
-	//std::string filename = "C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w288_h288_l288_t16_s1_t1.vdb";
-	//std::string filename = "C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w100_h100_l100_t10_s1_t0.vdb";
-	//std::string filename = "C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Debug/vdbs/noise_w288_h288_l288_t16_s1_t0.vdb";
-	//std::string filename = "C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w512_h512_l512_t8_s1_t1.vdb";
-
 	std::wstring wfname = *vdbFilename;
 	std::wstring wgname = *gridName;
 	std::string fname = std::string(wfname.begin(), wfname.end());
@@ -31,7 +26,7 @@ bool FOpenVDBModule::LoadVdbFile(FString vdbFilename, FString gridName)
 	}
 	return true;
 }
-bool FOpenVDBModule::GetVDBGeometry(double isovalue, double adaptivity, TQueue<FVector> &Vertices, TQueue<uint32_t> &TriangleIndices)
+bool FOpenVDBModule::GetVDBGeometry(double isovalue, double adaptivity, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices)
 {
 	//TODO: Sanity check to see if a VDB file has been loaded
 
@@ -45,13 +40,21 @@ bool FOpenVDBModule::GetVDBGeometry(double isovalue, double adaptivity, TQueue<F
 	while (OvdbGetNextMeshPoint(vertex.X, vertex.Y, vertex.Z))
 	{
 		//Vertices are taken from the back of the Ovdb vector, so enqueue them to preserve the order
-		Vertices.Enqueue(vertex);
+		Vertices.Insert(vertex, 0);
 	}
 
-	uint32_t vertexIndex = 0;
+	uint32 vertexIndex = 0;
 	while (OvdbGetNextMeshTriangle(vertexIndex))
 	{
-		TriangleIndices.Enqueue(vertexIndex);
+		int32 testIndex = (int32)vertexIndex;
+		if (testIndex < 0)
+		{
+			UE_LOG(LogOpenVDBModule, Warning, TEXT("Triangle index is too large!"));
+		}
+		else
+		{
+			TriangleIndices.Add(vertexIndex);
+		}
 	}
 
 	return true;

@@ -268,7 +268,9 @@
     <ClCompile Include="..\..\Source\CosmicSafari\ProceduralTerrain.cpp" />
     <ClInclude Include="..\..\Source\CosmicSafari\ProceduralTerrain.h" />
     <None Include="..\..\Source\OpenVDBModule\OpenVDBModule.Build.cs" />
+    <ClCompile Include="..\..\Source\CosmicSafari\ProceduralTerrainMeshComponent.cpp" />
     <ClCompile Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.cpp" />
+    <ClInclude Include="..\..\Source\CosmicSafari\ProceduralTerrainMeshComponent.h" />
     <ClInclude Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.h" />
   </ItemGroup>
   <PropertyGroup>

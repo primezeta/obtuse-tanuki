@@ -20,7 +20,9 @@ public:
 	}
 
 	bool LoadVdbFile(FString vdbFilename, FString gridName);
-	bool GetVDBGeometry(double isovalue, double adaptivity, TQueue<FVector> &Vertices, TQueue<uint32_t> &TriangleIndices);
+	bool GetVDBGeometry(double isovalue, double adaptivity, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices);
 };
+
+DECLARE_LOG_CATEGORY_EXTERN(LogOpenVDBModule, Log, All);
 
 #endif
