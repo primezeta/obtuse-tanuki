@@ -43,17 +43,20 @@ bool FOpenVDBModule::GetVDBGeometry(double isovalue, double adaptivity, TArray<F
 		Vertices.Insert(vertex, 0);
 	}
 
-	uint32 vertexIndex = 0;
-	while (OvdbGetNextMeshTriangle(vertexIndex))
+	uint32 triangleIndex[3];
+	while (OvdbGetNextMeshTriangle(triangleIndex[0], triangleIndex[1], triangleIndex[2]))
 	{
-		int32 testIndex = (int32)vertexIndex;
-		if (testIndex < 0)
+		for (int i = 0; i < 3; i++)
 		{
-			UE_LOG(LogOpenVDBModule, Warning, TEXT("Triangle index is too large!"));
-		}
-		else
-		{
-			TriangleIndices.Add(vertexIndex);
+			int32 testIndex = (int32)triangleIndex[i];
+			if (testIndex < 0)
+			{
+				UE_LOG(LogOpenVDBModule, Fatal, TEXT("Triangle index is too large!"));
+			}
+			else
+			{
+				TriangleIndices.Add(testIndex);
+			}
 		}
 	}
 

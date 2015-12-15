@@ -25,13 +25,21 @@ AProceduralTerrain::AProceduralTerrain()
 	{
 		SphereVisual->SetStaticMesh(SphereVisualAsset.Object);
 		SphereVisual->SetRelativeLocation(FVector(0.0f));
-		SphereVisual->SetWorldScale3D(FVector(1.0f));
+		SphereVisual->SetWorldScale3D(FVector(0.1f));
 	}
 
 	TerrainMeshComponent = CreateDefaultSubobject<UProceduralTerrainMeshComponent>(TEXT("GeneratedTerrain"));
 	TerrainMeshComponent->AttachTo(SphereComponent);
 	TerrainMeshComponent->SetRelativeLocation(FVector(0.0f));
 	TerrainMeshComponent->SetWorldScale3D(FVector(1.0f));
+
+	//static ConstructorHelpers::FObjectFinder<UMaterial> TerrainMaterialObject(TEXT("Material'/Engine/EngineMaterials/DefaultDeferredDecalMaterial.DefaultDeferredDecalMaterial'"));
+	//if (TerrainMaterialObject.Succeeded())
+	//{
+	//	TerrainMaterial = (UMaterial*)TerrainMaterialObject.Object;
+	//	TerrainDynamicMaterial = UMaterialInstanceDynamic::Create(TerrainMaterial, this);
+	//	TerrainMeshComponent->SetMaterial(0, TerrainDynamicMaterial);
+	//}
 }
 
 // Called when the game starts or when spawned
@@ -92,5 +100,6 @@ bool AProceduralTerrain::LoadVdbFile(const FString &vdbFilename, const FString &
 			UE_LOG(LogFlying, Warning, TEXT("VDB file %s %s"), *vdbFilename, TEXT("unable to load"));
 		}
 	}
+	MeshIsovalue = 0.1;
 	return isLoaded && openVDBModule->GetVDBGeometry((double)MeshIsovalue, (double)MeshAdaptivity, MeshSectionVertices, MeshSectionTriangleIndices);
 }

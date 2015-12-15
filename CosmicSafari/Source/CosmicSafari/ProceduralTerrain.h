@@ -30,10 +30,14 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
 	UProceduralTerrainMeshComponent * TerrainMeshComponent;
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
+	UMaterial * TerrainMaterial;
+
 	UFUNCTION(BlueprintCallable, Category = "ProceduralTerrain")
 	bool LoadVdbFile(const FString &vdbFilename, const FString &gridName);
 
 private:
 	TArray<FVector> MeshSectionVertices;
 	TArray<int32> MeshSectionTriangleIndices;
+	UMaterialInstanceDynamic * TerrainDynamicMaterial;
 };
