@@ -42,12 +42,11 @@ int main(int argc, char * argv[])
 		int mapY = 0;
 		int mapZ = 0;
 
-		{
-			int mapSize = std::stoi(argv[2]);
-			mapX = mapSize;
-			mapY = mapSize;
-			mapZ = mapSize / 100;
-		}
+		int mapSize = std::stoi(argv[2]);
+		mapX = mapSize;
+		mapY = mapSize;
+		//mapZ = mapSize / int(sqrtf(mapSize));
+		mapZ = mapSize / 100;
 		float mapScale = std::stof(argv[3]);
 		filename << gridName << "-X" << mapX << "-Y" << mapY << "-Z" << mapZ << "_scale" << mapScale;
 
@@ -58,7 +57,7 @@ int main(int argc, char * argv[])
 		maxHeightMapValueShifted = maxHeightMapValue + fabs(minHeightMapValue);
 
 		openvdb::math::Coord minBounds(0, 0, 0);
-		openvdb::math::Coord maxBounds(mapX, mapY, mapZ);
+		openvdb::math::Coord maxBounds(mapX-1, mapY-1, mapZ-1);
 		openvdb::math::CoordBBox mapBounds(minBounds, maxBounds);
 
 		openvdb::tools::Dense<float> denseGrid(mapBounds);
@@ -70,25 +69,29 @@ int main(int argc, char * argv[])
 		{
 			for (int y = denseGrid.bbox().min().y(); y < denseGrid.bbox().max().y(); y++)
 			{
-				//float terrainHeight = openvdb::math::RoundDown((noiseMap.GetValue(x, y) + fabs(minHeightMapValue)) * noiseValueToWorldConversion);
-				float terrainHeight = openvdb::math::RoundDown(noiseMap.GetValue(x, y) * noiseValueToWorldConversion);
-				int h = int(openvdb::math::RoundDown(terrainHeight * noiseValueToWorldConversion));
+				float terrainHeight = noiseMap.GetValue(x, y);
+				int h = int(openvdb::math::RoundDown((terrainHeight + fabs(minHeightMapValue)) * noiseValueToWorldConversion));
 
-				for (int z = h - 1; z >= denseGrid.bbox().min().z(); z--)
+				float posTerrainHeight = fabs(terrainHeight);
+				for (int z = denseGrid.bbox().min().z(); z < h; z++)
 				{
-					denseGrid.setValue(openvdb::Coord(x, y, z), -noiseValueToWorldConversion*float(h-z));
+					denseGrid.setValue(openvdb::Coord(x, y, z), -posTerrainHeight*float(h-z));
 				}
 				denseGrid.setValue(openvdb::Coord(x, y, h), 0.0f);
 				for (int z = h+1; z <= denseGrid.bbox().max().z(); z++)
 				{
-					denseGrid.setValue(openvdb::Coord(x, y, z), noiseValueToWorldConversion*float(z));
+					denseGrid.setValue(openvdb::Coord(x, y, z), posTerrainHeight*float(z));
 				}
 			}
 		}
 
 		openvdb::FloatGrid::Ptr sparseGrid = openvdb::FloatGrid::create();
 		openvdb::tools::copyFromDense(denseGrid, *sparseGrid, 0.0f);
-		openvdb::tools::doSignedFloodFill(sparseGrid->tree(), 1.0, -1.0, false, 1);
+
+		//Save points that are contained within the surface set (outside, inside)
+		float outside = 0.0f;
+		float inside = 0.0f;
+		openvdb::tools::doSignedFloodFill(sparseGrid->tree(), outside, inside, false, 1);
 
 		int counton = 0;
 		for (auto i = sparseGrid->beginValueOn(); i; ++i)
