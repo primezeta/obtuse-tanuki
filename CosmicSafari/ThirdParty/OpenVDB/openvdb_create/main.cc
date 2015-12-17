@@ -45,8 +45,8 @@ int main(int argc, char * argv[])
 		int mapSize = std::stoi(argv[2]);
 		mapX = mapSize;
 		mapY = mapSize;
-		//mapZ = mapSize / int(sqrtf(mapSize));
-		mapZ = mapSize / 100;
+		mapZ = 20; //TODO: Throw an error if map size is less than 10...or just set it to 10. Duhhhh
+		std::cout << "Map height " << mapZ << std::endl;
 		float mapScale = std::stof(argv[3]);
 		filename << gridName << "-X" << mapX << "-Y" << mapY << "-Z" << mapZ << "_scale" << mapScale;
 
@@ -81,7 +81,7 @@ int main(int argc, char * argv[])
 				for (int z = h+1; z <= denseGrid.bbox().max().z(); z++)
 				{
 					denseGrid.setValue(openvdb::Coord(x, y, z), posTerrainHeight*float(z));
-				}
+				}				
 			}
 		}
 
@@ -89,8 +89,8 @@ int main(int argc, char * argv[])
 		openvdb::tools::copyFromDense(denseGrid, *sparseGrid, 0.0f);
 
 		//Save points that are contained within the surface set (outside, inside)
-		float outside = 0.0f;
-		float inside = 0.0f;
+		float outside = float(sparseGrid->voxelSize().length());
+		float inside = -float(sparseGrid->voxelSize().length());
 		openvdb::tools::doSignedFloodFill(sparseGrid->tree(), outside, inside, false, 1);
 
 		int counton = 0;
@@ -105,6 +105,8 @@ int main(int argc, char * argv[])
 		}
 		std::cout << "sparse grid " << counton << " on, " << countoff << " off" << std::endl;
 
+		sparseGrid->setName(gridName);
+		sparseGrid->setGridClass(openvdb::GRID_LEVEL_SET);
 		grids.push_back(sparseGrid);
 		openvdb::io::File file("vdbs/" + filename.str() + ".vdb");
 		file.write(grids);

@@ -52,7 +52,7 @@ void AProceduralTerrain::BeginPlay()
 	//C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w100_h100_l100_t10_s1_t0.vdb;
 	//C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Debug/vdbs/noise_w288_h288_l288_t16_s1_t0.vdb;
 	//C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w512_h512_l512_t8_s1_t1.vdb;
-	FString vdbFilename = TEXT("C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w100_h100_l100_t10_s1_t0.vdb");
+	FString vdbFilename = TEXT("C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise-X200-Y200-Z10_scale1.vdb");
 	FString gridName = TEXT("noise");
 	if (!LoadVdbFile(vdbFilename, gridName))
 	{
@@ -100,6 +100,7 @@ bool AProceduralTerrain::LoadVdbFile(const FString &vdbFilename, const FString &
 			UE_LOG(LogFlying, Warning, TEXT("VDB file %s %s"), *vdbFilename, TEXT("unable to load"));
 		}
 	}
-	MeshIsovalue = 0.1;
+	MeshIsovalue = 0.0f;
+	MeshAdaptivity = 0.0f;
 	return isLoaded && openVDBModule->GetVDBGeometry((double)MeshIsovalue, (double)MeshAdaptivity, MeshSectionVertices, MeshSectionTriangleIndices);
 }
