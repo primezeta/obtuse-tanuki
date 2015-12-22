@@ -10,10 +10,11 @@ AProceduralTerrain::AProceduralTerrain()
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
+	this->SetActorScale3D(FVector(10.0f, 10.0f, 10.0f));
 	//Just to give something to see, setup a basic sphere as the root component. The procedural terrain mesh will be attached to this sphere
 	USphereComponent* SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("RootComponent"));
 	this->RootComponent = SphereComponent;
-	SphereComponent->InitSphereRadius(1.0f);
+	SphereComponent->InitSphereRadius(0.000f);
 	SphereComponent->SetCollisionProfileName(TEXT("Pawn")); //Don't know what the collision profile name does. Got this from a tutorial
 
 	//Visual mesh of the sphere

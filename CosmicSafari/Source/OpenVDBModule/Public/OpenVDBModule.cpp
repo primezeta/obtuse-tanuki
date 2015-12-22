@@ -30,7 +30,10 @@ bool FOpenVDBModule::GetVDBGeometry(double isovalue, double adaptivity, TArray<F
 {
 	//TODO: Sanity check to see if a VDB file has been loaded
 
-	if (OvdbVolumeToMesh(isovalue, adaptivity))
+	int32 regionCountX = 20;
+	int32 regionCountY = 20;
+	int32 regionCountZ = 1;
+	if (OvdbVolumeToMesh(regionCountX, regionCountY, regionCountZ, isovalue, adaptivity))
 	{
 		//TODO: Handle Ovdb errors
 		return false;
@@ -39,8 +42,7 @@ bool FOpenVDBModule::GetVDBGeometry(double isovalue, double adaptivity, TArray<F
 	FVector vertex;
 	while (OvdbGetNextMeshPoint(vertex.X, vertex.Y, vertex.Z))
 	{
-		//Vertices are taken from the back of the Ovdb vector, so enqueue them to preserve the order
-		Vertices.Insert(vertex, 0);
+		Vertices.Add(vertex);
 	}
 
 	uint32 triangleIndex[3];
