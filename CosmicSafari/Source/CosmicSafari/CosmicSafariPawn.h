@@ -33,44 +33,18 @@ protected:
 	virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override; // Allows binding actions/axes to functions
 	// End APawn overrides
 
-	/** Bound to the thrust axis */
-	void ThrustInput(float Val);
-	
-	/** Bound to the vertical axis */
-	void MoveUpInput(float Val);
-
-	/** Bound to the horizontal axis */
-	void MoveRightInput(float Val);
+	void MouseXInput(float Val);
+	void MouseYInput(float Val);
+	void ForwardInput(float Val);
+	void BackwardInput(float Val);
+	void LeftInput(float Val);
+	void RightInput(float Val);
+	void UpInput(float Val);
+	void DownInput(float Val);
 
 private:
-
-	/** How quickly forward speed changes */
-	UPROPERTY(Category=Plane, EditAnywhere)
-	float Acceleration;
-
-	/** How quickly pawn can steer */
-	UPROPERTY(Category=Plane, EditAnywhere)
-	float TurnSpeed;
-
-	/** Max forward speed */
-	UPROPERTY(Category = Pitch, EditAnywhere)
-	float MaxSpeed;
-
-	/** Min forward speed */
-	UPROPERTY(Category=Yaw, EditAnywhere)
-	float MinSpeed;
-
-	/** Current forward speed */
-	float CurrentForwardSpeed;
-
-	/** Current yaw speed */
-	float CurrentYawSpeed;
-
-	/** Current pitch speed */
-	float CurrentPitchSpeed;
-
-	/** Current roll speed */
-	float CurrentRollSpeed;
+	float MoveSpeed;
+	FVector Movement;
 
 public:
 	/** Returns PlaneMesh subobject **/
