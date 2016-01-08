@@ -52,22 +52,12 @@ void ACosmicSafariPawn::SetupPlayerInputComponent(class UInputComponent* InputCo
 
 void ACosmicSafariPawn::MouseXInput(float Val)
 {
-	static float PrevVal = 0.0f;
-	if (!FMath::IsNearlyEqual(Val, PrevVal))
-	{
-		AddControllerYawInput(Val);
-		PrevVal = Val;
-	}
+	AddControllerYawInput(Val);
 }
 
 void ACosmicSafariPawn::MouseYInput(float Val)
 {
-	static float PrevVal = 0.0f;
-	if (!FMath::IsNearlyEqual(Val, PrevVal))
-	{
-		AddControllerPitchInput(-Val);
-		PrevVal = Val;
-	}
+	AddControllerPitchInput(-Val);
 }
 
 void ACosmicSafariPawn::ForwardInput(float Val)
@@ -119,6 +109,7 @@ void ACosmicSafariPawn::UpInput(float Val)
 		PrevVal = Val;
 	}
 }
+
 
 void ACosmicSafariPawn::DownInput(float Val)
 {

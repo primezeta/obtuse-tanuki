@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <None Include="..\..\CosmicSafari.uproject" />
     <Filter Include="Source">
-      <UniqueIdentifier>{3100930B-46E9-4577-B8DF-96AF946F6BDE}</UniqueIdentifier>
+      <UniqueIdentifier>{AAA78A8D-AC6A-4E80-817B-35D4AF895B31}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Source\CosmicSafari.Target.cs">
       <Filter>Source</Filter>
@@ -12,7 +12,7 @@
       <Filter>Source</Filter>
     </None>
     <Filter Include="Config">
-      <UniqueIdentifier>{410027A3-ACA8-4435-A3F8-791F23332457}</UniqueIdentifier>
+      <UniqueIdentifier>{82F01B6C-C46D-414C-B631-27401016B410}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Config\DefaultEditor.ini">
       <Filter>Config</Filter>
@@ -30,7 +30,7 @@
       <Filter>Config</Filter>
     </None>
     <Filter Include="Source\CosmicSafari">
-      <UniqueIdentifier>{755FA466-053B-4AD7-A469-9D3BFD924BE6}</UniqueIdentifier>
+      <UniqueIdentifier>{40B13A72-2164-4C08-B834-FDA9F59F39F8}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Source\CosmicSafari\CosmicSafari.Build.cs">
       <Filter>Source\CosmicSafari</Filter>
@@ -59,14 +59,20 @@
     <ClInclude Include="..\..\Source\CosmicSafari\ProceduralTerrain.h">
       <Filter>Source\CosmicSafari</Filter>
     </ClInclude>
+    <ClCompile Include="..\..\Source\CosmicSafari\ProceduralTerrainMeshComponent.cpp">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\CosmicSafari\ProceduralTerrainMeshComponent.h">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClInclude>
     <Filter Include="Source\OpenVDBModule">
-      <UniqueIdentifier>{393901C7-C78E-4C29-915B-30CB9913E8C3}</UniqueIdentifier>
+      <UniqueIdentifier>{1DB7D2AC-ABD7-4EEB-9573-AC37365383B3}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Source\OpenVDBModule\OpenVDBModule.Build.cs">
       <Filter>Source\OpenVDBModule</Filter>
     </None>
     <Filter Include="Source\OpenVDBModule\Public">
-      <UniqueIdentifier>{48645D7C-D8BC-45D9-B2F8-7EF097A4CCFD}</UniqueIdentifier>
+      <UniqueIdentifier>{5C85F7AA-F8E1-454D-9B72-546303C0BC81}</UniqueIdentifier>
     </Filter>
     <ClCompile Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.cpp">
       <Filter>Source\OpenVDBModule\Public</Filter>
@@ -74,15 +80,5 @@
     <ClInclude Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.h">
       <Filter>Source\OpenVDBModule\Public</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\..\Source\CosmicSafari\ProceduralTerrainMeshComponent.h">
-      <Filter>Source\CosmicSafari</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\..\Source\CosmicSafari\ProceduralTerrainMeshComponent.cpp">
-      <Filter>Source\CosmicSafari</Filter>
-    </ClCompile>
   </ItemGroup>
 </Project>

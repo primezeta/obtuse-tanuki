@@ -4,45 +4,86 @@
 #include <openvdb/tools/Dense.h>
 #include <openvdb/tools/VolumeToMesh.h>
 #include <openvdb/tools/Clip.h>
+#include <openvdb/tools/GridOperators.h>
 #include <fstream>
 #include <map>
 
+typedef int64_t IndexType;
 static openvdb::FloatGrid::Ptr SparseGrids = nullptr;
-static std::vector<openvdb::Vec3d> Vertices;
-static std::vector<openvdb::Index32> Triangles;
+static std::vector<openvdb::Vec3d> WorldVertices;
+static std::vector<IndexType> Triangles;
+enum QuadOrientation { XY, XZ, YZ, ORIENTATION_COUNT };
 
-enum Component { cX, cY, cZ };
-typedef struct _Quad
+typedef struct _Quad_
 {
-	const std::vector<openvdb::Vec3d> * vertices;
-	openvdb::Vec4I p;
+	_Quad_(QuadOrientation o, openvdb::FloatGrid::ConstPtr g, std::vector<openvdb::Coord> &vs, IndexType i1, IndexType i2, IndexType i3, IndexType i4, double w, double h) :
+		vertices(vs), v1(i1), v2(i2), v3(i3), v4(i4), width(w), height(h), isMerged(false) { grid = g; }
+    IndexType v1;
+    IndexType v2;
+    IndexType v3;
+    IndexType v4;
+	bool isMerged;
 	double width;
 	double height;
-	bool isMerged;
-	Component lz, ly, lx; //Which vertex indices to refer to when comparing quads
-	_Quad(const std::vector<openvdb::Vec3d> const * v, double w, double h) : vertices(v), width(w), height(h), isMerged(false) {}
-	void _Quad::setLocal(Component x, Component y, Component z) { lx = x; ly = y; lz = z; }
-	//quad[0] is always the origin
-	double _Quad::localZ() const { return vertices->at(p[0])[lz]; } //Get the component perpindicular to the quad face
-	double _Quad::localY() const { return vertices->at(p[0])[ly]; } //Get the first component of the quad vertex
-	double _Quad::localX() const { return vertices->at(p[0])[lx]; } //Get the second component of the quad vertex
+	openvdb::Coord origin() const { return coordByOrientation(vertices[v1]); }
+	openvdb::Coord left() const { return coordByOrientation(vertices[v2]); }
+	openvdb::Coord right() const { return coordByOrientation(vertices[v3]); }
+	openvdb::Coord opposite() const { return coordByOrientation(vertices[v4]); }
+    openvdb::Vec3d worldOrigin() const { return grid->indexToWorld(origin()); }
+    openvdb::Vec3d worldLeft() const { return grid->indexToWorld(left()); }
+    openvdb::Vec3d worldRight() const { return grid->indexToWorld(right()); }
+    openvdb::Vec3d worldOpposite() const { return grid->indexToWorld(opposite()); }
+    openvdb::Vec3d worldV1() const { return grid->indexToWorld(vertices[v1]); }
+    openvdb::Vec3d worldV2() const { return grid->indexToWorld(vertices[v2]); }
+    openvdb::Vec3d worldV3() const { return grid->indexToWorld(vertices[v3]); }
+    openvdb::Vec3d worldV4() const { return grid->indexToWorld(vertices[v4]); }
+private:
+    QuadOrientation orientation;
+	openvdb::FloatGrid::ConstPtr grid;
+	const std::vector<openvdb::Coord> &vertices;
+    openvdb::Coord coordByOrientation(const openvdb::Coord &c) const
+    {
+        if (orientation == XY)
+        {
+            return openvdb::Coord(c.x(), c.y(), c.z());
+        }
+        else if (orientation == XZ)
+        {
+            return openvdb::Coord(c.x(), c.z(), c.y());
+        }
+        else //YZ
+        {
+            return openvdb::Coord(c.y(), c.z(), c.x());
+        }
+    }
 } Quad;
+
+
+typedef struct _VertexByIndex_
+{
+	openvdb::Coord coord;
+    IndexType index;
+    _VertexByIndex_(openvdb::Coord c, IndexType i) : coord(c), index(i) {};
+} VertexByIndex;
 
 //Sort quads by a total ordering
 //(via Mikola Lysenko at http://0fps.net/2012/06/30/meshing-in-a-minecraft-game)
-inline bool compareQuads(const Quad &l, const Quad &r)
+struct cmpByQuad
 {
-	if (!openvdb::math::isApproxEqual(l.localZ(), r.localZ())) return l.localZ() < r.localZ();
-	if (!openvdb::math::isApproxEqual(l.localY(), r.localY())) return l.localY() < r.localY();
-	if (!openvdb::math::isApproxEqual(l.localX(), r.localX())) return l.localX() < r.localX();
-	if (!openvdb::math::isApproxEqual(l.width, r.width)) return l.width > r.width;
-	return openvdb::math::isApproxEqual(l.height, r.height) || l.height > r.height;
-}
+	bool operator()(const Quad &l, const Quad &r) const
+	{
+        if (l.origin().y() != r.origin().y()) return l.origin().y() < r.origin().y();
+        if (l.origin().x() != r.origin().x()) return l.origin().x() < r.origin().x();
+        if (l.width != r.width) return l.width > r.width;
+        return l.height >= r.height;
+	}
+};
 
+typedef std::set<Quad, cmpByQuad> QuadSet;
+typedef std::vector<Quad> QuadVec;
 std::string gridNamesList(const openvdb::io::File &file);
-void getPrimitiveQuads(openvdb::FloatGrid::ConstPtr grid, std::vector<openvdb::Vec3d> * vertices, std::vector<Quad> &xyQuads, std::vector<Quad> &yzQuads, std::vector<Quad> &xzQuads);
-void mergeQuads(std::vector<Quad> &quads);
-void getCornerVertices(openvdb::FloatGrid::ConstPtr grid, std::vector<openvdb::Vec3d> * cornerVertices, openvdb::Vec3I &dimensions);
+void getVoxelQuads(openvdb::FloatGrid::ConstPtr grid, QuadVec &quads, std::vector<openvdb::Coord> &vertices);
+void mergeQuads(QuadVec &quads);
 
 int OvdbInitialize()
 {
@@ -129,101 +170,35 @@ int OvdbVolumeToMesh(int32_t regionCountX, int32_t regionCountY, int32_t regionC
 	int error = 0;
 	try
 	{
-		std::vector<Quad> xyQuads;
-		std::vector<Quad> yzQuads;
-		std::vector<Quad> xzQuads;
-		getPrimitiveQuads(SparseGrids, &Vertices, xyQuads, yzQuads, xzQuads);
-		mergeQuads(xyQuads);
-		mergeQuads(yzQuads);
-		mergeQuads(xzQuads);
+        QuadVec voxelQuads;
+        std::vector<openvdb::Coord> voxelVertexIndices;
+		getVoxelQuads(SparseGrids, voxelQuads, voxelVertexIndices);
+		mergeQuads(voxelQuads);
 
-		for (std::vector<Quad>::const_iterator i = xyQuads.begin(); i != xyQuads.end(); i++)
+		uint32_t mergedCount = 0;
+		uint32_t vertexIndex = 0;
+		for (auto i = voxelQuads.begin(); i != voxelQuads.end(); ++i)
 		{
 			if (i->isMerged)
 			{
-				continue;
+				mergedCount++; //For debugging
 			}
-			//First triangle of the quad
-			Triangles.push_back(i->p[0]);
-			Triangles.push_back(i->p[3]);
-			Triangles.push_back(i->p[1]);
-			//Second triangle of the quad
-			Triangles.push_back(i->p[0]);
-			Triangles.push_back(i->p[3]);
-			Triangles.push_back(i->p[2]);
-		}
-		for (std::vector<Quad>::const_iterator i = yzQuads.begin(); i != yzQuads.end(); i++)
-		{
-			if (i->isMerged)
+			else
 			{
-				continue;
+				//4 vertices for this quad
+				WorldVertices.push_back(i->worldV1());
+				WorldVertices.push_back(i->worldV2());
+				WorldVertices.push_back(i->worldV3());
+				WorldVertices.push_back(i->worldV4());
+				//Collect triangle indices of the two triangles comprising this quad
+				Triangles.push_back(i->v1); //Quad 1
+				Triangles.push_back(i->v4);
+				Triangles.push_back(i->v2);
+				Triangles.push_back(i->v1); //Quad 2
+				Triangles.push_back(i->v4);
+				Triangles.push_back(i->v3);
 			}
-			//First triangle of the quad
-			Triangles.push_back(i->p[0]);
-			Triangles.push_back(i->p[3]);
-			Triangles.push_back(i->p[1]);
-			//Second triangle of the quad
-			Triangles.push_back(i->p[0]);
-			Triangles.push_back(i->p[3]);
-			Triangles.push_back(i->p[2]);
 		}
-		for (std::vector<Quad>::const_iterator i = xzQuads.begin(); i != xzQuads.end(); i++)
-		{
-			if (i->isMerged)
-			{
-				continue;
-			}
-			//First triangle of the quad
-			Triangles.push_back(i->p[0]);
-			Triangles.push_back(i->p[3]);
-			Triangles.push_back(i->p[1]);
-			//Second triangle of the quad
-			Triangles.push_back(i->p[0]);
-			Triangles.push_back(i->p[3]);
-			Triangles.push_back(i->p[2]);
-		}
-
-		//if (!(regionCountX && regionCountY && regionCountZ))
-		//{
-		//	OPENVDB_THROW(openvdb::ValueError, "Mesh chunk sizes must be greater than 0");
-		//}
-		//openvdb::math::CoordBBox boundingBox = SparseGrids->evalActiveVoxelBoundingBox();
-		//openvdb::Coord bounds = boundingBox.max() - boundingBox.min();
-		//openvdb::Int32 spanX = bounds.x() / openvdb::Int32(regionCountX);
-		//openvdb::Int32 spanY = bounds.y() / openvdb::Int32(regionCountY);
-		//openvdb::Int32 spanZ = bounds.z() / openvdb::Int32(regionCountZ);
-		////TODO: Get remainder region (or just constrain region sizes to evenly divide map size)
-		////openvdb::Int32 remSpanX = bounds.x() % openvdb::Int32(regionCountX);
-		////openvdb::Int32 remSpanY = bounds.y() % openvdb::Int32(regionCountY);
-		////openvdb::Int32 remSpanZ = bounds.z() % openvdb::Int32(regionCountZ);
-		//
-		//openvdb::Int32 regionCount = regionCountX * regionCountY * regionCountZ;
-		//std::vector< std::vector<Quad> > regionQuads;
-		//for (openvdb::Int32 i = 0; i < regionCount; i++)
-		//{
-		//	//Create the quad vector for each region now to avoid deep copies later
-		//	std::vector<Quad> q;
-		//	regionQuads.push_back(q);
-		//}
-
-		//for (openvdb::Int32 x = 0; x < openvdb::Int32(regionCountX); x += 2)
-		//{
-		//	for (openvdb::Int32 y = 0; y < openvdb::Int32(regionCountY); y += 2)
-		//	{
-		//		for (openvdb::Int32 z = 0; z < openvdb::Int32(regionCountZ); z += 2)
-		//		{
-		//			openvdb::Vec3d regionStart = SparseGrids->indexToWorld(openvdb::Coord(x*spanX, y*spanY, z*spanZ) + boundingBox.min());
-		//			openvdb::Vec3d regionEnd = SparseGrids->indexToWorld(openvdb::Coord((x+1)*spanX, (y+1)*spanY, (z+1)*spanZ) + boundingBox.min());
-		//			openvdb::FloatGrid::Ptr region = openvdb::tools::clip(*SparseGrids, openvdb::BBoxd(regionStart, regionEnd));
-		//			getPrimitiveQuads(region, regionQuads[x*regionCountX + y*regionCountY + z*regionCountZ]);
-		//		}
-		//	}
-		//}
-
-		//for (std::vector< std::vector<Quad> >::iterator i = regionQuads.begin(); i != regionQuads.end(); i++)
-		//{
-		//	mergeQuads(*i);
-		//}
 	}
 	catch (openvdb::Exception &e)
 	{
@@ -238,12 +213,12 @@ int OvdbVolumeToMesh(int32_t regionCountX, int32_t regionCountY, int32_t regionC
 
 int OvdbGetNextMeshPoint(float &vx, float &vy, float &vz)
 {
-	if (Vertices.empty())
+	if (WorldVertices.empty())
 	{
 		return 0;
 	}
-	openvdb::Vec3d v = Vertices.back();
-	Vertices.pop_back();
+	openvdb::Vec3d v = WorldVertices.back();
+	WorldVertices.pop_back();
 	vx = float(v.x());
 	vy = float(v.y());
 	vz = float(v.z());
@@ -256,11 +231,11 @@ int OvdbGetNextMeshTriangle(uint32_t &i0, uint32_t &i1, uint32_t &i2)
 	{
 		return 0;
 	}
-	i0 = Triangles.back();
+	i0 = uint32_t(Triangles.back()); //TODO: error check index ranges
 	Triangles.pop_back();
-	i1 = Triangles.back();
+	i1 = uint32_t(Triangles.back());
 	Triangles.pop_back();
-	i2 = Triangles.back();
+	i2 = uint32_t(Triangles.back());
 	Triangles.pop_back();
 	return 1;
 }
@@ -282,84 +257,76 @@ std::string gridNamesList(const openvdb::io::File &file)
 	return validNames;
 }
 
-void getCornerVertices(openvdb::FloatGrid::ConstPtr grid, std::vector<openvdb::Vec3d> * cornerVertices, openvdb::Vec3I &dimensions)
+void getVoxelQuads(openvdb::FloatGrid::ConstPtr grid, QuadVec &quads, std::vector<openvdb::Coord> &vertices)
 {
-	openvdb::FloatGrid::ConstAccessor accessor = grid->getAccessor();
-	openvdb::math::CoordBBox bbox = grid->evalActiveVoxelBoundingBox();
-	openvdb::Int32 xDim = 0;
-	openvdb::Int32 yDim = 0;
-	openvdb::Int32 zDim = 0;
-	for (openvdb::Int32 x = bbox.min().x(); x <= bbox.max().x(); x++)
+    QuadSet uniqueQuads[ORIENTATION_COUNT];
+    openvdb::Int64Grid::Ptr visitedVertexIndices = openvdb::Int64Grid::create(-1);
+	visitedVertexIndices->setTransform(grid->transformPtr()->copy());
+    visitedVertexIndices->topologyUnion(*grid);
+	//visitedVertexIndices->setTree(grid->treePtr()->copy());
+    openvdb::Vec3d voxelSize = grid->voxelSize();
+
+	for (auto i = grid->cbeginValueOn(); i; ++i)
 	{
-		xDim = openvdb::math::Max(xDim, x);
-		for (openvdb::Int32 y = bbox.min().y(); y <= bbox.max().y(); y++)
+		if (i.isVoxelValue())
 		{
-			yDim = openvdb::math::Max(yDim, y);
-			for (openvdb::Int32 z = bbox.min().z(); z <= bbox.max().z(); z++)
+			std::vector<VertexByIndex> cubeVertices;
+			openvdb::Coord origin = i.getCoord();
+			openvdb::Coord opposite = openvdb::Coord(origin.x() + 1, origin.y() + 1, origin.z() + 1);
+
+			cubeVertices.push_back(VertexByIndex(origin, -1));
+			cubeVertices.push_back(VertexByIndex(openvdb::Coord(origin.x() + 1, origin.y(), origin.z()), -1));
+			cubeVertices.push_back(VertexByIndex(openvdb::Coord(origin.x(), origin.y() + 1, origin.z()), -1));
+			cubeVertices.push_back(VertexByIndex(openvdb::Coord(origin.x(), origin.y(), origin.z() + 1), -1));
+			cubeVertices.push_back(VertexByIndex(opposite, -1));
+			cubeVertices.push_back(VertexByIndex(openvdb::Coord(opposite.x() - 1, opposite.y(), opposite.z()), -1));
+			cubeVertices.push_back(VertexByIndex(openvdb::Coord(opposite.x(), opposite.y() - 1, opposite.z()), -1));
+			cubeVertices.push_back(VertexByIndex(openvdb::Coord(opposite.x(), opposite.y(), opposite.z() - 1), -1));
+
+            openvdb::Int64Grid::Accessor visited = visitedVertexIndices->getAccessor();
+			for (auto c = cubeVertices.begin(); c != cubeVertices.end(); c++)
 			{
-				openvdb::Coord xyz(x, y, z);
-				if (accessor.isVoxel(xyz) &&
-					accessor.isValueOn(xyz))
+                IndexType value = -1;
+				if (visited.getValue(c->coord) < 0)
 				{
-					zDim = openvdb::math::Max(zDim, z);
-					cornerVertices->push_back(xyz.asVec3d());
+					vertices.push_back(c->coord);
+                    value = IndexType(vertices.size() - 1);
+					visited.setValue(c->coord, value); //TODO:: error check index ranges                    
 				}
+				else
+				{
+                    value = visited.getValue(c->coord);
+				}
+                c->index = value;
 			}
+
+			Quad q1(XY, grid, vertices, cubeVertices[0].index, cubeVertices[1].index, cubeVertices[2].index, cubeVertices[7].index, voxelSize.x(), voxelSize.y());
+			Quad q2(XZ, grid, vertices, cubeVertices[0].index, cubeVertices[3].index, cubeVertices[1].index, cubeVertices[6].index, voxelSize.x(), voxelSize.z());
+			Quad q3(YZ, grid, vertices, cubeVertices[0].index, cubeVertices[2].index, cubeVertices[3].index, cubeVertices[6].index, voxelSize.y(), voxelSize.z());
+			Quad q4(XY, grid, vertices, cubeVertices[4].index, cubeVertices[5].index, cubeVertices[6].index, cubeVertices[3].index, voxelSize.x(), voxelSize.y());
+			Quad q5(XZ, grid, vertices, cubeVertices[4].index, cubeVertices[5].index, cubeVertices[7].index, cubeVertices[2].index, voxelSize.x(), voxelSize.z());
+			Quad q6(YZ, grid, vertices, cubeVertices[4].index, cubeVertices[6].index, cubeVertices[7].index, cubeVertices[1].index, voxelSize.y(), voxelSize.z());
+			uniqueQuads[XY].insert(q1);
+			uniqueQuads[XZ].insert(q2);
+			uniqueQuads[YZ].insert(q3);
+			uniqueQuads[XY].insert(q4);
+			uniqueQuads[XZ].insert(q5);
+			uniqueQuads[YZ].insert(q6);
 		}
 	}
-	dimensions = openvdb::Vec3I(xDim, yDim, zDim);
+
+    for (auto i = 0; i < ORIENTATION_COUNT; i++)
+    {
+        for (auto j = uniqueQuads[i].cbegin(); j != uniqueQuads[i].end(); j++)
+        {
+            quads.push_back(*j);
+        }
+    }
 }
 
-void getPrimitiveQuads(openvdb::FloatGrid::ConstPtr grid, std::vector<openvdb::Vec3d> * vertices, std::vector<Quad> &xyQuads, std::vector<Quad> &yzQuads, std::vector<Quad> &xzQuads)
+void mergeQuads(QuadVec &quads)
 {
-	openvdb::Vec3I dimensions;
-	getCornerVertices(grid, vertices, dimensions);
-
-	//For each corner vertex get the indices of the vertices which make up the 3 quads from the corner
-	for (openvdb::Index32 x = 0; x < dimensions.x(); x++)
-	{
-		for (openvdb::Index32 y = 0; y < dimensions.y(); y++)
-		{
-			for (openvdb::Index32 z = 0; z < dimensions.z(); z++)
-			{
-				openvdb::Index32 i = x*(dimensions.x()) + y*(dimensions.y()) + z;
-
-				//XY quad
-				Quad xy(vertices, grid->voxelSize().x(), SparseGrids->voxelSize().y());
-				xy.p[0] = i;
-				xy.p[1] = i + dimensions.y()*dimensions.z(); 
-				xy.p[2] = i + dimensions.z();
-				xy.p[3] = i + dimensions.y()*(dimensions.z() + 1);
-				xy.setLocal(cX, cY, cZ);
-				//YZ quad
-				Quad yz(vertices, grid->voxelSize().y(), SparseGrids->voxelSize().z());
-				yz.p[0] = i;
-				yz.p[1] = i + dimensions.z();
-				yz.p[2] = i + 1;
-				yz.p[3] = i + dimensions.z() + 1;
-				yz.setLocal(cY, cZ, cX);
-				//XZ quad
-				Quad xz(vertices, grid->voxelSize().x(), SparseGrids->voxelSize().z());
-				xz.p[0] = i;
-				xz.p[1] = i + dimensions.y()*dimensions.z(); 
-				xz.p[2] = i + 1;
-				xz.p[3] = i + dimensions.y()*dimensions.z() + 1;
-				xz.setLocal(cX, cZ, cY);
-
-				xyQuads.push_back(xy);
-				yzQuads.push_back(yz);
-				xzQuads.push_back(xz);
-			}
-		}
-	}
-}
-
-void mergeQuads(std::vector<Quad> &quads)
-{
-	//Sort quads into a total ordering
-	std::sort(quads.begin(), quads.end(), compareQuads);
-
-	for (auto i = quads.begin(); i != quads.end(); i++)
+	for (auto i = quads.begin(); i != quads.end(); ++i)
 	{
 		//Skip a quad that's been merged
 		if (i->isMerged)
@@ -372,33 +339,36 @@ void mergeQuads(std::vector<Quad> &quads)
 		//Then start again with the next un-merged quad.
 		auto j = i;
 		j++;
-		//Only attempt to merge if both quads are on the same vertical level
-		for (; j != quads.end() && openvdb::math::isApproxEqual(j->localZ(), i->localZ()); j++)
+		for (; j != quads.end(); ++j)
 		{
-			if (j->isMerged)
+			//Only attempt to merge an unmerged quad that is on the same vertical level
+			if (j->isMerged ||
+				!openvdb::math::isApproxEqual(j->worldOrigin().z(), i->worldOrigin().z()))
 			{
-				continue; //TODO: Figure out if on/off check here is necessary. Since we're greedy meshing, it may not ever matter to check here
+				continue; //TODO: Figure out if 'isMerged' check here is necessary. Since we're greedy meshing, it may not ever matter to check here
 			}
-			//Check if we can merge one direction
-			if (openvdb::math::isApproxEqual(j->localY(), i->localY()) && //Same vertical location...
-				openvdb::math::isApproxEqual(j->localX() - i->localX(), i->width) && //Adjacent...
-				openvdb::math::isApproxEqual(j->height, i->height)) //Same height
+
+			//Check if we can merge by width
+			if (openvdb::math::isApproxEqual(j->worldOrigin().y(), i->worldOrigin().y()) && //Same location y-axis...
+                openvdb::math::isApproxEqual(j->worldOrigin().x() - i->worldOrigin().x(), i->width) && //Adjacent...
+                openvdb::math::isApproxEqual(j->height, i->height)) //Same height
 			{
 				i->width += j->width;
-				i->p[1] = j->p[1];
-				i->p[3] = j->p[3];
+				i->v3 = j->v3;
+				i->v4 = j->v4;
 			}
-			//Can't merge in that direction so check if we can merge the other direction
-			else if (openvdb::math::isApproxEqual(j->localX(), i->localX()) && //Same horizontal location...
-					 openvdb::math::isApproxEqual(j->localY() - i->localY(), i->height) && //Adjacent...
-					 openvdb::math::isApproxEqual(j->width, i->width)) //Same width
+            //Check if we can merge by height
+			else if (openvdb::math::isApproxEqual(j->worldOrigin().x(), i->worldOrigin().x()) && //Same location x-axis...
+                     openvdb::math::isApproxEqual(j->worldOrigin().y() - i->worldOrigin().y(), i->height) && //Adjacent...
+                     openvdb::math::isApproxEqual(j->width, i->width)) //Same width
 			{
 				i->height += j->height;
-				i->p[2] = j->p[2];
-				i->p[3] = j->p[3];
+				i->v2 = j->v2;
+				i->v4 = j->v4;
 			}
-			else //Done with merging since we could no longer merge in either direction
+			else
 			{
+				//Done with merging since we could no longer merge in either direction
 				break;
 			}
 			j->isMerged = true; //Mark this quad as merged so that it won't be meshed
