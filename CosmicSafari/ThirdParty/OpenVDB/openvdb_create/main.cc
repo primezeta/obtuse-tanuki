@@ -12,7 +12,9 @@
 #include "openvdbnoise.h"
 #include "../libovdb/libovdb.h"
 
+const static float FLOAT_EPS = 0.00001f;
 void usage();
+void printGridStats(openvdb::FloatGrid::ConstPtr grid, bool printForVoxels, float comparisonEps = FLOAT_EPS);
 
 //Cylinder creation code from http://kirilllykov.github.io/blog/2013/04/02/level-set-openvdb-intro-1/
 void makeCylinder(openvdb::FloatGrid::Ptr grid, float radius, const openvdb::CoordBBox& indexBB, double h);
@@ -42,10 +44,10 @@ int main(int argc, char * argv[])
 		int mapY = 0;
 		int mapZ = 0;
 
-		int mapSize = std::stoi(argv[2]);
+		int mapSize = std::stoi(argv[2])-1;
 		mapX = mapSize;
 		mapY = mapSize;
-		mapZ = 20; //TODO: Throw an error if map size is less than 10...or just set it to 10. Duhhhh
+		mapZ = 10; //TODO: Throw an error if map size is less than 10...or just set it to 10. Duhhhh
 		std::cout << "Map height " << mapZ << std::endl;
 		float mapScale = std::stof(argv[3]);
 		filename << gridName << "-X" << mapX << "-Y" << mapY << "-Z" << mapZ << "_scale" << mapScale;
@@ -57,7 +59,7 @@ int main(int argc, char * argv[])
 		maxHeightMapValueShifted = maxHeightMapValue + fabs(minHeightMapValue);
 
 		openvdb::math::Coord minBounds(0, 0, 0);
-		openvdb::math::Coord maxBounds(mapX-1, mapY-1, mapZ-1);
+		openvdb::math::Coord maxBounds(mapX, mapY, mapZ);
 		openvdb::math::CoordBBox mapBounds(minBounds, maxBounds);
 
 		openvdb::tools::Dense<float> denseGrid(mapBounds);
@@ -65,9 +67,9 @@ int main(int argc, char * argv[])
 			<< denseGrid.bbox().max().x() << "," << denseGrid.bbox().max().y() << "," << denseGrid.bbox().max().z() << ")" << std::endl;
 
 		float noiseValueToWorldConversion = (denseGrid.bbox().max().z() - denseGrid.bbox().min().z()) / maxHeightMapValueShifted;
-		for (int x = denseGrid.bbox().min().x(); x < denseGrid.bbox().max().x(); x++)
+		for (int x = denseGrid.bbox().min().x(); x <= denseGrid.bbox().max().x(); x++)
 		{
-			for (int y = denseGrid.bbox().min().y(); y < denseGrid.bbox().max().y(); y++)
+			for (int y = denseGrid.bbox().min().y(); y <= denseGrid.bbox().max().y(); y++)
 			{
 				float terrainHeight = noiseMap.GetValue(x, y);
 				int h = int(openvdb::math::RoundDown((terrainHeight + fabs(minHeightMapValue)) * noiseValueToWorldConversion));
@@ -81,32 +83,39 @@ int main(int argc, char * argv[])
 				for (int z = h+1; z <= denseGrid.bbox().max().z(); z++)
 				{
 					denseGrid.setValue(openvdb::Coord(x, y, z), posTerrainHeight*float(z));
-				}				
+				}
 			}
 		}
 
 		openvdb::FloatGrid::Ptr sparseGrid = openvdb::FloatGrid::create();
 		openvdb::tools::copyFromDense(denseGrid, *sparseGrid, 0.0f);
-
-		//Save points that are contained within the surface set (outside, inside)
-		float outside = float(sparseGrid->voxelSize().length());
-		float inside = -float(sparseGrid->voxelSize().length());
-		openvdb::tools::doSignedFloodFill(sparseGrid->tree(), outside, inside, false, 1);
-
-		int counton = 0;
-		for (auto i = sparseGrid->beginValueOn(); i; ++i)
-		{
-			++counton;
-		}
-		int countoff = 0;
-		for (auto i = sparseGrid->beginValueOff(); i; ++i)
-		{
-			++countoff;
-		}
-		std::cout << "sparse grid " << counton << " on, " << countoff << " off" << std::endl;
-
 		sparseGrid->setName(gridName);
 		sparseGrid->setGridClass(openvdb::GRID_LEVEL_SET);
+		
+		for (auto i = sparseGrid->beginValueAll(); i; ++i)
+		{
+			if (i.isVoxelValue())
+			{
+				if (openvdb::math::isApproxZero(i.getValue(), FLOAT_EPS))
+				{
+					i.setActiveState(true);
+				}
+				else
+				{
+					i.setActiveState(false);
+				}
+			}
+		}
+
+		//Save points that are contained within the surface set (outside, inside)
+		//float outside = float(sparseGrid->voxelSize().length());
+		//float inside = -float(sparseGrid->voxelSize().length());
+		//openvdb::tools::doSignedFloodFill(sparseGrid->tree(), outside, inside, false, 1);
+		openvdb::tools::pruneLevelSet(sparseGrid->tree());
+
+		printGridStats(sparseGrid, true); //Print stats for voxel values
+		printGridStats(sparseGrid, false); //Print stats for tile values
+
 		grids.push_back(sparseGrid);
 		openvdb::io::File file("vdbs/" + filename.str() + ".vdb");
 		file.write(grids);
@@ -268,6 +277,53 @@ void GetHeightMapExtents(const noise::utils::NoiseMap& noiseMap, float &minHeigh
 	std::cout << "min noise = " << minHeightMapValue << std::endl;
 	std::cout << "max noise = " << maxHeightMapValue << std::endl;
 #endif
+}
+
+void printGridStats(openvdb::FloatGrid::ConstPtr grid, bool printForVoxels, float comparisonEps)
+{
+	int count = 0;
+	int countZero = 0;
+	int countNonZero = 0;
+	int countOn = 0;
+	int countOff = 0;
+
+	//Collect the counts
+	for (auto i = grid->beginValueAll(); i; ++i)
+	{
+		if (i.isVoxelValue() == printForVoxels)
+		{
+			count++;
+			if (openvdb::math::isApproxZero(i.getValue(), comparisonEps))
+			{
+				countZero++;
+			}
+			else
+			{
+				countNonZero++;
+			}
+
+			if (i.isValueOn())
+			{
+				countOn++;
+			}
+			else
+			{
+				countOff++;
+			}
+		}
+	}
+
+	if (printForVoxels)
+	{
+		std::cout << "Voxel stats:" << std::endl;
+	}
+	else
+	{
+		std::cout << "Tile stats:" << std::endl;
+	}
+	std::cout << "\t" << count << " total" << std::endl;
+	std::cout << "\t" << countZero << " == 0, " << countNonZero << " != 0, " << "eps " << comparisonEps << std::endl;
+	std::cout << "\t" << countOn << " on, " << countOff << " off" << std::endl;
 }
 
 void makeCylinder(openvdb::FloatGrid::Ptr grid, float radius, const openvdb::CoordBBox& indexBB, double h)
