@@ -32,6 +32,9 @@
 *.sdf
 *.suo
 *.pdb
+*.idb
+*.ilk
+*.exp
 
 # Unreal Engine 4
 CosmicSafari/Binaries/*
@@ -51,3 +54,7 @@ CosmicSafari/ThirdParty/OpenVDB/src/openvdb/viewer/glfw-legacy-master/examples/*
 CosmicSafari/DerivedDataCache
 CosmicSafari/Intermediate/ReimportCache
 CosmicSafari/Intermediate/CachedAssetRegistry.bin
+
+# Build logs
+*.tlog
+*.log
