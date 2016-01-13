@@ -33,7 +33,7 @@ bool FOpenVDBModule::GetVDBGeometry(double isovalue, double adaptivity, TArray<F
 	int32 regionCountX = 20;
 	int32 regionCountY = 20;
 	int32 regionCountZ = 1;
-	if (OvdbVolumeToMesh(regionCountX, regionCountY, regionCountZ, isovalue, adaptivity))
+	if (OvdbVolumeToMesh(MESHING_NAIVE, regionCountX, regionCountY, regionCountZ, isovalue, adaptivity))
 	{
 		//TODO: Handle Ovdb errors
 		return false;
