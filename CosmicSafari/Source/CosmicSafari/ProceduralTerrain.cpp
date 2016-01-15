@@ -33,6 +33,7 @@ AProceduralTerrain::AProceduralTerrain()
 	TerrainMeshComponent->SetRelativeLocation(FVector(0.0f));
 	TerrainMeshComponent->SetWorldScale3D(FVector(1.0f));
 	TerrainMeshComponent->SetWorldScale3D(FVector(100.0f, 100.0f, 100.0f));
+	TerrainMeshComponent->SetWorldRotation(FQuat(FVector(1.0f, 0.0f, 0.0f), 3.14159f));
 	//SetActorScale3D(FVector(100.0f, 100.0f, 100.0f));
 
 	//static ConstructorHelpers::FObjectFinder<UMaterial> TerrainMaterialObject(TEXT("Material'/Engine/EngineMaterials/DefaultDeferredDecalMaterial.DefaultDeferredDecalMaterial'"));
