@@ -12,9 +12,9 @@ const static uint32_t INVALID_GRID_ID = UINT32_MAX;
 
 uint32_t addGridRegion(openvdb::FloatGrid::Ptr grid);
 openvdb::FloatGrid::Ptr getGridByID(uint32_t gridID);
-openvdb::FloatGrid::Ptr getGridByID(uint32_t gridID, OvdbVoxelVolume<TreeType> *volume);
+openvdb::FloatGrid::Ptr getGridByID(uint32_t gridID, OvdbVoxelVolume<TreeType> &volume);
 openvdb::FloatGrid::ConstPtr getConstGridByID(uint32_t gridID);
-openvdb::FloatGrid::ConstPtr getConstGridByID(uint32_t gridID, const OvdbVoxelVolume<TreeType> *constVolume);
+openvdb::FloatGrid::ConstPtr getConstGridByID(uint32_t gridID, OvdbVoxelVolume<TreeType> &volume);
 void checkGridID(uint32_t gridID);
 std::string gridNamesList(const openvdb::io::File &file);
 
@@ -68,19 +68,17 @@ int OvdbReadVdb(const std::string &filename, const std::string &gridName, uint32
 		}
 		std::string gridNames = gridNamesList(file);
 
-		auto i = file.getGrids()->cbegin();
-		for (; i != file.getGrids()->end() && i->get()->getName() != gridName; ++i);
-		if (i == file.getGrids()->end())
+		auto g = file.readGrid(gridName);
+		file.close();
+		if (!g)
 		{
 			OPENVDB_THROW(openvdb::RuntimeError, "Unable to find grid \"" + gridName + "\" in " + filename);
 		}
-		
-		openvdb::FloatGrid::Ptr grid = openvdb::gridPtrCast<openvdb::FloatGrid>(*i);
-		file.close();
-		if (*i == nullptr)
+		openvdb::FloatGrid::Ptr grid = openvdb::gridPtrCast<openvdb::FloatGrid>(g);
+		if (!grid)
 		{
-			OPENVDB_THROW(openvdb::RuntimeError, "Failed to cast grid \"" + gridName + "\". Valid grid names are: " + gridNames);
-		}        
+			OPENVDB_THROW(openvdb::RuntimeError, "No valid grids in " + filename);
+		}
 		gridID = addGridRegion(grid);
     }
     catch (openvdb::Exception &e)
@@ -145,11 +143,10 @@ int OvdbVolumeToMesh(uint32_t gridID, OvdbMeshMethod meshMethod, float surfaceVa
     int error = 0;
     try
     {
-		OvdbVoxelVolume<TreeType> * volume = nullptr;
+		OvdbVoxelVolume<TreeType> volume;
 		openvdb::FloatGrid::ConstPtr grid = getGridByID(gridID, volume);
-		assert(volume);
-		volume->buildVolume(grid->evalActiveVoxelBoundingBox(), surfaceValue);
-		volume->doMesh(meshMethod);
+		volume.buildVolume(grid->evalActiveVoxelBoundingBox(), surfaceValue);
+		volume.doMesh(meshMethod);
     }
     catch (openvdb::Exception &e)
     {
@@ -165,18 +162,17 @@ int OvdbVolumeToMesh(uint32_t gridID, OvdbMeshMethod meshMethod, float surfaceVa
 int OvdbYieldNextMeshPoint(uint32_t gridID, float &vx, float &vy, float &vz)
 {
 	static uint32_t prevID = INVALID_GRID_ID;
-	static OvdbVoxelVolume<TreeType> * volume = nullptr;
+	static OvdbVoxelVolume<TreeType> volume;
 	static openvdb::FloatGrid::ConstPtr grid = nullptr;
 	static std::vector<QuadVertexType>::const_iterator iter;
 	if (gridID != prevID)
 	{
-		getConstGridByID(gridID, volume);
-		assert(volume);
+		grid = getConstGridByID(gridID, volume);
 		prevID = gridID;
-		iter = volume->verticesCBegin();
+		iter = volume.verticesCBegin();
 	}
 
-    if (iter == volume->verticesCEnd())
+    if (iter == volume.verticesCEnd())
     {
         return 0;
     }
@@ -190,18 +186,17 @@ int OvdbYieldNextMeshPoint(uint32_t gridID, float &vx, float &vy, float &vz)
 int OvdbYieldNextMeshPolygon(uint32_t gridID, uint32_t &i1, uint32_t &i2, uint32_t &i3)
 {
 	static uint32_t prevID = INVALID_GRID_ID;
-	static OvdbVoxelVolume<TreeType> * volume = nullptr;
+	static OvdbVoxelVolume<TreeType> volume;
 	static openvdb::FloatGrid::ConstPtr grid = nullptr;
 	static std::vector<PolygonIndicesType>::const_iterator iter;
 	if (gridID != prevID)
 	{
-		getConstGridByID(gridID, volume);
-		assert(volume);
+		grid = getConstGridByID(gridID, volume);
 		prevID = gridID;
-		iter = volume->polygonsCBegin();
+		iter = volume.polygonsCBegin();
 	}
 
-	if (iter == volume->polygonsCEnd())
+	if (iter == volume.polygonsCEnd())
 	{
 		return 0;
 	}
@@ -215,18 +210,17 @@ int OvdbYieldNextMeshPolygon(uint32_t gridID, uint32_t &i1, uint32_t &i2, uint32
 int OvdbYieldNextMeshNormal(uint32_t gridID, float &nx, float &ny, float &nz)
 {
 	static uint32_t prevID = INVALID_GRID_ID;
-	static OvdbVoxelVolume<TreeType> * volume = nullptr;
+	static OvdbVoxelVolume<TreeType> volume;
 	static openvdb::FloatGrid::ConstPtr grid = nullptr;
 	static std::vector<QuadVertexType>::const_iterator iter;
 	if (gridID != prevID)
 	{
-		getConstGridByID(gridID, volume);
-		assert(volume);
+		grid = getConstGridByID(gridID, volume);
 		prevID = gridID;
-		iter = volume->normalsCBegin();
+		iter = volume.normalsCBegin();
 	}
 
-	if (iter == volume->normalsCEnd())
+	if (iter == volume.normalsCEnd())
 	{
 		return 0;
 	}
@@ -278,6 +272,7 @@ int OvdbCreateLibNoiseVolume(const std::string &gridName, float surfaceValue, ui
 		}
 	}
 
+	//createLevelSet(Real voxelSize, Real halfWidth)
 	openvdb::FloatGrid::Ptr grid = openvdb::FloatGrid::create();
 	openvdb::tools::copyFromDense(denseGrid, *grid, 0.0f);
 	grid->setName(gridName);
@@ -309,17 +304,17 @@ openvdb::FloatGrid::Ptr getGridByID(uint32_t gridID)
 	return grid;
 }
 
-openvdb::FloatGrid::Ptr getGridByID(uint32_t gridID, OvdbVoxelVolume<TreeType> *volume)
+openvdb::FloatGrid::Ptr getGridByID(uint32_t gridID, OvdbVoxelVolume<TreeType> &volume)
 {
 	openvdb::FloatGrid::Ptr grid = getGridByID(gridID);
-	volume = &GridVolumes[gridID]; //Note: index already checked in getGridByID(gridID)
+	volume = GridVolumes.data()[gridID]; //Note: index already checked in getGridByID(gridID)
 	return grid;
 }
 
 openvdb::FloatGrid::ConstPtr getConstGridByID(uint32_t gridID)
 {
 	checkGridID(gridID);
-	openvdb::FloatGrid::ConstPtr constGrid = openvdb::gridPtrCast<openvdb::FloatGrid>(GridRegions[gridID]);
+	openvdb::FloatGrid::ConstPtr constGrid = openvdb::gridConstPtrCast<openvdb::FloatGrid>(GridRegions[gridID]);
 	if (constGrid == nullptr)
 	{
 		std::ostringstream message;
@@ -329,10 +324,10 @@ openvdb::FloatGrid::ConstPtr getConstGridByID(uint32_t gridID)
 	return constGrid;
 }
 
-openvdb::FloatGrid::ConstPtr getConstGridByID(uint32_t gridID, const OvdbVoxelVolume<TreeType> *constVolume)
+openvdb::FloatGrid::ConstPtr getConstGridByID(uint32_t gridID, OvdbVoxelVolume<TreeType> &volume)
 {
 	openvdb::FloatGrid::ConstPtr constGrid = getConstGridByID(gridID);
-	constVolume = &GridVolumes[gridID]; //Note: index already checked in getGridByID(gridID)
+	volume = GridVolumes.data()[gridID]; //Note: index already checked in getGridByID(gridID)
 	return constGrid;
 }
 

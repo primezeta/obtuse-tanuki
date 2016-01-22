@@ -63,6 +63,7 @@ private:
 	}
 
 public:
+	OvdbVoxelVolume() : volumeGrid(nullptr), visitedVertexIndices(nullptr) {};
 	OvdbVoxelVolume(GridTypeConstPtr grid) : volumeGrid(grid)
 	{
 		//The visited vertex grid mirrors the grid, where the value of each voxel is the vertex index or -1 if that voxel has not been visited

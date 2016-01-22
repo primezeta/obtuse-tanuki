@@ -13,44 +13,43 @@ void FOpenVDBModule::StartupModule()
 	return;
 }
 
-bool FOpenVDBModule::LoadVdbFile(FString vdbFilename, FString gridName)
+uint32 FOpenVDBModule::LoadVdbFile(FString vdbFilename, FString gridName)
 {
 	std::wstring wfname = *vdbFilename;
 	std::wstring wgname = *gridName;
 	std::string fname = std::string(wfname.begin(), wfname.end());
 	std::string gname = std::string(wgname.begin(), wgname.end());
-	if (OvdbLoadVdb(fname, gname))
+
+	uint32 gridID = UINT_MAX;
+	if (OvdbReadVdb(fname, gname, gridID))
 	{
 		//TODO: Handle Ovdb errors
 		return false;
 	}
-	return true;
+	return gridID;
 }
-bool FOpenVDBModule::GetVDBGeometry(double isovalue, double adaptivity, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices)
+bool FOpenVDBModule::GetVDBGeometry(FString vdbFilename, FString gridName, float surfaceValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices)
 {
 	//TODO: Sanity check to see if a VDB file has been loaded
-
-	int32 regionCountX = 20;
-	int32 regionCountY = 20;
-	int32 regionCountZ = 1;
-	if (OvdbVolumeToMesh(MESHING_NAIVE, regionCountX, regionCountY, regionCountZ, isovalue, adaptivity))
+	uint32 id = LoadVdbFile(vdbFilename, gridName);
+	if (OvdbVolumeToMesh(id, MESHING_NAIVE, surfaceValue))
 	{
 		//TODO: Handle Ovdb errors
 		return false;
 	}
 
 	FVector vertex;
-	while (OvdbGetNextMeshPoint(vertex.X, vertex.Y, vertex.Z))
+	while (OvdbYieldNextMeshPoint(id, vertex.X, vertex.Y, vertex.Z))
 	{
 		Vertices.Add(vertex);
 	}
 
-	uint32 triangleIndex[3];
-	while (OvdbGetNextMeshTriangle(triangleIndex[0], triangleIndex[1], triangleIndex[2]))
+	uint32 triangleIndices[3];
+	while (OvdbYieldNextMeshPolygon(id, triangleIndices[0], triangleIndices[1], triangleIndices[2]))
 	{
 		for (int i = 0; i < 3; i++)
 		{
-			int32 testIndex = (int32)triangleIndex[i];
+			int32 testIndex = (int32)triangleIndices[i];
 			if (testIndex < 0)
 			{
 				UE_LOG(LogOpenVDBModule, Fatal, TEXT("Triangle index is too large!"));

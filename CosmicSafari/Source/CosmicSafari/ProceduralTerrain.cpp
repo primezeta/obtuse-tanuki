@@ -4,9 +4,24 @@
 #include "OpenVDBModule/Public/OpenVDBModule.h"
 #include "ProceduralTerrain.h"
 
+static FOpenVDBModule * openVDBModule = nullptr;
+
 // Sets default values
 AProceduralTerrain::AProceduralTerrain()
 {
+	if (openVDBModule == nullptr)
+	{
+		openVDBModule = &FOpenVDBModule::Get();
+		if (!openVDBModule->IsAvailable())
+		{
+			UE_LOG(LogFlying, Warning, TEXT("Failed to start OpenVDBModule!"));
+		}
+		else
+		{
+			openVDBModule->StartupModule();
+		}
+	}
+
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -55,16 +70,17 @@ void AProceduralTerrain::BeginPlay()
 	//C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w100_h100_l100_t10_s1_t0.vdb;
 	//C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Debug/vdbs/noise_w288_h288_l288_t16_s1_t0.vdb;
 	//C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise_w512_h512_l512_t8_s1_t1.vdb;
-	FString vdbFilename = TEXT("C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Release/vdbs/noise-X199-Y199-Z10_scale1.vdb");
+	FString vdbFilename = TEXT("C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/ThirdParty/Build/x64/Debug/vdbs/noise-X199-Y199-Z10_scale1.vdb");
 	FString gridName = TEXT("noise");
-	if (!LoadVdbFile(vdbFilename, gridName))
+	if (!openVDBModule->GetVDBGeometry(vdbFilename, gridName, MeshSurfaceValue, MeshSectionVertices, MeshSectionTriangleIndices))
 	{
 		UE_LOG(LogFlying, Warning, TEXT("%s %s %s %s"), TEXT("Failed to load"), *vdbFilename, TEXT(", grid"), *gridName);
 	}
 	else
 	{
 		int32 meshSectionIndex = 0;
-		TerrainMeshComponent->CreateTerrainMeshSection(meshSectionIndex, MeshSectionVertices, MeshSectionTriangleIndices);
+		bool bCreateCollision = false;
+		TerrainMeshComponent->CreateTerrainMeshSection(meshSectionIndex, bCreateCollision, MeshSectionVertices, MeshSectionTriangleIndices, MeshSectionUVMap, MeshSectionNormals, MeshSectionVertexColors, MeshSectionTangents);
 		TerrainMeshComponent->SetMeshSectionVisible(meshSectionIndex, true);
 	}
 }
@@ -73,37 +89,4 @@ void AProceduralTerrain::BeginPlay()
 void AProceduralTerrain::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-}
-
-bool AProceduralTerrain::LoadVdbFile(const FString &vdbFilename, const FString &gridName)
-{
-	//Note: Blueprints do not currently support double
-	static FOpenVDBModule * openVDBModule = nullptr;
-
-	if (openVDBModule == nullptr)
-	{
-		openVDBModule = &FOpenVDBModule::Get();
-		if (!openVDBModule->IsAvailable())
-		{
-			UE_LOG(LogFlying, Warning, TEXT("Failed to start OpenVDBModule!"));
-		}
-		else
-		{
-			openVDBModule->StartupModule();
-		}
-	}
-	
-	static bool isLoaded = false;
-	//Read the file once
-	if (!isLoaded)
-	{
-		isLoaded = openVDBModule->LoadVdbFile(vdbFilename, gridName);
-		if (!isLoaded)
-		{
-			UE_LOG(LogFlying, Warning, TEXT("VDB file %s %s"), *vdbFilename, TEXT("unable to load"));
-		}
-	}
-	MeshIsovalue = 0.0f;
-	MeshAdaptivity = 0.0f;
-	return isLoaded && openVDBModule->GetVDBGeometry((double)MeshIsovalue, (double)MeshAdaptivity, MeshSectionVertices, MeshSectionTriangleIndices);
 }

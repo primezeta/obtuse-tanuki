@@ -89,7 +89,8 @@ int main(int argc, char * argv[])
 
 		openvdb::FloatGrid::Ptr sparseGrid = openvdb::FloatGrid::create();
 		openvdb::tools::copyFromDense(denseGrid, *sparseGrid, 0.0f);
-		sparseGrid->setName(gridName);
+		//sparseGrid->setName(gridName);
+		sparseGrid->insertMeta(openvdb::FloatGrid::META_GRID_NAME, openvdb::StringMetadata(gridName));
 		sparseGrid->setGridClass(openvdb::GRID_LEVEL_SET);
 		
 		for (auto i = sparseGrid->beginValueAll(); i; ++i)

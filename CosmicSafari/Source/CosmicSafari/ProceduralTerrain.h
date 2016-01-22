@@ -22,10 +22,7 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
-	float MeshIsovalue;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
-	float MeshAdaptivity;
+	float MeshSurfaceValue;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
 	UProceduralTerrainMeshComponent * TerrainMeshComponent;
@@ -33,11 +30,13 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
 	UMaterial * TerrainMaterial;
 
-	UFUNCTION(BlueprintCallable, Category = "ProceduralTerrain")
-	bool LoadVdbFile(const FString &vdbFilename, const FString &gridName);
-
 private:
 	TArray<FVector> MeshSectionVertices;
 	TArray<int32> MeshSectionTriangleIndices;
+	TArray<FVector2D> MeshSectionUVMap;
+	TArray<FVector> MeshSectionNormals;
+	TArray<FColor> MeshSectionVertexColors;
+	TArray<FProcMeshTangent> MeshSectionTangents;
 	UMaterialInstanceDynamic * TerrainDynamicMaterial;
+		
 };
