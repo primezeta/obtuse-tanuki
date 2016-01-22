@@ -125,7 +125,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)OpenVDB\src;$(SolutionDir)OpenVDB\dependencies\include;C:\boost\boost_1_59_0</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)OpenVDB\src;$(SolutionDir)OpenVDB\dependencies\include;C:\boost\boost_1_59_0;$(SolutionDir)LibNoise</AdditionalIncludeDirectories>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENVDB_OPENEXR_STATICLIB</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
@@ -139,7 +139,7 @@
       <AdditionalOptions>/nodefaultlib:MSVCRT %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <Lib>
-      <AdditionalDependencies>openvdb.lib</AdditionalDependencies>
+      <AdditionalDependencies>openvdb.lib;libnoise.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)Build\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
@@ -164,9 +164,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="libovdb.h" />
+    <ClInclude Include="OpenVDBIncludes.h" />
+    <ClInclude Include="OvdbNoise.h" />
+    <ClInclude Include="OvdbQuad.h" />
+    <ClInclude Include="OvdbVolume.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="libovdb.cpp" />
+    <ClCompile Include="OvdbNoise.cpp" />
+    <ClCompile Include="OvdbQuad.cpp" />
+    <ClCompile Include="OvdbVolume.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
