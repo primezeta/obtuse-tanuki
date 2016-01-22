@@ -11,9 +11,7 @@
 
 //TODO: Restructure header files
 #include <string>
-#include <vector>
 #include <stdint.h>
-#include "OpenVDBIncludes.h"
 
 enum OvdbMeshMethod { MESHING_NAIVE, MESHING_GREEDY };
 

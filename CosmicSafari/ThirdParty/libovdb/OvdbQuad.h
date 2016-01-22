@@ -1,4 +1,5 @@
 #include "libovdb.h"
+#include "OpenVDBIncludes.h"
 
 typedef openvdb::Vec3d QuadVertexType;
 typedef openvdb::Vec4I QuadIndicesType;
@@ -8,7 +9,7 @@ const static int32_t CUBE_FACE_COUNT = YZ_FACE+1;
 enum QuadVertexIndex { V0, V1, V2, V3 };
 const static int32_t QUAD_VERTEX_INDEX_COUNT = V3+1;
 
-class OvdbQuad
+LIB_OVDB_API class OvdbQuad
 {
 private:
 	const std::vector<QuadVertexType> &vertices;
@@ -30,9 +31,9 @@ public:
 	openvdb::Int32 operator()(QuadVertexIndex v) const { return indices[v]; }
 	const CubeFace &quadFace() const { return cubeFace; }
 	const QuadVertexType &quadSizeUVW() const { return quadSize; }
-	const double &quadHeight() const { return quadSizeUVW().z(); }
-	const double &quadLength() const { return quadSizeUVW().y(); }
-	const double &quadWidth() const { return quadSizeUVW().x(); }
+	const double quadHeight() const { return quadSizeUVW().z(); }
+	const double quadLength() const { return quadSizeUVW().y(); }
+	const double quadWidth() const { return quadSizeUVW().x(); }
 	bool quadIsMerged() const { return isMerged; }
 	void setIsMerged() { isMerged = true; } //Can only merge a quad once
 	double OvdbQuad::posW(QuadVertexIndex v) const { return posUVW(v).z(); }
