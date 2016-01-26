@@ -156,13 +156,15 @@ public:
 		}
 
 		//If method is naive do nothing special
-		if (method != MESHING_NAIVE)
+		if (method == MESHING_GREEDY)
 		{
 			//Merge adjacent quads in a greedy manner
-			//if (method == MESHING_GREEDY)
-			//{
-
-			//}
+			for (std::vector<OvdbQuad>::iterator i = quads.begin(); i != quads.end(); ++i)
+			{
+				auto j = i;
+				++j;
+				for (; j != quads.end() && (i->mergeQuadsByLength(*j) || i->mergeQuadsByWidth(*j)); ++j);
+			}
 		}
 
 		uint32_t mergedCount = 0;
