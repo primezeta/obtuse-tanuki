@@ -3,6 +3,42 @@
 #include "OpenVDBIncludes.h"
 
 const static openvdb::Int32 UNVISITED_VERTEX_INDEX = -1;
+enum VolumeStyle { VOLUME_STYLE_CUBE };
+const static uint32_t VOLUME_STYLE_COUNT = VOLUME_STYLE_CUBE + 1;
+enum CubeVertex { VX0, VX1, VX2, VX3, VX4, VX5, VX6, VX7, VX8 };
+const static uint32_t CUBE_VERTEX_COUNT = VX8+1;
+
+LIB_OVDB_API class OvdbPrimitiveCube
+{
+public:
+	OvdbPrimitiveCube(const openvdb::Coord &cubeStart)
+	{
+		openvdb::CoordBBox bbox = openvdb::CoordBBox::createCube(cubeStart, 1);
+		primitiveVertices[0] = bbox.getStart();
+		primitiveVertices[1] = bbox.getStart().offsetBy(1, 0, 0);
+		primitiveVertices[2] = bbox.getStart().offsetBy(0, 1, 0);
+		primitiveVertices[3] = bbox.getStart().offsetBy(0, 0, 1);
+		primitiveVertices[4] = bbox.getEnd().offsetBy(-1, 0, 0);
+		primitiveVertices[5] = bbox.getEnd().offsetBy(0, -1, 0);
+		primitiveVertices[6] = bbox.getEnd().offsetBy(0, 0, -1);
+		primitiveVertices[7] = bbox.getEnd();
+	}
+
+	void setVertexIndex(CubeVertex v, openvdb::Int32 i) { primitiveIndices[v] = i; }
+	openvdb::Coord& getCoord(CubeVertex v) { return primitiveVertices[v]; }
+	openvdb::Int32 getIndex(CubeVertex v) { return primitiveIndices[v];  }
+	//Add the vertex indices in counterclockwise order on each quad face
+	openvdb::Vec4I getQuadXY0() { return openvdb::Vec4I(primitiveIndices[VX3], primitiveIndices[VX4], primitiveIndices[VX7], primitiveIndices[VX5]); }
+	openvdb::Vec4I getQuadXY1() { return openvdb::Vec4I(primitiveIndices[VX6], primitiveIndices[VX2], primitiveIndices[VX0], primitiveIndices[VX1]); }
+	openvdb::Vec4I getQuadXZ0() { return openvdb::Vec4I(primitiveIndices[VX7], primitiveIndices[VX4], primitiveIndices[VX2], primitiveIndices[VX6]); }
+	openvdb::Vec4I getQuadXZ1() { return openvdb::Vec4I(primitiveIndices[VX5], primitiveIndices[VX1], primitiveIndices[VX0], primitiveIndices[VX3]); }
+	openvdb::Vec4I getQuadYZ0() { return openvdb::Vec4I(primitiveIndices[VX7], primitiveIndices[VX6], primitiveIndices[VX1], primitiveIndices[VX5]); }
+	openvdb::Vec4I getQuadYZ1() { return openvdb::Vec4I(primitiveIndices[VX6], primitiveIndices[VX2], primitiveIndices[VX0], primitiveIndices[VX1]); }
+
+private:
+	openvdb::Coord primitiveVertices[CUBE_VERTEX_COUNT];
+	openvdb::Int32 primitiveIndices[CUBE_VERTEX_COUNT];
+};
 
 LIB_OVDB_API template<typename _TreeType> class OvdbVoxelVolume
 {
@@ -13,53 +49,46 @@ private:
 	typedef typename GridType::ConstPtr GridTypeConstPtr;
 	typedef typename GridType::ValueOnIter GridTypeValueOnIter;
 	typedef typename GridType::ValueOnCIter GridTypeValueOnCIter;
+	typedef typename std::vector<QuadVertexType> VolumeVertices;
+	typedef typename std::vector<PolygonIndicesType> VolumePolygons;
+	typedef typename std::vector<QuadVertexType> VolumeNormals;
 
-	std::vector<QuadVertexType> volumeVertices;
-	std::vector<PolygonIndicesType> polygonIndices;
-	std::vector<QuadVertexType> vertexNormals;
+public:
+	typedef typename VolumeVertices::const_iterator VolumeVerticesCIter;
+	typedef typename VolumePolygons::const_iterator VolumePolygonsCIter;
+	typedef typename VolumeNormals::const_iterator VolumeNormalsCIter;
+
+private:
+	VolumeVertices volumeVertices;
+	VolumePolygons polygonIndices;
+	VolumeNormals vertexNormals;
 	std::set<OvdbQuad, cmpByQuad> uniqueQuads[CUBE_FACE_COUNT];
-
 	GridTypeConstPtr volumeGrid;
 	openvdb::Int32Grid::Ptr visitedVertexIndices;
 
-	float getGridValue(openvdb::Coord &coord) { return volumeGrid->getConstAccessor().getValue(coord); }
+	float getGridValue(const openvdb::Coord &coord) { return volumeGrid->getConstAccessor().getValue(coord); }
 	openvdb::Int32 getVisitedVertexValue(const openvdb::Coord &coord) { return visitedVertexIndices->getConstAccessor().getValue(coord); }
 	void setVisitedVertexValue(const openvdb::Coord &coord, openvdb::Int32 value) { visitedVertexIndices->getAccessor().setValue(coord, value); }
-	void buildQuads(const openvdb::CoordBBox &bbox, std::vector<QuadIndicesType> &quadPrimitives)
+	openvdb::Int32 addVolumeVertex(const openvdb::Coord &coord)
+	{
+		openvdb::Int32 vertexIndex = getVisitedVertexValue(coord);
+		if (vertexIndex == UNVISITED_VERTEX_INDEX)
+		{
+			//This is a new vertex. Save it to the visited vertex grid for use by any other voxels that share it
+			vertexIndex = openvdb::Int32(volumeVertices.size()); //TODO: Error check index ranges
+			setVisitedVertexValue(coord, vertexIndex);
+			volumeVertices.push_back(volumeGrid->indexToWorld(coord));
+		}
+		return vertexIndex;
+	}
+
+	void buildCubeQuads(OvdbPrimitiveCube &primitiveIndices)
 	{
 		//Make 6 quads, each of width / height 1
-		std::vector<openvdb::Coord> primitiveVertices;
-		openvdb::CoordBBox prim = bbox.createCube(bbox.min(), 1);
-		primitiveVertices.push_back(prim.getStart());
-		primitiveVertices.push_back(prim.getStart().offsetBy(1, 0, 0));
-		primitiveVertices.push_back(prim.getStart().offsetBy(0, 1, 0));
-		primitiveVertices.push_back(prim.getStart().offsetBy(0, 0, 1));
-		primitiveVertices.push_back(prim.getEnd().offsetBy(-1, 0, 0));
-		primitiveVertices.push_back(prim.getEnd().offsetBy(0, -1, 0));
-		primitiveVertices.push_back(prim.getEnd().offsetBy(0, 0, -1));
-		primitiveVertices.push_back(prim.getEnd());
-
-		std::vector<openvdb::Int32> primitiveIndices;
-		for (std::vector<openvdb::Coord>::const_iterator i = primitiveVertices.cbegin(); i != primitiveVertices.end(); ++i)
+		for (uint32_t i = 0; i < CUBE_VERTEX_COUNT; ++i)
 		{
-			openvdb::Int32 vertexIndex = getVisitedVertexValue(*i);
-			if (vertexIndex == UNVISITED_VERTEX_INDEX)
-			{
-				//This is a new vertex. Save it to the visited vertex grid for use by any other voxels that share it
-				volumeVertices.push_back(volumeGrid->indexToWorld(*i));
-				vertexIndex = openvdb::Int32(volumeVertices.size() - 1); //TODO: Error check index ranges
-				setVisitedVertexValue(*i, vertexIndex);
-			}
-			primitiveIndices.push_back(vertexIndex);
+			primitiveIndices.setVertexIndex((CubeVertex)i, addVolumeVertex(primitiveIndices.getCoord((CubeVertex)i)));
 		}
-
-		//Add the vertex indices in counterclockwise order on each quad face
-		quadPrimitives.push_back(openvdb::Vec4I(primitiveIndices[3], primitiveIndices[4], primitiveIndices[7], primitiveIndices[5]));
-		quadPrimitives.push_back(openvdb::Vec4I(primitiveIndices[6], primitiveIndices[2], primitiveIndices[0], primitiveIndices[1]));
-		quadPrimitives.push_back(openvdb::Vec4I(primitiveIndices[7], primitiveIndices[4], primitiveIndices[2], primitiveIndices[6]));
-		quadPrimitives.push_back(openvdb::Vec4I(primitiveIndices[5], primitiveIndices[1], primitiveIndices[0], primitiveIndices[3]));
-		quadPrimitives.push_back(openvdb::Vec4I(primitiveIndices[7], primitiveIndices[6], primitiveIndices[1], primitiveIndices[5]));
-		quadPrimitives.push_back(openvdb::Vec4I(primitiveIndices[0], primitiveIndices[2], primitiveIndices[4], primitiveIndices[3]));
 	}
 
 public:
@@ -74,39 +103,42 @@ public:
 
 	OvdbVoxelVolume(const OvdbVoxelVolume &rhs)
 	{
-		//If we copy a voxel volume then meshing will have to start over
+		//Only copy the smart pointers - for now, if we copy a voxel volume then meshing will have to start over
 		volumeGrid = rhs.volumeGrid;
 		visitedVertexIndices = rhs.visitedVertexIndices;
 	}
 
-	std::vector<QuadVertexType>::const_iterator verticesCBegin() { return volumeVertices.cbegin(); }
-	std::vector<QuadVertexType>::const_iterator verticesCEnd() { return volumeVertices.cend(); }
-	std::vector<PolygonIndicesType>::const_iterator polygonsCBegin() { return polygonIndices.cbegin(); }
-	std::vector<PolygonIndicesType>::const_iterator polygonsCEnd() { return polygonIndices.cend(); }
-	std::vector<QuadVertexType>::const_iterator normalsCBegin() { return vertexNormals.cbegin(); }
-	std::vector<QuadVertexType>::const_iterator normalsCEnd() { return vertexNormals.cend(); }
+	VolumeVerticesCIter verticesCBegin() const { return volumeVertices.cbegin(); }
+	VolumeVerticesCIter verticesCEnd() const { return volumeVertices.cend(); }
+	VolumePolygonsCIter polygonsCBegin() const { return polygonIndices.cbegin(); }
+	VolumePolygonsCIter polygonsCEnd() const { return polygonIndices.cend(); }
+	VolumeNormalsCIter normalsCBegin() const { return vertexNormals.cbegin(); }
+	VolumeNormalsCIter normalsCEnd() const { return vertexNormals.cend(); }
 	
-	void buildVolume(const openvdb::CoordBBox &bbox, float surfaceValue)
+	void buildVolume(VolumeStyle volumeStyle, float surfaceValue)
 	{
 		//Step through only voxels that are on
 		for (GridTypeValueOnCIter i = volumeGrid->cbeginValueOn(); i; ++i)
 		{
+			const openvdb::Coord &startCoord = i.getCoord();
 			//Skip tile values and values that are not on the surface
 			if (!i.isVoxelValue() ||
-				!openvdb::math::isApproxEqual(getGridValue(i.getCoord()), surfaceValue))
+				!openvdb::math::isApproxEqual(getGridValue(startCoord), surfaceValue))
 			{
 				continue;
 			}
 
 			//Set up the 6 quads
-			std::vector<QuadIndicesType> quadPrimitives;
-			buildQuads(bbox, quadPrimitives);
-
-			for (int j = 0; j < CUBE_FACE_COUNT; ++j)
+			if (volumeStyle == VOLUME_STYLE_CUBE)
 			{
-				//Insert into the quad set to set up the total ordering when we later retrieve the quads with iterators;
-				OvdbQuad q(volumeVertices, quadPrimitives[j], (CubeFace)j);
-				uniqueQuads[j].insert(q);
+				OvdbPrimitiveCube primitiveIndices(startCoord);
+				buildCubeQuads(primitiveIndices);
+				uniqueQuads[XY_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadXY0(), XY_FACE));
+				uniqueQuads[XY_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadXY1(), XY_FACE));
+				uniqueQuads[XZ_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadXZ0(), XZ_FACE));
+				uniqueQuads[XZ_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadXZ1(), XZ_FACE));
+				uniqueQuads[YZ_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadYZ0(), YZ_FACE));
+				uniqueQuads[YZ_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadYZ1(), YZ_FACE));
 			}
 		}
 	}
@@ -135,9 +167,9 @@ public:
 
 		uint32_t mergedCount = 0;
 		uint32_t vertexIndex = 0;
-		for (std::vector<OvdbQuad>::iterator i = quads.begin(); i != quads.end(); ++i)
+		for (std::vector<OvdbQuad>::const_iterator i = quads.begin(); i != quads.end(); ++i)
 		{
-			OvdbQuad &q = *i;
+			const OvdbQuad &q = *i;
 			if (q.quadIsMerged())
 			{
 				mergedCount++; //For debugging

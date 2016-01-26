@@ -4,7 +4,7 @@
 typedef openvdb::Vec3d QuadVertexType;
 typedef openvdb::Vec4I QuadIndicesType;
 typedef openvdb::Vec3I PolygonIndicesType;
-enum CubeFace { XY_FACE, XZ_FACE, YZ_FACE };
+enum Plane2d { XY_FACE, XZ_FACE, YZ_FACE };
 const static int32_t CUBE_FACE_COUNT = YZ_FACE+1;
 enum QuadVertexIndex { V0, V1, V2, V3 };
 const static int32_t QUAD_VERTEX_INDEX_COUNT = V3+1;
@@ -14,12 +14,12 @@ LIB_OVDB_API class OvdbQuad
 private:
 	const std::vector<QuadVertexType> &vertices;
 	QuadIndicesType indices;
-	const CubeFace cubeFace;
+	const Plane2d cubeFace;
 	QuadVertexType quadSize;
 	bool isMerged;
 
 public:
-	OvdbQuad(std::vector<QuadVertexType> &vs, QuadIndicesType is, CubeFace f) : vertices(vs), indices(is), cubeFace(f), isMerged(false)
+	OvdbQuad(const std::vector<QuadVertexType> &vs, QuadIndicesType is, Plane2d p) : vertices(vs), indices(is), cubeFace(p), isMerged(false)
 	{
 		setIndices(is);
 	}
@@ -29,7 +29,7 @@ public:
 	}
 	QuadVertexType operator[](QuadVertexIndex v) const { return vertices[indices[v]]; }
 	openvdb::Int32 operator()(QuadVertexIndex v) const { return indices[v]; }
-	const CubeFace &quadFace() const { return cubeFace; }
+	const Plane2d &quadFace() const { return cubeFace; }
 	const QuadVertexType &quadSizeUVW() const { return quadSize; }
 	const double quadHeight() const { return quadSizeUVW().z(); }
 	const double quadLength() const { return quadSizeUVW().y(); }
