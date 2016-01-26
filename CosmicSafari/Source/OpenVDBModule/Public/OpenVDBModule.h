@@ -20,7 +20,7 @@ public:
 	}
 
 	uint32 LoadVdbFile(FString vdbFilename, FString gridName);
-	bool GetVDBGeometry(FString vdbFilename, FString gridName, float surfaceValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices);
+	bool GetVDBGeometry(FString vdbFilename, FString gridName, float surfaceValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
 };
 
 DECLARE_LOG_CATEGORY_EXTERN(LogOpenVDBModule, Log, All);

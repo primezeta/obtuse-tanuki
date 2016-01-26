@@ -17,13 +17,14 @@ private:
 	const Plane2d cubeFace;
 	QuadVertexType quadSize;
 	bool isMerged;
+	const int normal;
 
 public:
-	OvdbQuad(const std::vector<QuadVertexType> &vs, QuadIndicesType is, Plane2d p) : vertices(vs), indices(is), cubeFace(p), isMerged(false)
+	OvdbQuad(const std::vector<QuadVertexType> &vs, QuadIndicesType is, Plane2d p, int n) : vertices(vs), indices(is), cubeFace(p), isMerged(false), normal(n)
 	{
 		setIndices(is);
 	}
-	OvdbQuad(const OvdbQuad &rhs) : vertices(rhs.vertices), cubeFace(rhs.quadFace()), quadSize(rhs.quadSizeUVW()), isMerged(rhs.quadIsMerged())
+	OvdbQuad(const OvdbQuad &rhs) : vertices(rhs.vertices), cubeFace(rhs.quadFace()), quadSize(rhs.quadSizeUVW()), isMerged(rhs.quadIsMerged()), normal(rhs.faceNormal())
 	{
 		setIndices(QuadIndicesType(rhs(V0), rhs(V1), rhs(V2), rhs(V3)));
 	}
@@ -36,16 +37,18 @@ public:
 	const double quadWidth() const { return quadSizeUVW().x(); }
 	bool quadIsMerged() const { return isMerged; }
 	void setIsMerged() { isMerged = true; } //Can only merge a quad once
-	double OvdbQuad::posW(QuadVertexIndex v) const { return posUVW(v).z(); }
-	double OvdbQuad::posV(QuadVertexIndex v) const { return posUVW(v).y(); }
-	double OvdbQuad::posU(QuadVertexIndex v) const { return posUVW(v).x(); }
+	double posW(QuadVertexIndex v) const { return posUVW(v).z(); }
+	double posV(QuadVertexIndex v) const { return posUVW(v).y(); }
+	double posU(QuadVertexIndex v) const { return posUVW(v).x(); }
+	int faceNormal() const { return normal; }
 
-	QuadVertexType OvdbQuad::posUVW(QuadVertexIndex v) const;
-	void OvdbQuad::setIndices(const QuadIndicesType &newIndices);
-	bool OvdbQuad::mergeQuadsByLength(OvdbQuad &rhs);
-	bool OvdbQuad::mergeQuadsByWidth(OvdbQuad &rhs);
-	bool OvdbQuad::isQuadAdjacentByLength(const OvdbQuad &rhs);
-	bool OvdbQuad::isQuadAdjacentByWidth(const OvdbQuad &rhs);
+	QuadVertexType posUVW(QuadVertexIndex v) const;
+	QuadVertexType vertexNormal(QuadVertexIndex v) const;
+	void setIndices(const QuadIndicesType &newIndices);
+	bool mergeQuadsByLength(OvdbQuad &rhs);
+	bool mergeQuadsByWidth(OvdbQuad &rhs);
+	bool isQuadAdjacentByLength(const OvdbQuad &rhs);
+	bool isQuadAdjacentByWidth(const OvdbQuad &rhs);
 };
 
 //Sort quads by a total ordering

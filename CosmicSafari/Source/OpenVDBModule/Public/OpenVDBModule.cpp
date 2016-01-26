@@ -28,7 +28,7 @@ uint32 FOpenVDBModule::LoadVdbFile(FString vdbFilename, FString gridName)
 	}
 	return gridID;
 }
-bool FOpenVDBModule::GetVDBGeometry(FString vdbFilename, FString gridName, float surfaceValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices)
+bool FOpenVDBModule::GetVDBGeometry(FString vdbFilename, FString gridName, float surfaceValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
 {
 	//TODO: Sanity check to see if a VDB file has been loaded
 	uint32 id = LoadVdbFile(vdbFilename, gridName);
@@ -61,6 +61,11 @@ bool FOpenVDBModule::GetVDBGeometry(FString vdbFilename, FString gridName, float
 		}
 	}
 
+	FVector normal;
+	while (OvdbYieldNextMeshNormal(id, normal.X, normal.Y, normal.Z))
+	{
+		Normals.Add(normal);
+	}
 	return true;
 }
 

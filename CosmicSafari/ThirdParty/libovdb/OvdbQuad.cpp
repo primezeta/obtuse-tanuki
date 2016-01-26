@@ -9,6 +9,15 @@ QuadVertexType OvdbQuad::posUVW(QuadVertexIndex v) const
 	else { return QuadVertexType(); } //TODO: Throw an error
 }
 
+QuadVertexType OvdbQuad::vertexNormal(QuadVertexIndex v) const
+{
+	const QuadVertexType &pos = posUVW(v);
+	if (quadFace() == XY_FACE) { return QuadVertexType(pos.x(), pos.y(), pos.z()*normal); }
+	else if (quadFace() == XZ_FACE) { return QuadVertexType(pos.x(), pos.z(), pos.y()*normal); }
+	else if (quadFace() == YZ_FACE) { return QuadVertexType(pos.y(), pos.z(), pos.x()*normal); }
+	else { return QuadVertexType(); } //TODO: Throw an error
+}
+
 void OvdbQuad::setIndices(const QuadIndicesType &newIndices) //TODO: Error check index range
 {
 	//Quad vertices are in counterclockwise order

@@ -33,7 +33,7 @@ public:
 	openvdb::Vec4I getQuadXZ0() { return openvdb::Vec4I(primitiveIndices[VX7], primitiveIndices[VX4], primitiveIndices[VX2], primitiveIndices[VX6]); }
 	openvdb::Vec4I getQuadXZ1() { return openvdb::Vec4I(primitiveIndices[VX5], primitiveIndices[VX1], primitiveIndices[VX0], primitiveIndices[VX3]); }
 	openvdb::Vec4I getQuadYZ0() { return openvdb::Vec4I(primitiveIndices[VX7], primitiveIndices[VX6], primitiveIndices[VX1], primitiveIndices[VX5]); }
-	openvdb::Vec4I getQuadYZ1() { return openvdb::Vec4I(primitiveIndices[VX6], primitiveIndices[VX2], primitiveIndices[VX0], primitiveIndices[VX1]); }
+	openvdb::Vec4I getQuadYZ1() { return openvdb::Vec4I(primitiveIndices[VX0], primitiveIndices[VX2], primitiveIndices[VX4], primitiveIndices[VX3]); }
 
 private:
 	openvdb::Coord primitiveVertices[CUBE_VERTEX_COUNT];
@@ -133,12 +133,12 @@ public:
 			{
 				OvdbPrimitiveCube primitiveIndices(startCoord);
 				buildCubeQuads(primitiveIndices);
-				uniqueQuads[XY_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadXY0(), XY_FACE));
-				uniqueQuads[XY_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadXY1(), XY_FACE));
-				uniqueQuads[XZ_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadXZ0(), XZ_FACE));
-				uniqueQuads[XZ_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadXZ1(), XZ_FACE));
-				uniqueQuads[YZ_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadYZ0(), YZ_FACE));
-				uniqueQuads[YZ_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadYZ1(), YZ_FACE));
+				uniqueQuads[XY_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadXY0(), XY_FACE, 1));
+				uniqueQuads[XY_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadXY1(), XY_FACE, -1));
+				uniqueQuads[XZ_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadXZ0(), XZ_FACE, 1));
+				uniqueQuads[XZ_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadXZ1(), XZ_FACE, -1));
+				uniqueQuads[YZ_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadYZ0(), YZ_FACE, 1));
+				uniqueQuads[YZ_FACE].insert(OvdbQuad(volumeVertices, primitiveIndices.getQuadYZ1(), YZ_FACE, -1));
 			}
 		}
 	}
@@ -176,8 +176,12 @@ public:
 				continue;
 			}
 			//Collect triangle indices of the two triangles comprising this quad
-			polygonIndices.push_back(PolygonIndicesType(q(V0), q(V1), q(V3)));
+			polygonIndices.push_back(PolygonIndicesType(q(V0), q(V1), q(V2)));
 			polygonIndices.push_back(PolygonIndicesType(q(V0), q(V2), q(V3)));
+			vertexNormals.push_back(q.vertexNormal(V0));
+			vertexNormals.push_back(q.vertexNormal(V1));
+			vertexNormals.push_back(q.vertexNormal(V2));
+			vertexNormals.push_back(q.vertexNormal(V3));
 		}
 	}
 };
