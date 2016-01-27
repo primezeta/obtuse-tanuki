@@ -251,18 +251,10 @@ int OvdbCreateLibNoiseVolume(const std::string &gridName, float surfaceValue, ui
 
 	float minNoiseValue, maxNoiseValue;
 	GetHeightMapRange(noiseMap, minNoiseValue, maxNoiseValue);
-	float noiseRange = maxNoiseValue - fabs(minNoiseValue); //TODO: What happens if the max noise value is negative?
-	float noiseZ0 = 0.0f;
-	if (minNoiseValue < 0.0f)
-	{
-		noiseZ0 = fabs(minNoiseValue) + 1.0f;
-	}
-	else if (minNoiseValue > 0.00001f)
-	{
-		noiseZ0 = -minNoiseValue + 1.0f;
-	}
+	float noiseRange = maxNoiseValue - minNoiseValue; //TODO: What if max value is negative or 0?
+	float noiseZ0 = -minNoiseValue; //Translate the minimum noise value to start from 0
 
-	isovalue = noiseRange * surfaceValue;
+	isovalue = noiseRange * surfaceValue; //TODO: Constrain surface value between 0 and 1?
 	float noiseValueToWorldConversion = (denseGrid.bbox().max().z() - denseGrid.bbox().min().z()) / noiseRange;
 	for (int x = denseGrid.bbox().min().x(); x <= denseGrid.bbox().max().x(); x++)
 	{
