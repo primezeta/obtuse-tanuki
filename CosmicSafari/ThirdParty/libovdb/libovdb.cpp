@@ -99,7 +99,7 @@ int OvdbReadVdb(const std::string &filename, const std::string &gridName, uint32
     return error;
 }
 
-int OvdbWriteVdb(const std::string &filename, uint32_t gridID)
+int OvdbWriteVdbGrid(uint32_t gridID, const std::string &filename)
 {
 	int error = 0;
 	try
@@ -123,7 +123,7 @@ int OvdbWriteVdb(const std::string &filename, uint32_t gridID)
 	return error;
 }
 
-int OvdbVolumeToMesh(const std::string &filename, const std::string &gridName, OvdbMeshMethod meshMethod, float surfaceValue)
+int OvdbVolumeToMesh(const std::string &filename, const std::string &gridName, OvdbMeshMethod meshMethod, float isovalue)
 {
 	int error = 0;
 	try
@@ -131,7 +131,7 @@ int OvdbVolumeToMesh(const std::string &filename, const std::string &gridName, O
 		//Read a grid from file and then mesh it
 		uint32_t gridID = INVALID_GRID_ID;
 		OvdbReadVdb(filename, gridName, gridID);
-		OvdbVolumeToMesh(gridID, meshMethod, surfaceValue);
+		OvdbVolumeToMesh(gridID, meshMethod, isovalue);
 	}
 	catch (openvdb::Exception &e)
 	{
@@ -144,14 +144,14 @@ int OvdbVolumeToMesh(const std::string &filename, const std::string &gridName, O
 	return error;
 }
 
-int OvdbVolumeToMesh(uint32_t gridID, OvdbMeshMethod meshMethod, float surfaceValue)
+int OvdbVolumeToMesh(uint32_t gridID, OvdbMeshMethod meshMethod, float isovalue)
 {
     int error = 0;
     try
     {
 		VolumeDataPtr volumeData;
 		openvdb::FloatGrid::ConstPtr grid = getGridByID(gridID, volumeData);
-		volumeData->buildVolume(VOLUME_STYLE_CUBE, surfaceValue);
+		volumeData->buildVolume(VOLUME_STYLE_CUBE, isovalue);
 		volumeData->doMesh(meshMethod);
     }
     catch (openvdb::Exception &e)

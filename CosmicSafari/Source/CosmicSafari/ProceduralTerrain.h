@@ -25,6 +25,15 @@ public:
 	float MeshSurfaceValue;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
+	int32 MeshDimX; //TODO: Error check dim ranges since internally to openvdb they are unsigned
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
+	int32 MeshDimY;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
+	int32 MeshDimZ;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
 	UProceduralTerrainMeshComponent * TerrainMeshComponent;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")

@@ -13,7 +13,7 @@ void FOpenVDBModule::StartupModule()
 	return;
 }
 
-uint32 FOpenVDBModule::LoadVdbFile(FString vdbFilename, FString gridName)
+uint32 FOpenVDBModule::ReadVDBFile(FString vdbFilename, FString gridName)
 {
 	std::wstring wfname = *vdbFilename;
 	std::wstring wgname = *gridName;
@@ -28,24 +28,39 @@ uint32 FOpenVDBModule::LoadVdbFile(FString vdbFilename, FString gridName)
 	}
 	return gridID;
 }
-bool FOpenVDBModule::GetVDBGeometry(FString vdbFilename, FString gridName, float surfaceValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
-{
-	//TODO: Sanity check to see if a VDB file has been loaded
-	uint32 id = LoadVdbFile(vdbFilename, gridName);
-	if (OvdbVolumeToMesh(id, MESHING_NAIVE, surfaceValue))
-	{
-		//TODO: Handle Ovdb errors
-		return false;
-	}
 
+uint32 FOpenVDBModule::CreateDynamicVdb(float surfaceValue, int32 dimX, int32 dimY, int32 dimZ, float &isovalue)
+{
+	uint32 gridID = UINT32_MAX;
+	if (OvdbCreateLibNoiseVolume("noise", surfaceValue, (uint32)dimX, (uint32)dimY, (uint32)dimZ, gridID, isovalue)) //TODO: Range check dims since internally they are unsigned
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create dynamic vdb!"));
+	}
+	return gridID;
+}
+
+bool FOpenVDBModule::CreateMesh(uint32 gridID, float isovalue)
+{
+	//TODO: Handle Ovdb errors
+	return OvdbVolumeToMesh(gridID, MESHING_NAIVE, isovalue) == 0;
+}
+
+bool FOpenVDBModule::CreateGreedyMesh(uint32 gridID, float isovalue)
+{
+	//TODO: Handle Ovdb errors
+	return OvdbVolumeToMesh(gridID, MESHING_GREEDY, isovalue) == 0;
+}
+
+bool FOpenVDBModule::GetMeshGeometry(uint32 gridID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
+{
 	FVector vertex;
-	while (OvdbYieldNextMeshPoint(id, vertex.X, vertex.Y, vertex.Z))
+	while (OvdbYieldNextMeshPoint(gridID, vertex.X, vertex.Y, vertex.Z))
 	{
 		Vertices.Add(vertex);
 	}
 
 	uint32 triangleIndices[3];
-	while (OvdbYieldNextMeshPolygon(id, triangleIndices[0], triangleIndices[1], triangleIndices[2]))
+	while (OvdbYieldNextMeshPolygon(gridID, triangleIndices[0], triangleIndices[1], triangleIndices[2]))
 	{
 		for (int i = 0; i < 3; i++)
 		{
@@ -62,11 +77,35 @@ bool FOpenVDBModule::GetVDBGeometry(FString vdbFilename, FString gridName, float
 	}
 
 	FVector normal;
-	while (OvdbYieldNextMeshNormal(id, normal.X, normal.Y, normal.Z))
+	while (OvdbYieldNextMeshNormal(gridID, normal.X, normal.Y, normal.Z))
 	{
 		Normals.Add(normal);
 	}
-	return true;
+	return true; //TODO: Handle errors
+}
+
+bool FOpenVDBModule::GetVDBMesh(uint32 gridID, float isovalue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
+{
+	if (CreateMesh(gridID, isovalue))
+	{
+		if (GetMeshGeometry(gridID, Vertices, TriangleIndices, Normals))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool FOpenVDBModule::GetVDBGreedyMesh(uint32 gridID, float isovalue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
+{
+	if (CreateGreedyMesh(gridID, isovalue))
+	{
+		if (GetMeshGeometry(gridID, Vertices, TriangleIndices, Normals))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 void FOpenVDBModule::ShutdownModule()
