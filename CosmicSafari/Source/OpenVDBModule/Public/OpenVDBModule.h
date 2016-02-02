@@ -19,15 +19,15 @@ public:
 		return FModuleManager::Get().IsModuleLoaded("OpenVDBModule");
 	}
 
-	uint32 CreateDynamicVdb(float surfaceValue, int32 dimX, int32 dimY, int32 dimZ, float &isovalue);
-	uint32 ReadVDBFile(FString vdbFilename, FString gridName);
-	bool GetVDBMesh(uint32 gridID, float isovalue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
-	bool GetVDBGreedyMesh(uint32 gridID, float isovalue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
+	FString CreateDynamicVdb(float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 libnoiseRange, float &isovalue);
+	FString ReadVDBFile(FString vdbFilename, FString gridName);
+	bool GetVDBMesh(const FString &gridID, float isovalue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
+	bool GetVDBGreedyMesh(const FString &gridID, float isovalue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
 
 private:	
-	bool CreateMesh(uint32 gridID, float surfaceValue);
-	bool CreateGreedyMesh(uint32 gridID, float surfaceValue);	
-	bool GetMeshGeometry(uint32 gridID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
+	bool CreateMesh(const FString &gridID, float surfaceValue);
+	bool CreateGreedyMesh(const FString &gridID, float surfaceValue);
+	bool GetMeshGeometry(const FString &gridID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
 };
 
 DECLARE_LOG_CATEGORY_EXTERN(LogOpenVDBModule, Log, All);

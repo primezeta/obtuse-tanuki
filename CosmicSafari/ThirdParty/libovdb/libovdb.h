@@ -9,19 +9,15 @@
 	#define LIB_OVDB_API
 #endif
 
-//TODO: Restructure header files
-#include <string>
-#include <stdint.h>
-
-enum OvdbMeshMethod { MESHING_NAIVE, MESHING_GREEDY };
+#include "OvdbTypes.h"
 
 LIB_OVDB_API int OvdbInitialize();
 LIB_OVDB_API int OvdbUninitialize();
-LIB_OVDB_API int OvdbReadVdb(const std::string &filename, const std::string &gridName, uint32_t &gridID);
-LIB_OVDB_API int OvdbWriteVdbGrid(uint32_t gridID, const std::string &filename);
-LIB_OVDB_API int OvdbVolumeToMesh(const std::string &filename, const std::string &gridName, OvdbMeshMethod meshMethod, float isovalue);
-LIB_OVDB_API int OvdbVolumeToMesh(uint32_t gridID, OvdbMeshMethod meshMethod, float isovalue);
-LIB_OVDB_API int OvdbYieldNextMeshPoint(uint32_t gridID, float &vx, float &vy, float &vz);
-LIB_OVDB_API int OvdbYieldNextMeshPolygon(uint32_t gridID, uint32_t &i1, uint32_t &i2, uint32_t &i3);
-LIB_OVDB_API int OvdbYieldNextMeshNormal(uint32_t gridID, float &nx, float &ny, float &nz);
-LIB_OVDB_API int OvdbCreateLibNoiseVolume(const std::string &gridName, float surfaceValue, uint32_t dimX, uint32_t dimY, uint32_t dimZ, uint32_t &gridID, float &isovalue);
+LIB_OVDB_API int OvdbReadVdb(const std::string &filename, const std::string gridName, GridIDType &gridID);
+LIB_OVDB_API int OvdbWriteVdbGrid(const GridIDType &gridID, const std::string &filename);
+LIB_OVDB_API int OvdbVolumeToMesh(const GridIDType &gridID, const std::string &filename, OvdbMeshMethod meshMethod, float isovalue);
+LIB_OVDB_API int OvdbVolumeToMesh(const GridIDType &gridID, OvdbMeshMethod meshMethod, float isovalue);
+LIB_OVDB_API int OvdbYieldNextMeshPoint(const GridIDType &gridID, float &vx, float &vy, float &vz);
+LIB_OVDB_API int OvdbYieldNextMeshPolygon(const GridIDType &gridID, uint32_t &i1, uint32_t &i2, uint32_t &i3);
+LIB_OVDB_API int OvdbYieldNextMeshNormal(const GridIDType &gridID, float &nx, float &ny, float &nz);
+LIB_OVDB_API GridIDType OvdbCreateLibNoiseVolume(const std::string &gridName, float surfaceValue, const VolumeDimensions &dimensions, uint32_t libnoiseRange, float &isovalue);
