@@ -8,7 +8,7 @@ const static uint32_t VOLUME_STYLE_COUNT = VOLUME_STYLE_CUBE + 1;
 enum CubeVertex { VX0, VX1, VX2, VX3, VX4, VX5, VX6, VX7, VX8 };
 const static uint32_t CUBE_VERTEX_COUNT = VX8+1;
 
-LIB_OVDB_API class OvdbPrimitiveCube
+class OvdbPrimitiveCube
 {
 public:
 	OvdbPrimitiveCube(const openvdb::Coord &cubeStart)
@@ -40,7 +40,7 @@ private:
 	openvdb::Int32 primitiveIndices[CUBE_VERTEX_COUNT];
 };
 
-LIB_OVDB_API template<typename _TreeType> class OvdbVoxelVolume
+template<typename _TreeType> class OvdbVoxelVolume
 {
 private:
 	typedef typename _TreeType TreeType;
@@ -122,8 +122,12 @@ public:
 		{
 			const openvdb::Coord &startCoord = i.getCoord();
 			//Skip tile values and values that are not on the surface
-			if (!i.isVoxelValue() ||
-				!openvdb::math::isApproxEqual(getGridValue(startCoord), surfaceValue))
+			if (!i.isVoxelValue())
+			{
+				continue;
+			}
+			float value = getGridValue(startCoord);
+			if (!openvdb::math::isApproxEqual(value, surfaceValue))
 			{
 				continue;
 			}

@@ -21,6 +21,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{138186A8-91EC-4F94-9475-E753F5CF06B1}</ProjectGuid>
     <RootNamespace>libovdb</RootNamespace>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -38,7 +39,7 @@
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <PlatformToolset>v140</PlatformToolset>
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -70,6 +71,7 @@
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <IntDir>$(SolutionDir)Build\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
     <OutDir>$(SolutionDir)Build\$(Platform)\$(Configuration)\</OutDir>
+    <IgnoreImportLibrary>true</IgnoreImportLibrary>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
@@ -125,23 +127,28 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)OpenVDB\src;$(SolutionDir)OpenVDB\dependencies\include;C:\boost\boost_1_59_0;$(SolutionDir)LibNoise</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\OpenVDB\src;$(SolutionDir)ThirdParty\OpenVDB\dependencies\include;C:\boost\boost_1_59_0;$(SolutionDir)ThirdParty\LibNoise</AdditionalIncludeDirectories>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENVDB_OPENEXR_STATICLIB</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);LIB_OVDB_DLL;LIB_OVDB_EXPORT;ZLIB_STATIC;OPENVDB_STATICLIB;OPENVDB_OPENEXR_STATICLIB</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <SDLCheck>false</SDLCheck>
-      <ProgramDataBaseFileName>$(IntDir)$(ProjectName).pdb</ProgramDataBaseFileName>
+      <ProgramDataBaseFileName>$(IntDir)vc$(PlatformToolsetVersion).pdb</ProgramDataBaseFileName>
+      <RemoveUnreferencedCodeData>false</RemoveUnreferencedCodeData>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>../x64/Debug;../dependencies/lib/x64;C:\boost\boost_1_59_0\lib64-msvc-12.0</AdditionalLibraryDirectories>
-      <AdditionalDependencies>openvdb.lib;Half.lib;Iex-2_2.lib;IexMath-2_2.lib;IlmThread-2_2.lib;Imath-2_2.lib;zlibstatic.lib;tbb.lib;tbbmalloc.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/nodefaultlib:MSVCRT %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalLibraryDirectories>$(SolutionDir)Build\$(Platform)\$(Configuration);C:\boost\boost_1_59_0\lib64-msvc-14.0;$(SolutionDir)ThirdParty\OpenVDB\dependencies\lib\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>openvdb.lib;libnoise.lib;Half.lib;Iex-2_2.lib;IexMath-2_2.lib;IlmThread-2_2.lib;Imath-2_2.lib;zlibstat.lib;tbb.lib;tbbmalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
     </Link>
     <Lib>
       <AdditionalDependencies>openvdb.lib;libnoise.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)Build\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
     </Lib>
+    <PostBuildEvent>
+      <Command>cp "C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Build\x64\Debug\libovdb.dll" "C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Binaries\Win64"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>

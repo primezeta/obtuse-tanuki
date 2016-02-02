@@ -17,7 +17,8 @@ public class OpenVDBModule : ModuleRules
         PrivateIncludePaths.AddRange(PrivateIncludes);
         PublicLibraryPaths.AddRange(LibPaths);
         PublicAdditionalLibraries.AddRange(LibNames);
-        Definitions.AddRange(new string[] { "OPENVDB_OPENEXR_STATICLIB", "OPENVDB_STATICLIB" });
+        Definitions.AddRange(new string[] { "LIB_OVDB_DLL" });
+
         MinFilesUsingPrecompiledHeaderOverride = 1;
         bFasterWithoutUnity = true;
 	}
@@ -103,9 +104,9 @@ public class OpenVDBModule : ModuleRules
         {
             return new string[]
             {
-                Path.Combine(ThirdPartyPath, "Build", PlatformPath, ConfigurationPath),
-                Path.Combine(ThirdPartyPath, "OpenVDB", "dependencies", "lib", PlatformPath, ConfigurationPath),
-                Path.Combine(ThirdPartyPath, "boost")
+                Path.Combine(ModulePath, "..", "..", "Build", PlatformPath, ConfigurationPath),
+                //Path.Combine(ThirdPartyPath, "OpenVDB", "dependencies", "lib", PlatformPath, ConfigurationPath),
+                //Path.Combine(ThirdPartyPath, "boost"),
             };
         }
     }
@@ -117,8 +118,8 @@ public class OpenVDBModule : ModuleRules
             return new string[]
             {
                 "libovdb.lib",
-                "zlibstat.lib",
-                "Half.lib"
+                //"zlibstat.lib",
+                //"Half.lib"
             };
         }
     }

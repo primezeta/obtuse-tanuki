@@ -9,7 +9,7 @@ const static int32_t CUBE_FACE_COUNT = YZ_FACE+1;
 enum QuadVertexIndex { V0, V1, V2, V3 };
 const static int32_t QUAD_VERTEX_INDEX_COUNT = V3+1;
 
-LIB_OVDB_API class OvdbQuad
+class OvdbQuad
 {
 private:
 	const std::vector<QuadVertexType> &vertices;

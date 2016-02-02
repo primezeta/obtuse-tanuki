@@ -246,39 +246,58 @@ int OvdbCreateLibNoiseVolume(const std::string &gridName, float surfaceValue, ui
 	openvdb::math::Coord minBounds(0, 0, 0);
 	openvdb::math::Coord maxBounds(dimX - 1, dimY - 1, dimZ - 1);
 	openvdb::math::CoordBBox mapBounds(minBounds, maxBounds);
-	openvdb::tools::Dense<GridType> denseGrid(mapBounds);
+	//openvdb::tools::Dense<GridType> denseGrid(mapBounds);
 	noise::utils::NoiseMap &noiseMap = CreateNoiseHeightMap(1.0, dimX, dimY);
 
 	float minNoiseValue, maxNoiseValue;
 	GetHeightMapRange(noiseMap, minNoiseValue, maxNoiseValue);
 	float noiseRange = maxNoiseValue - minNoiseValue; //TODO: What if max value is negative or 0?
 	float noiseZ0 = -minNoiseValue; //Translate the minimum noise value to start from 0
-
 	isovalue = noiseRange * surfaceValue; //TODO: Constrain surface value between 0 and 1?
-	float noiseValueToWorldConversion = (denseGrid.bbox().max().z() - denseGrid.bbox().min().z()) / noiseRange;
-	for (int x = denseGrid.bbox().min().x(); x <= denseGrid.bbox().max().x(); x++)
+	float noiseValueToWorldConversion = (mapBounds.max().z() - mapBounds.min().z()) / noiseRange;
+
+	openvdb::FloatGrid::Ptr grid = openvdb::createLevelSet<openvdb::FloatGrid>();
+	for (int x = mapBounds.min().x(); x <= mapBounds.max().x(); x++)
 	{
-		for (int y = denseGrid.bbox().min().y(); y <= denseGrid.bbox().max().y(); y++)
+		for (int y = mapBounds.min().y(); y <= mapBounds.max().y(); y++)
 		{
 			int h = int(openvdb::math::RoundDown((noiseMap.GetValue(x, y) + noiseZ0) * noiseValueToWorldConversion));
-			for (int z = denseGrid.bbox().min().z(); z < h; z++)
-			{
-				denseGrid.setValue(openvdb::Coord(x, y, z), isovalue - (h - z));
-			}
-			denseGrid.setValue(openvdb::Coord(x, y, h), isovalue);
-			for (int z = h + 1; z <= denseGrid.bbox().max().z(); z++)
-			{
-				denseGrid.setValue(openvdb::Coord(x, y, z), isovalue + z);
-			}
+			grid->tree().setValue(openvdb::Coord(x, y, h), isovalue);
+			//for (int z = mapBounds.min().z(); z < h; z++)
+			//{
+			//	denseGrid.setValue(openvdb::Coord(x, y, z), isovalue - (h - z));
+			//}
+			//denseGrid.setValue(openvdb::Coord(x, y, h), isovalue);
+			//for (int z = h + 1; z <= denseGrid.bbox().max().z(); z++)
+			//{
+			//	denseGrid.setValue(openvdb::Coord(x, y, z), isovalue + z);
+			//}
 		}
 	}
 
-	//createLevelSet(Real voxelSize, Real halfWidth)
-	openvdb::FloatGrid::Ptr grid = openvdb::FloatGrid::create();
-	openvdb::tools::copyFromDense(denseGrid, *grid, 0.0f);
+	//openvdb::tools::copyFromDense(denseGrid, *grid, 0.0f);
 	grid->setName(gridName);
-	grid->setGridClass(openvdb::GRID_LEVEL_SET);
 	openvdb::tools::pruneLevelSet(grid->tree());
+	//openvdb::tools::doSignedFloodFill(grid->tree(), 0.0f, -1.0f, false, 1);
+
+	//for (auto i = grid->beginValueAll(); i; ++i)
+	//{
+	//	if (openvdb::math::isApproxEqual(i.getValue(), isovalue))
+	//	{
+	//		i.setActiveState(true);
+	//	}
+	//	else
+	//	{
+	//		i.setActiveState(false);
+	//	}
+	//}
+
+	//openvdb::GridPtrVec grids;
+	//grids.push_back(grid);
+	//openvdb::io::File file("C:/Users/zach/Documents/Unreal Projects/obtuse-tanuki/CosmicSafari/test.vdb");
+	//file.write(grids);
+	//file.close();
+
 	gridID = addGridRegion(grid);
 	return 0;
 }

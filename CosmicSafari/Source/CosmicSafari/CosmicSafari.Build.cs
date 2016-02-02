@@ -10,6 +10,9 @@ public class CosmicSafari : ModuleRules
         //The other approach with dynamic loading would require use of LoadModule
         //DynamicallyLoadedModuleNames.AddRange(new string[] { "ProceduralMeshComponent" });        
         PrivateIncludePathModuleNames.AddRange(new string[] { "ProceduralMeshComponent" });
+
+        MinFilesUsingPrecompiledHeaderOverride = 1;
+        bFasterWithoutUnity = true;
 	}
 
     public virtual void SetupGlobalEnvironment(
@@ -18,6 +21,6 @@ public class CosmicSafari : ModuleRules
         ref CPPEnvironmentConfiguration OutCPPEnvironmentConfiguration
         )
     {
-        OutCPPEnvironmentConfiguration.Definitions.Add("OPENVDBMODULE_IMPORT");
+        //OutCPPEnvironmentConfiguration.Definitions.Add("OPENVDBMODULE_IMPORT");
     }
 }
