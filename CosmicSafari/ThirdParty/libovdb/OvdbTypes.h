@@ -15,5 +15,5 @@ typedef struct _VolumeDimensions_
 } VolumeDimensions;
 
 typedef float GridType;
-typedef std::wstring GridIDType;
-const static GridIDType INVALID_GRID_ID = std::wstring();
+typedef std::wstring IDType;
+const static IDType INVALID_GRID_ID = std::wstring();

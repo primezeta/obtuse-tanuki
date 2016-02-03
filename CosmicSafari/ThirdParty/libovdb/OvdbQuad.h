@@ -9,18 +9,46 @@ const static int32_t CUBE_FACE_COUNT = YZ_FACE+1;
 enum QuadVertexIndex { V0, V1, V2, V3 };
 const static int32_t QUAD_VERTEX_INDEX_COUNT = V3+1;
 
+typedef struct _OvdbQuadKey_
+{
+	_OvdbQuadKey_(const QuadIndicesType &is, const Plane2d &cf) : indices(is), cubeFace(cf) {}
+	_OvdbQuadKey_(const _OvdbQuadKey_ &rhs) : indices(rhs.indices), cubeFace(rhs.cubeFace) {}
+	const QuadIndicesType &indices;
+	const Plane2d &cubeFace;
+	bool operator==(const _OvdbQuadKey_ &rhs) const
+	{
+		return cubeFace == rhs.cubeFace &&
+			   indices.x() == rhs.indices.x() &&
+			   indices.y() == rhs.indices.y() &&
+			   indices.z() == rhs.indices.z() &&
+			   indices.w() == rhs.indices.w();
+	}
+} OvdbQuadKey;
+
+struct OvdbQuadHash
+{
+	std::size_t operator()(const OvdbQuadKey& k) const
+	{
+		return std::hash<openvdb::Index32>()(k.indices.x())
+			   ^ ((std::hash<openvdb::Index32>()(k.indices.y()) << 1) >> 1)
+			   ^ ((std::hash<openvdb::Index32>()(k.indices.z()) << 1) >> 1)
+			   ^ ((std::hash<openvdb::Index32>()(k.indices.w()) << 1) >> 1)
+			   ^ (std::hash<typename Plane2d>()(k.cubeFace) << 1);
+	}
+};
+
 class OvdbQuad
 {
 private:
-	const std::vector<QuadVertexType> &vertices;
+	const std::vector<QuadVertexType> *vertices;
 	QuadIndicesType indices;
-	const Plane2d cubeFace;
+	Plane2d cubeFace;
 	QuadVertexType quadSize;
 	bool isMerged;
-	const int normal;
+	int normal;
 
 public:
-	OvdbQuad(const std::vector<QuadVertexType> &vs, QuadIndicesType is, Plane2d p, int n) : vertices(vs), indices(is), cubeFace(p), isMerged(false), normal(n)
+	OvdbQuad(const std::vector<QuadVertexType> *vs, QuadIndicesType is, Plane2d p, int n) : vertices(vs), indices(is), cubeFace(p), isMerged(false), normal(n)
 	{
 		setIndices(is);
 	}
@@ -28,7 +56,17 @@ public:
 	{
 		setIndices(QuadIndicesType(rhs(V0), rhs(V1), rhs(V2), rhs(V3)));
 	}
-	QuadVertexType operator[](QuadVertexIndex v) const { return vertices[indices[v]]; }
+	OvdbQuad& operator=(const OvdbQuad &rhs)
+	{
+		vertices = rhs.vertices;
+		cubeFace = rhs.cubeFace;
+		quadSize = rhs.quadSize;
+		isMerged = rhs.isMerged;
+		normal = rhs.normal;
+		return *this;
+	}
+	OvdbQuadKey getKey() { return OvdbQuadKey(indices, cubeFace); }
+	QuadVertexType operator[](QuadVertexIndex v) const { return (*vertices)[indices[v]]; }
 	openvdb::Int32 operator()(QuadVertexIndex v) const { return indices[v]; }
 	const Plane2d &quadFace() const { return cubeFace; }
 	const QuadVertexType &quadSizeUVW() const { return quadSize; }

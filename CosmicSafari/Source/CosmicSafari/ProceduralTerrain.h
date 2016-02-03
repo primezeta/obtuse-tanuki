@@ -15,6 +15,8 @@ public:
 	// Sets default values for this actor's properties
 	AProceduralTerrain();
 
+	virtual void PostInitializeComponents() override;
+
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
@@ -28,33 +30,42 @@ public:
 	UMaterial * TerrainMaterial;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
+	FString VolumeName;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
 	float MeshSurfaceValue;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
-	FIntVector MapBounds; //TODO: Error check dim ranges since internally to openvdb they are unsigned
+	FIntVector MapBoundsStart; //TODO: Error check dim ranges since internally to openvdb they are unsigned
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
+	FIntVector MapBoundsEnd; //TODO: Error check dim ranges since internally to openvdb they are unsigned
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
 	FIntVector RegionCount;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
-	int32 LibnoiseRange;
+	int32 HeightMapRange;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
 	bool bCreateCollision;
 
-	UFUNCTION()
-	void CreateGridVolumes();
-
 private:
-	//SectionIDs to act as the master map. If it contains the grid ID, then the other maps must contain an item at that ID
-	TMap<FString, bool> SectionIDs;
-	TMap<FString, int32> MeshSectionIndices;
-	TMap<FString, float> SurfaceIsovalues;
-	TMap<FString, TArray<FVector>> MeshSectionVertices;
-	TMap<FString, TArray<int32>> MeshSectionTriangleIndices;
-	TMap<FString, TArray<FVector2D>> MeshSectionUVMap;
-	TMap<FString, TArray<FVector>> MeshSectionNormals;
-	TMap<FString, TArray<FColor>> MeshSectionVertexColors;
-	TMap<FString, TArray<FProcMeshTangent>> MeshSectionTangents;
+	static FOpenVDBModule * openVDBModule;
+	static void InitializeOpenVDBModule();
+
+	void InitializeMeshSections();
+	FString GridID;
+	float GridIsovalue;
+	TArray<int32> MeshSectionIndices;
+	TMap<int32, bool> IsGridSectionMeshed;
+	TMap<int32, FIntVector> MeshSectionStart;
+	TMap<int32, FIntVector> MeshSectionEnd;
+	TMap<int32, TArray<FVector>> MeshSectionVertices;
+	TMap<int32, TArray<int32>> MeshSectionTriangleIndices;
+	TMap<int32, TArray<FVector2D>> MeshSectionUVMap;
+	TMap<int32, TArray<FVector>> MeshSectionNormals;
+	TMap<int32, TArray<FColor>> MeshSectionVertexColors;
+	TMap<int32, TArray<FProcMeshTangent>> MeshSectionTangents;
 	UMaterialInstanceDynamic * TerrainDynamicMaterial;
 };

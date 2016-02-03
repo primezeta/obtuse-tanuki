@@ -27,10 +27,10 @@ FString FOpenVDBModule::ReadVDBFile(FString vdbFilename, FString gridName)
 	return gridID.data();
 }
 
-FString FOpenVDBModule::CreateDynamicVdb(float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 libnoiseRange, float &isovalue)
+FString FOpenVDBModule::CreateDynamicVdb(float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range, float &isovalue)
 {
 	VolumeDimensions volumeDimensions(boundsStart.X, boundsEnd.X, boundsStart.Y, boundsEnd.Y, boundsStart.Z, boundsEnd.Z);
-	GridIDType gridID = OvdbCreateLibNoiseVolume("noise", surfaceValue, volumeDimensions, (uint32)libnoiseRange, isovalue); //TODO: Range check dims since internally they are unsigned;
+	GridIDType gridID = OvdbCreateLibNoiseVolume("noise", surfaceValue, volumeDimensions, (uint32)range, isovalue); //TODO: Range check dims since internally they are unsigned;
 	if (gridID == INVALID_GRID_ID)
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create dynamic vdb! (invalid grid ID)"));
@@ -81,6 +81,15 @@ bool FOpenVDBModule::GetMeshGeometry(const FString &gridID, TArray<FVector> &Ver
 		Normals.Add(normal);
 	}
 	return true; //TODO: Handle errors
+}
+
+bool FOpenVDBModule::AddMeshRegion(const FString &gridID, const FString &regionID, const FIntVector &regionStart, const FIntVector &regionEnd)
+{
+	FString * id = MeshRegions.Find(regionID);
+	if (id == nullptr)
+	{
+		MeshRegions.Add(regionID, gridID);
+	}
 }
 
 bool FOpenVDBModule::GetVDBMesh(const FString &gridID, float isovalue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
