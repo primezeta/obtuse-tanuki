@@ -21,10 +21,10 @@ namespace ovdb
 				return *this;
 			}
 			const QuadIndicesType& quad() const { return indices; }
-			QuadUVType quadU() { return openvdb::Vec2I(indices[V0], indices[V1]); }
-			QuadUVType quadV() { return openvdb::Vec2I(indices[V0], indices[V3]); }
-			PolygonIndicesType quadPoly1() { return openvdb::Vec3I(indices[V0], indices[V1], indices[V2]); }
-			PolygonIndicesType quadPoly2() { return openvdb::Vec3I(indices[V0], indices[V2], indices[V3]); }
+			QuadUVType quadU() const { return openvdb::Vec2I(indices[V0], indices[V1]); }
+			QuadUVType quadV() const { return openvdb::Vec2I(indices[V0], indices[V3]); }
+			PolygonIndicesType quadPoly1() const { return openvdb::Vec3I(indices[V0], indices[V1], indices[V2]); }
+			PolygonIndicesType quadPoly2() const { return openvdb::Vec3I(indices[V0], indices[V2], indices[V3]); }
 			bool quadIsMerged() const { return isMerged; }
 			void setIsMerged() { isMerged = true; }
 			void mergeU(OvdbQuad &rhs)

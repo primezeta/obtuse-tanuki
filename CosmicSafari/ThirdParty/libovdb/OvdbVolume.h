@@ -6,15 +6,7 @@ namespace ovdb
 {
 	namespace meshing
 	{
-		enum Plane2d { XY_FACE, XZ_FACE, YZ_FACE };
-		const static size_t PLANE_2D_COUNT = YZ_FACE + 1;
-
 		typedef std::unordered_map<OvdbQuadKey, OvdbQuad, OvdbQuadHash> UniqueQuadsType;
-		typedef std::map<IDType, VolumeVerticesType> RegionVerticesType;
-		typedef std::map<IDType, VolumePolygonsType> RegionPolygonsType;
-		typedef std::map<IDType, VolumeNormalsType> RegionNormalsType;
-		typedef std::map<IDType, UniqueQuadsType> RegionQuadsType;
-		typedef std::map<IDType, IndexGridPtr> RegionVisitedVertexIndicesType;
 
 		class OvdbPrimitiveCube
 		{
@@ -48,14 +40,14 @@ namespace ovdb
 			IndexType primitiveIndices[CUBE_VERTEX_COUNT];
 		};
 
-		template<typename _TreeType> class OvdbVoxelVolume
+		template<typename _TreeType>
+		class OvdbVoxelVolume
 		{
 		public:
 			typedef typename _TreeType TreeType;
 			typedef typename TreeType::Ptr TreeTypePtr;
 			typedef typename TreeType::ConstPtr TreeTypeCPtr;
 			typedef typename openvdb::Grid<TreeType> GridType;
-			typedef std::map<IDType, TreeTypePtr> RegionTreesType;
 			typedef typename GridType::Ptr GridTypePtr;
 			typedef typename GridType::ConstPtr GridTypeCPtr;
 			typedef typename GridType::ValueAllCIter GridValueAllCIterType;
@@ -66,75 +58,71 @@ namespace ovdb
 			typedef typename GridType::ValueOffIter GridValueOffIterType;
 
 			//Note: Grids don't have an end value. Just need to check if the iter is null
-			TreeTypeCPtr getCRegionTree(IDType regionID) const { RegionTreesType::const_iterator i = regionTrees.find(regionID); assert(i != regionTrees.cend()); return i->second; }
-			TreeTypePtr getRegionTree(IDType regionID) { RegionTreesType::iterator i = regionTrees.find(regionID); assert(i != regionTrees.end()); return i->second; }
-			GridValueAllCIterType valuesAllCBegin(IDType regionID) const { return getCRegionTree(regionID)->cbeginValueAll(); }
-			GridValueAllIterType valuesAllBegin(IDType regionID) { return getRegionTree(regionID)->beginValueAll(); }
-			GridValueOnCIterType valuesOnCBegin(IDType regionID) const { return getCRegionTree(regionID)->cbeginValueOn(); }
-			GridValueOnIterType valuesOnBegin(IDType regionID) { return getRegionTree(regionID)->beginValueOn(); }
-			GridValueOffCIterType valuesOffCBegin(IDType regionID) const { return getCRegionTree(regionID)->cbeginValueOff(); }
-			GridValueOffIterType valuesOffBegin(IDType regionID) { return getRegionTree(regionID)->beginValueOff(); }
-
-			GridTypeCPtr volumeGrid;
+			TreeTypeCPtr getCRegionTree() const { return regionTree; }
+			TreeTypePtr getRegionTree() { return regionTree; }
+			GridValueAllCIterType valuesAllCBegin() const { return getCRegionTree()->cbeginValueAll(); }
+			GridValueAllIterType valuesAllBegin() { return getRegionTree()->beginValueAll(); }
+			GridValueOnCIterType valuesOnCBegin() const { return getCRegionTree()->cbeginValueOn(); }
+			GridValueOnIterType valuesOnBegin() { return getRegionTree()->beginValueOn(); }
+			GridValueOffCIterType valuesOffCBegin() const { return getCRegionTree()->cbeginValueOff(); }
+			GridValueOffIterType valuesOffBegin() { return getRegionTree()->beginValueOff(); }
 
 			OvdbVoxelVolume() : volumeGrid(nullptr) {};
 			OvdbVoxelVolume(GridTypeCPtr grid) : volumeGrid(grid) {}
-
-			//Copy the volume and visited grid with shared trees and deep-copy the vertices, polygons, and normals
 			OvdbVoxelVolume(OvdbVoxelVolume &rhs) : volumeGrid(rhs.volumeGrid)
 			{
-				//Copy region trees and geometry. TODO: Safe to clear some of the held data such as tree ptrs?
-				regionTrees.clear();
-				regionVertices.clear();
-				regionPolygons.clear();
-				regionNormals.clear();
-				for (int i = 0; i < PLANE_2D_COUNT; ++i)
-				{
-					regionQuads[i].clear();
-				}
-
-				for (RegionTreesType::iterator i = rhs.regionTrees.begin(); i != rhs.regionTrees.cend(); ++i)
-				{
-					regionTrees[i->first] = boost::static_pointer_cast<TreeType>(i->second->copy());
-					visitedVertexIndices[i->first] = rhs.visitedVertexIndices[i->first]->copy();
-					regionVertices[i->first].insert(regionVertices[i->first].begin(), rhs.regionVertices[i->first].begin(), rhs.regionVertices[i->first].end());
-					regionPolygons[i->first].insert(regionPolygons[i->first].begin(), rhs.regionPolygons[i->first].begin(), rhs.regionPolygons[i->first].end());
-					regionNormals[i->first].insert(regionNormals[i->first].begin(), rhs.regionNormals[i->first].begin(), rhs.regionNormals[i->first].end());
-					for (int i = 0; i < PLANE_2D_COUNT; ++i)
-					{
-						regionQuads[i].insert(rhs.regionQuads[i].begin(), rhs.regionQuads[i].end());
-					}
-				}
+				vertices.clear();
+				polygons.clear();
+				normals.clear();
+				quads.clear();
+				regionTree = boost::static_pointer_cast<TreeType>(rhs.regionTree->copy());
+				visitedVertexIndices = rhs.visitedVertexIndices->copy();
+				vertices.insert(vertices.begin(), rhs.vertices.begin(), rhs.vertices.end());
+				polygons.insert(polygons.begin(), rhs.polygons.begin(), rhs.polygons.end());
+				normals.insert(normals.begin(), rhs.normals.begin(), rhs.normals.end());
+				quads.insert(rhs.quads.begin(), rhs.quads.end());
 			}
 
-			VolumeVerticesType &getVertices(IDType regionID) { return regionVertices[regionID]; }
-			VolumePolygonsType &getPolygons(IDType regionID) { return regionPolygons[regionID]; }
-			VolumeNormalsType &getNormals(IDType regionID) { return regionNormals[regionID]; }
+			VolumeVerticesType &getVertices() { return vertices; }
+			VolumePolygonsType &getPolygons() { return polygons; }
+			VolumeNormalsType &getNormals() { return normals; }
 
-			void addRegion(IDType regionID, const openvdb::CoordBBox &regionBBox)
+			void doSurfaceMesh(const openvdb::math::CoordBBox &meshBBox, VolumeStyle volumeStyle, float isoValue, OvdbMeshMethod method) //TODO: Swap isovalue/surface value among parameters
 			{
-				//Tree clipping is destructive so copy the tree prior to clipping in order to preserve the original tree
-				//TODO: Possibly check if the region ID already exists and if so, handle a changed bounding box (or throw an error)
-				TreeTypePtr subtreePtr = volumeGrid->tree().copy();
-				subtreePtr->clip(regionBBox);
-				regionTrees[regionID] = subtreePtr;
-				regionVertices.insert(regionID, VolumeVerticesType());
-				regionPolygons.insert(regionID, VolumePolygonsType());
-				regionNormals.insert(regionID, VolumeNormalsType());
-				for (int i = 0; i < PLANE_2D_COUNT; ++i)
-				{
-					regionQuads[i].insert(regionID, UniqueQuadsType());
-				}
-				//The visited vertex grid mirrors the volume grid, where the value of each voxel is the vertex index or max value if that voxel has not been visited
-				auto i = visitedVertexIndices.insert(regionID, IndexGridType::create(INDEX_TYPE_MAX));
-				i->second->setTransform(volumeGrid->transformPtr()->copy());
-				i->second->topologyUnion(*subtreePtr);
+				regionBBox = meshBBox;
+				initializeRegion();
+				buildRegionMeshSurface(volumeStyle, isoValue);
+				doMesh(method);
 			}
 
-			void buildVolume(IDType regionID, VolumeStyle volumeStyle, float isoValue)
+		private:
+			const GridTypeCPtr volumeGrid;
+			TreeTypePtr regionTree;
+			openvdb::math::CoordBBox regionBBox;
+			VolumeVerticesType vertices;
+			VolumePolygonsType polygons;
+			VolumeNormalsType normals;
+			UniqueQuadsType quads;
+			IndexGridPtr visitedVertexIndices;
+
+			void initializeRegion()
+			{
+				//The visited vertex grid mirrors the region, except that values are indices of vertices already used by a quad (or max index if not yet used)
+				visitedVertexIndices = IndexGridType::create(INDEX_TYPE_MAX);
+				visitedVertexIndices->setTransform(volumeGrid->transformPtr()->copy());
+				visitedVertexIndices->topologyUnion(*volumeGrid);
+				visitedVertexIndices->clip(regionBBox);
+
+				//Tree clipping is destructive so copy the grid tree prior to clipping
+				TreeTypePtr subtreePtr = boost::static_pointer_cast<TreeType>(volumeGrid->tree().copy());
+				subtreePtr->clip(regionBBox);
+				regionTree = subtreePtr;
+			}
+
+			void buildRegionMeshSurface(VolumeStyle volumeStyle, float isoValue) 
 			{
 				//Step through only voxels that are on
-				for (GridValueOnCIterType i = valuesOnCBegin(regionID); i; ++i)
+				for (GridValueOnCIterType i = valuesOnCBegin(); i; ++i)
 				{
 					const CoordType &startCoord = i.getCoord();
 					//Skip tile values and values that are not on the surface
@@ -142,7 +130,7 @@ namespace ovdb
 					{
 						continue;
 					}
-					float value = getRegionGridValue(regionID, startCoord);
+					float value = volumeGrid->getConstAccessor().getValue(startCoord);
 					if (!openvdb::math::isApproxEqual(value, isoValue))
 					{
 						continue;
@@ -152,37 +140,25 @@ namespace ovdb
 					if (volumeStyle == VOLUME_STYLE_CUBE)
 					{
 						OvdbPrimitiveCube primitiveIndices(startCoord);
-						buildCubeQuads(regionID, primitiveIndices);
+						buildCubeQuads(primitiveIndices);
 						OvdbQuad xy0(primitiveIndices.getQuadXY0());
 						OvdbQuad xy1(primitiveIndices.getQuadXY1());
 						OvdbQuad xz0(primitiveIndices.getQuadXZ0());
 						OvdbQuad xz1(primitiveIndices.getQuadXZ1());
 						OvdbQuad yz0(primitiveIndices.getQuadYZ0());
 						OvdbQuad yz1(primitiveIndices.getQuadYZ1());
-						regionQuads[XY_FACE][regionID][OvdbQuadKey(xy0)] = xy0;
-						regionQuads[XY_FACE][regionID][OvdbQuadKey(xy1)] = xy1;
-						regionQuads[XZ_FACE][regionID][OvdbQuadKey(xz0)] = xz0;
-						regionQuads[XZ_FACE][regionID][OvdbQuadKey(xz1)] = xz1;
-						regionQuads[YZ_FACE][regionID][OvdbQuadKey(yz0)] = yz0;
-						regionQuads[YZ_FACE][regionID][OvdbQuadKey(yz1)] = yz1;
+						quads[OvdbQuadKey(xy0)] = xy0;
+						quads[OvdbQuadKey(xy1)] = xy1;
+						quads[OvdbQuadKey(xz0)] = xz0;
+						quads[OvdbQuadKey(xz1)] = xz1;
+						quads[OvdbQuadKey(yz0)] = yz0;
+						quads[OvdbQuadKey(yz1)] = yz1;
 					}
 				}
 			}
 
-			void doMesh(IDType regionID, OvdbMeshMethod method)
+			void doMesh(OvdbMeshMethod method)
 			{
-				//Collect the quads in a linear list and mesh them. TODO: Better way to do this than copying them all?
-				std::vector<OvdbQuad*> quads;
-				for (int i = 0; i < PLANE_2D_COUNT; ++i)
-				{
-					UniqueQuadsType &unorderedQuads = regionQuads[i][regionID];
-					for (UniqueQuadsType::iterator j = unorderedQuads.begin(); j != unorderedQuads.end(); ++j)
-					{
-						OvdbQuad *q = &(j->second);
-						quads.push_back(q);
-					}
-				}
-
 				////If method is naive do nothing special
 				//if (method == MESHING_GREEDY)
 				//{
@@ -196,54 +172,49 @@ namespace ovdb
 				//}
 
 				//Finally, collect polygon and normal data
-				for (std::vector<OvdbQuad*>::const_iterator i = quads.begin(); i != quads.end(); ++i)
+				for (UniqueQuadsType::const_iterator i = quads.begin(); i != quads.end(); ++i)
 				{
-					OvdbQuad &q = **i;
+					const OvdbQuad &q = i->second;
 					if (q.quadIsMerged())
 					{
 						continue;
 					}
 					//Collect triangle indices of the two triangles comprising this quad
-					regionPolygons[regionID].push_back(q.quadPoly1());
-					regionPolygons[regionID].push_back(q.quadPoly2());
-					//regionNormals[regionID].push_back();
-					//regionNormals[regionID].push_back();
-					//regionNormals[regionID].push_back();
-					//regionNormals[regionID].push_back();
+					polygons.push_back(q.quadPoly1());
+					polygons.push_back(q.quadPoly2());
+					//normals.push_back();
+					//normals.push_back();
+					//normals.push_back();
+					//normals.push_back();
 				}
 			}
 
-		private:
-			RegionTreesType regionTrees;
-			RegionVerticesType regionVertices;
-			RegionPolygonsType regionPolygons;
-			RegionNormalsType regionNormals;
-			RegionQuadsType regionQuads[PLANE_2D_COUNT]; //TODO: Set up iterator and get/set functions for regionQuads
-			RegionVisitedVertexIndicesType visitedVertexIndices;
-
-			float getGridValue(const CoordType &coord) { return volumeGrid->getConstAccessor().getValue(coord); }
-			float getRegionGridValue(IDType regionID, const CoordType &coord) { return getRegionTree(regionID)->getValue(coord); }
-			IndexType getVisitedVertexValue(IDType regionID, const CoordType &coord) { return visitedVertexIndices[regionID]->getConstAccessor().getValue(coord); }
-			void setVisitedVertexValue(IDType regionID, const CoordType &coord, IndexType value) { visitedVertexIndices[regionID]->getAccessor().setValue(coord, value); }
-
-			void buildCubeQuads(IDType regionID, OvdbPrimitiveCube &primitiveIndices)
+			void buildCubeQuads(OvdbPrimitiveCube &primitiveIndices)
 			{
 				//Make 6 quads, each of width / height 1
 				for (uint32_t i = 0; i < CUBE_VERTEX_COUNT; ++i)
 				{
 					CoordType coord = primitiveIndices.getCoord((CubeVertex)i);
-					IndexType vertexIndex = getVisitedVertexValue(regionID, coord);
+					IndexGridType::Accessor acc = visitedVertexIndices->getAccessor();
+					IndexType vertexIndex = acc.getValue(coord);
 					if (vertexIndex == UNVISITED_VERTEX_INDEX)
 					{
-						vertexIndex = IndexType(regionVertices[regionID].size()); //TODO: Error check index ranges
-						TreeTypeCPtr region = regionTrees[regionID];
+						vertexIndex = IndexType(vertices.size()); //TODO: Error check index ranges
 						QuadVertexType vertex = volumeGrid->indexToWorld(coord);
-						regionVertices[regionID].push_back(vertex);
+						vertices.push_back(vertex);
 						//Since this is a new vertex save it to the global visited vertex grid for use by any other voxels in the same region that share it
-						setVisitedVertexValue(regionID, coord, vertexIndex);
+						acc.setValue(coord, vertexIndex);
 					}
 					primitiveIndices.setVertexIndex((CubeVertex)i, vertexIndex);
 				}
+			}
+		};
+
+		struct IDLessThan
+		{
+			bool operator()(const IDType &lhs, const IDType& rhs) const
+			{
+				return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 			}
 		};
 	}
