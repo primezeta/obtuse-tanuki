@@ -3,6 +3,9 @@
 
 DEFINE_LOG_CATEGORY(LogOpenVDBModule)
 
+using namespace ovdb;
+using namespace ovdb::meshing;
+
 void FOpenVDBModule::StartupModule()
 {
 	if (OvdbInitialize())
@@ -19,7 +22,7 @@ FString FOpenVDBModule::ReadVDBFile(FString vdbFilename, FString gridName)
 	std::string fname = std::string(wfname.begin(), wfname.end());
 	std::string gname = std::string(wgname.begin(), wgname.end());
 
-	GridIDType gridID = INVALID_GRID_ID;
+	IDType gridID = INVALID_GRID_ID;
 	if (OvdbReadVdb(fname, gname, gridID))
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to read vdb file!"));
@@ -27,10 +30,10 @@ FString FOpenVDBModule::ReadVDBFile(FString vdbFilename, FString gridName)
 	return gridID.data();
 }
 
-FString FOpenVDBModule::CreateDynamicVdb(float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range, float &isovalue)
+FString FOpenVDBModule::CreateDynamicVdb(float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range, float &isoValue)
 {
 	VolumeDimensions volumeDimensions(boundsStart.X, boundsEnd.X, boundsStart.Y, boundsEnd.Y, boundsStart.Z, boundsEnd.Z);
-	GridIDType gridID = OvdbCreateLibNoiseVolume("noise", surfaceValue, volumeDimensions, (uint32)range, isovalue); //TODO: Range check dims since internally they are unsigned;
+	IDType gridID = OvdbCreateLibNoiseVolume("noise", surfaceValue, volumeDimensions, (uint32)range, isoValue); //TODO: Range check dims since internally they are unsigned;
 	if (gridID == INVALID_GRID_ID)
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create dynamic vdb! (invalid grid ID)"));
@@ -38,16 +41,16 @@ FString FOpenVDBModule::CreateDynamicVdb(float surfaceValue, const FIntVector &b
 	return gridID.data();
 }
 
-bool FOpenVDBModule::CreateMesh(const FString &gridID, float isovalue)
+bool FOpenVDBModule::CreateMesh(const FString &gridID, float isoValue)
 {
 	//TODO: Handle Ovdb errors
-	return OvdbVolumeToMesh(gridID.GetCharArray().GetData(), MESHING_NAIVE, isovalue) == 0;
+	return OvdbVolumeToMesh(gridID.GetCharArray().GetData(), MESHING_NAIVE, isoValue) == 0;
 }
 
-bool FOpenVDBModule::CreateGreedyMesh(const FString &gridID, float isovalue)
+bool FOpenVDBModule::CreateGreedyMesh(const FString &gridID, float isoValue)
 {
 	//TODO: Handle Ovdb errors
-	return OvdbVolumeToMesh(gridID.GetCharArray().GetData(), MESHING_GREEDY, isovalue) == 0;
+	return OvdbVolumeToMesh(gridID.GetCharArray().GetData(), MESHING_GREEDY, isoValue) == 0;
 }
 
 bool FOpenVDBModule::GetMeshGeometry(const FString &gridID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
@@ -83,18 +86,9 @@ bool FOpenVDBModule::GetMeshGeometry(const FString &gridID, TArray<FVector> &Ver
 	return true; //TODO: Handle errors
 }
 
-bool FOpenVDBModule::AddMeshRegion(const FString &gridID, const FString &regionID, const FIntVector &regionStart, const FIntVector &regionEnd)
+bool FOpenVDBModule::GetVDBMesh(const FString &gridID, float isoValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
 {
-	FString * id = MeshRegions.Find(regionID);
-	if (id == nullptr)
-	{
-		MeshRegions.Add(regionID, gridID);
-	}
-}
-
-bool FOpenVDBModule::GetVDBMesh(const FString &gridID, float isovalue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
-{
-	if (CreateMesh(gridID, isovalue))
+	if (CreateMesh(gridID, isoValue))
 	{
 		if (GetMeshGeometry(gridID, Vertices, TriangleIndices, Normals))
 		{
@@ -104,9 +98,9 @@ bool FOpenVDBModule::GetVDBMesh(const FString &gridID, float isovalue, TArray<FV
 	return false;
 }
 
-bool FOpenVDBModule::GetVDBGreedyMesh(const FString &gridID, float isovalue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
+bool FOpenVDBModule::GetVDBGreedyMesh(const FString &gridID, float isoValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
 {
-	if (CreateGreedyMesh(gridID, isovalue))
+	if (CreateGreedyMesh(gridID, isoValue))
 	{
 		if (GetMeshGeometry(gridID, Vertices, TriangleIndices, Normals))
 		{

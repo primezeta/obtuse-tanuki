@@ -1,105 +1,88 @@
-#include "libovdb.h"
-#include "OpenVDBIncludes.h"
+#include "OvdbTypes.h"
 
-typedef openvdb::Vec3d QuadVertexType;
-typedef openvdb::Vec4I QuadIndicesType;
-typedef openvdb::Vec3I PolygonIndicesType;
-enum Plane2d { XY_FACE, XZ_FACE, YZ_FACE };
-const static int32_t CUBE_FACE_COUNT = YZ_FACE+1;
-enum QuadVertexIndex { V0, V1, V2, V3 };
-const static int32_t QUAD_VERTEX_INDEX_COUNT = V3+1;
-
-typedef struct _OvdbQuadKey_
+namespace ovdb
 {
-	_OvdbQuadKey_(const QuadIndicesType &is, const Plane2d &cf) : indices(is), cubeFace(cf) {}
-	_OvdbQuadKey_(const _OvdbQuadKey_ &rhs) : indices(rhs.indices), cubeFace(rhs.cubeFace) {}
-	const QuadIndicesType &indices;
-	const Plane2d &cubeFace;
-	bool operator==(const _OvdbQuadKey_ &rhs) const
+	namespace meshing
 	{
-		return cubeFace == rhs.cubeFace &&
-			   indices.x() == rhs.indices.x() &&
-			   indices.y() == rhs.indices.y() &&
-			   indices.z() == rhs.indices.z() &&
-			   indices.w() == rhs.indices.w();
-	}
-} OvdbQuadKey;
+		class OvdbQuad
+		{
+		private:
+			QuadIndicesType indices;
+			bool isMerged;
 
-struct OvdbQuadHash
-{
-	std::size_t operator()(const OvdbQuadKey& k) const
-	{
-		return std::hash<openvdb::Index32>()(k.indices.x())
-			   ^ ((std::hash<openvdb::Index32>()(k.indices.y()) << 1) >> 1)
-			   ^ ((std::hash<openvdb::Index32>()(k.indices.z()) << 1) >> 1)
-			   ^ ((std::hash<openvdb::Index32>()(k.indices.w()) << 1) >> 1)
-			   ^ (std::hash<typename Plane2d>()(k.cubeFace) << 1);
-	}
-};
+		public:
+			OvdbQuad() {}
+			OvdbQuad(QuadIndicesType idxs) : indices(idxs), isMerged(false) {}
+			OvdbQuad(const OvdbQuad &rhs) : indices(rhs.indices), isMerged(rhs.isMerged) {}
+			OvdbQuad& operator=(const OvdbQuad &rhs)
+			{
+				indices = rhs.indices;
+				isMerged = rhs.isMerged;
+				return *this;
+			}
+			const QuadIndicesType& quad() const { return indices; }
+			QuadUVType quadU() { return openvdb::Vec2I(indices[V0], indices[V1]); }
+			QuadUVType quadV() { return openvdb::Vec2I(indices[V0], indices[V3]); }
+			PolygonIndicesType quadPoly1() { return openvdb::Vec3I(indices[V0], indices[V1], indices[V2]); }
+			PolygonIndicesType quadPoly2() { return openvdb::Vec3I(indices[V0], indices[V2], indices[V3]); }
+			bool quadIsMerged() const { return isMerged; }
+			void setIsMerged() { isMerged = true; }
+			void mergeU(OvdbQuad &rhs)
+			{
+				if (!rhs.quadIsMerged())
+				{
+					rhs.setIsMerged();
+					indices = QuadIndicesType(indices[0], rhs.indices[1], rhs.indices[2], indices[3]);
+				}
+			}
+			void mergeV(OvdbQuad &rhs)
+			{
+				if (!rhs.quadIsMerged())
+				{
+					rhs.setIsMerged();
+					indices = QuadIndicesType(indices[0], indices[1], rhs.indices[2], rhs.indices[3]);
+				}
+			}
+		};
 
-class OvdbQuad
-{
-private:
-	const std::vector<QuadVertexType> *vertices;
-	QuadIndicesType indices;
-	Plane2d cubeFace;
-	QuadVertexType quadSize;
-	bool isMerged;
-	int normal;
+		////Sort quads by a total ordering
+		////via Mikola Lysenko at http://0fps.net/2012/06/30/meshing-in-a-minecraft-game
+		//typedef struct _cmpByQuad_
+		//{
+		//	bool operator()(const OvdbQuad &l, const OvdbQuad &r) const
+		//	{
+		//		if (l.quadFace() != r.quadFace()) return l.quadFace() < r.quadFace();
+		//		if (!openvdb::math::isApproxEqual(l.posW(V0), r.posW(V0))) return l.posW(V0) < r.posW(V0);
+		//		if (!openvdb::math::isApproxEqual(l.posV(V0), r.posV(V0))) return l.posV(V0) < r.posV(V0);
+		//		if (!openvdb::math::isApproxEqual(l.posU(V0), r.posU(V0))) return l.posU(V0) < r.posU(V0);
+		//		if (!openvdb::math::isApproxEqual(l.quadWidth(), r.quadWidth())) return l.quadWidth() > r.quadWidth();
+		//		return openvdb::math::isApproxEqual(l.quadLength(), r.quadLength()) || l.quadLength() > r.quadLength();
+		//	}
+		//} cmpByQuad;
 
-public:
-	OvdbQuad(const std::vector<QuadVertexType> *vs, QuadIndicesType is, Plane2d p, int n) : vertices(vs), indices(is), cubeFace(p), isMerged(false), normal(n)
-	{
-		setIndices(is);
-	}
-	OvdbQuad(const OvdbQuad &rhs) : vertices(rhs.vertices), cubeFace(rhs.quadFace()), quadSize(rhs.quadSizeUVW()), isMerged(rhs.quadIsMerged()), normal(rhs.faceNormal())
-	{
-		setIndices(QuadIndicesType(rhs(V0), rhs(V1), rhs(V2), rhs(V3)));
-	}
-	OvdbQuad& operator=(const OvdbQuad &rhs)
-	{
-		vertices = rhs.vertices;
-		cubeFace = rhs.cubeFace;
-		quadSize = rhs.quadSize;
-		isMerged = rhs.isMerged;
-		normal = rhs.normal;
-		return *this;
-	}
-	OvdbQuadKey getKey() { return OvdbQuadKey(indices, cubeFace); }
-	QuadVertexType operator[](QuadVertexIndex v) const { return (*vertices)[indices[v]]; }
-	openvdb::Int32 operator()(QuadVertexIndex v) const { return indices[v]; }
-	const Plane2d &quadFace() const { return cubeFace; }
-	const QuadVertexType &quadSizeUVW() const { return quadSize; }
-	const double quadHeight() const { return quadSizeUVW().z(); }
-	const double quadLength() const { return quadSizeUVW().y(); }
-	const double quadWidth() const { return quadSizeUVW().x(); }
-	bool quadIsMerged() const { return isMerged; }
-	void setIsMerged() { isMerged = true; } //Can only merge a quad once
-	double posW(QuadVertexIndex v) const { return posUVW(v).z(); }
-	double posV(QuadVertexIndex v) const { return posUVW(v).y(); }
-	double posU(QuadVertexIndex v) const { return posUVW(v).x(); }
-	int faceNormal() const { return normal; }
+		typedef struct _OvdbQuadKey_
+		{
+			_OvdbQuadKey_(const OvdbQuad &q) : indices(q.quad()) {}
+			_OvdbQuadKey_(const _OvdbQuadKey_ &rhs) : indices(rhs.indices) {}
+			const QuadIndicesType &indices;
+			bool operator==(const _OvdbQuadKey_ &rhs) const
+			{
+				return indices.x() == rhs.indices.x() &&
+					indices.y() == rhs.indices.y() &&
+					indices.z() == rhs.indices.z() &&
+					indices.w() == rhs.indices.w();
+			}
+		} OvdbQuadKey;
 
-	QuadVertexType posUVW(QuadVertexIndex v) const;
-	QuadVertexType vertexNormal(QuadVertexIndex v) const;
-	void setIndices(const QuadIndicesType &newIndices);
-	bool mergeQuadsByLength(OvdbQuad &rhs);
-	bool mergeQuadsByWidth(OvdbQuad &rhs);
-	bool isQuadAdjacentByLength(const OvdbQuad &rhs);
-	bool isQuadAdjacentByWidth(const OvdbQuad &rhs);
-};
-
-//Sort quads by a total ordering
-//via Mikola Lysenko at http://0fps.net/2012/06/30/meshing-in-a-minecraft-game
-typedef struct _cmpByQuad_
-{
-	bool operator()(const OvdbQuad &l, const OvdbQuad &r) const
-	{
-		if (l.quadFace() != r.quadFace()) return l.quadFace() < r.quadFace();
-		if (!openvdb::math::isApproxEqual(l.posW(V0), r.posW(V0))) return l.posW(V0) < r.posW(V0);
-		if (!openvdb::math::isApproxEqual(l.posV(V0), r.posV(V0))) return l.posV(V0) < r.posV(V0);
-		if (!openvdb::math::isApproxEqual(l.posU(V0), r.posU(V0))) return l.posU(V0) < r.posU(V0);
-		if (!openvdb::math::isApproxEqual(l.quadWidth(), r.quadWidth())) return l.quadWidth() > r.quadWidth();
-		return openvdb::math::isApproxEqual(l.quadLength(), r.quadLength()) || l.quadLength() > r.quadLength();
+		struct OvdbQuadHash
+		{
+			std::size_t operator()(const OvdbQuadKey& k) const
+			{
+				return std::hash<IndexType>()(k.indices.x())
+					^ ((std::hash<IndexType>()(k.indices.y()) << 1) >> 1)
+					^ ((std::hash<IndexType>()(k.indices.z()) << 1) >> 1)
+					^ (std::hash<IndexType>()(k.indices.w()) << 1);
+			}
+		};
 	}
-} cmpByQuad;
+}

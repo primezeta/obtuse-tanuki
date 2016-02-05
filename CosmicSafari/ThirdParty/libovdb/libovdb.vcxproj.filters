@@ -27,18 +27,12 @@
     <ClInclude Include="OvdbNoise.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="OpenVDBIncludes.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="OvdbTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="libovdb.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="OvdbQuad.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="OvdbVolume.cpp">

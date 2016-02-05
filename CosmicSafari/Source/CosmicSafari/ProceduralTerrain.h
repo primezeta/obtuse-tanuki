@@ -3,6 +3,7 @@
 #pragma once
 
 #include "GameFramework/Actor.h"
+#include "OpenVDBModule/Public/OpenVDBModule.h"
 #include "ProceduralTerrainMeshComponent.h"
 #include "ProceduralTerrain.generated.h"
 
@@ -11,7 +12,7 @@ class COSMICSAFARI_API AProceduralTerrain : public AActor
 {
 	GENERATED_BODY()
 	
-public:	
+public:
 	// Sets default values for this actor's properties
 	AProceduralTerrain();
 
@@ -56,7 +57,7 @@ private:
 
 	void InitializeMeshSections();
 	FString GridID;
-	float GridIsovalue;
+	float GridIsoValue;
 	TArray<int32> MeshSectionIndices;
 	TMap<int32, bool> IsGridSectionMeshed;
 	TMap<int32, FIntVector> MeshSectionStart;

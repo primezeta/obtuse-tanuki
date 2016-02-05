@@ -1,11 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "CosmicSafari.h"
-#include "OpenVDBModule/Public/OpenVDBModule.h"
-#include "OvdbTypes.h"
+#include "libovdb.h"
 #include "ProceduralTerrain.h"
 
-static FOpenVDBModule * openVDBModule = nullptr;
+FOpenVDBModule * AProceduralTerrain::openVDBModule = nullptr;
 
 void AProceduralTerrain::InitializeOpenVDBModule()
 {
@@ -21,11 +20,6 @@ void AProceduralTerrain::InitializeOpenVDBModule()
 			openVDBModule->StartupModule();
 		}
 	}
-}
-
-FString AProceduralTerrain::CreateGridVolume(const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range, float surfaceValue, float &isoValue)
-{
-	return openVDBModule->CreateDynamicVdb(surfaceValue, boundsStart, boundsEnd, range, isoValue); //TODO: Range check dimensions since internally they are unsigned
 }
 
 // Sets default values
@@ -61,7 +55,7 @@ AProceduralTerrain::AProceduralTerrain()
 void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	GridID = openVDBModule->CreateDynamicVdb(MeshSurfaceValue, MapBoundsStart, MapBoundsEnd, HeightMapRange, GridIsovalue);
+	GridID = openVDBModule->CreateDynamicVdb(MeshSurfaceValue, MapBoundsStart, MapBoundsEnd, HeightMapRange, GridIsoValue);
 	if (GridID == TEXT(""))
 	{
 		UE_LOG(LogFlying, Fatal, TEXT("Dynamic grid is invalid!")); //TODO: Better error handling
@@ -103,11 +97,11 @@ void AProceduralTerrain::BeginPlay()
 		checkf(colors != nullptr, TEXT("ProceduralTerrain: null mesh section colors (section %d)"), sectionIndex);
 		checkf(tangents != nullptr, TEXT("ProceduralTerrain: null mesh section tangents (section %d)"), sectionIndex);
 
-		FString regionID = FString::Printf(TEXT("%s:%d"), VolumeName, sectionIndex);
-		if (openVDBModule->GetVDBMesh(regionID, *isovalue, *vertices, *indices, *normals))
+		FString regionID = FString::Printf(TEXT("%s:%d"), *VolumeName, sectionIndex);
+		if (openVDBModule->GetVDBMesh(regionID, GridIsoValue, *vertices, *indices, *normals))
 		{
-			TerrainMeshComponent->CreateTerrainMeshSection(*meshSectionIndex, bCreateCollision, *vertices, *indices, *uvs, *normals, *colors, *tangents);
-			TerrainMeshComponent->SetMeshSectionVisible(*meshSectionIndex, true);
+			TerrainMeshComponent->CreateTerrainMeshSection(sectionIndex, bCreateCollision, *vertices, *indices, *uvs, *normals, *colors, *tangents);
+			TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
 		}
 		else
 		{

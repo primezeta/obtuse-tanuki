@@ -129,8 +129,8 @@
     <ClCompile>
       <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\OpenVDB\src;$(SolutionDir)ThirdParty\OpenVDB\dependencies\include;C:\boost\boost_1_59_0;$(SolutionDir)ThirdParty\LibNoise</AdditionalIncludeDirectories>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);LIB_OVDB_DLL;LIB_OVDB_EXPORT;ZLIB_STATIC;OPENVDB_STATICLIB;OPENVDB_OPENEXR_STATICLIB</PreprocessorDefinitions>
-      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);USING_OPENVDB_TYPES;LIB_OVDB_DLL;LIB_OVDB_EXPORT;ZLIB_STATIC;OPENVDB_STATICLIB;OPENVDB_OPENEXR_STATICLIB</PreprocessorDefinitions>
+      <WarningLevel>Level1</WarningLevel>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <SDLCheck>false</SDLCheck>
       <ProgramDataBaseFileName>$(IntDir)vc$(PlatformToolsetVersion).pdb</ProgramDataBaseFileName>
@@ -171,7 +171,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="libovdb.h" />
-    <ClInclude Include="OpenVDBIncludes.h" />
     <ClInclude Include="OvdbNoise.h" />
     <ClInclude Include="OvdbQuad.h" />
     <ClInclude Include="OvdbTypes.h" />
@@ -180,7 +179,6 @@
   <ItemGroup>
     <ClCompile Include="libovdb.cpp" />
     <ClCompile Include="OvdbNoise.cpp" />
-    <ClCompile Include="OvdbQuad.cpp" />
     <ClCompile Include="OvdbVolume.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,19 +1,47 @@
 #pragma once
-#include <string>
-#include <stdint.h>
-enum OvdbMeshMethod { MESHING_NAIVE, MESHING_GREEDY };
-typedef struct _VolumeDimensions_
-{
-	int32_t x0, x1;
-	int32_t y0, y1;
-	int32_t z0, z1;
-	_VolumeDimensions_(int32_t _x0, int32_t _x1, int32_t _y0, int32_t _y1, int32_t _z0, int32_t _z1)
-		: x0(_x0), x1(_x1), y0(_y0), y1(_y1), z0(_z0), z1(_z1) {}
-	int32_t _VolumeDimensions_::sizeX() const { return abs(x1 - x0) + 1; }
-	int32_t _VolumeDimensions_::sizeY() const { return abs(y1 - y0) + 1; }
-	int32_t _VolumeDimensions_::sizeZ() const { return abs(z1 - z0) + 1; }
-} VolumeDimensions;
+#include "libovdb.h"
+#pragma warning(push, 0)
+#include <openvdb/openvdb.h>
+#include <openvdb/Exceptions.h>
+#include <openvdb/tools/Dense.h>
+#include <openvdb/tools/VolumeToMesh.h>
+#include <openvdb/tools/Clip.h>
+#include <openvdb/tools/GridOperators.h>
+#pragma warning(pop)
 
-typedef float GridType;
-typedef std::wstring IDType;
-const static IDType INVALID_GRID_ID = std::wstring();
+namespace ovdb
+{
+	typedef openvdb::FloatTree TreeVdbType;
+	typedef openvdb::UInt32Tree IndexTreeType;
+	typedef openvdb::Grid<TreeVdbType> GridVdbType;
+	typedef openvdb::Vec3d QuadVertexType;
+	typedef openvdb::Vec4I QuadIndicesType;
+	typedef openvdb::Vec3I PolygonIndicesType;
+	typedef openvdb::Vec2I QuadUVType;
+	typedef openvdb::Index32 IndexType;
+	typedef GridVdbType::Ptr GridPtr;
+	typedef GridVdbType::ConstPtr GridCPtr;
+	typedef GridVdbType::Accessor GridAcc;
+	typedef GridVdbType::ConstAccessor GridCAcc;
+	typedef openvdb::Coord CoordType;
+	typedef openvdb::Grid<IndexTreeType> IndexGridType;
+	typedef IndexGridType::Ptr IndexGridPtr;
+	typedef IndexGridType::Ptr IndexGridCPtr;
+	
+	const static openvdb::Index32 INDEX_TYPE_MAX = UINT32_MAX;
+
+	namespace meshing
+	{
+		typedef std::vector<QuadVertexType> VolumeVerticesType;
+		typedef std::vector<PolygonIndicesType> VolumePolygonsType;
+		typedef std::vector<QuadVertexType> VolumeNormalsType;
+
+		enum VolumeStyle { VOLUME_STYLE_CUBE };
+		enum CubeVertex { VX0, VX1, VX2, VX3, VX4, VX5, VX6, VX7, VX8 };
+		enum QuadVertexIndex { V0, V1, V2, V3 };		
+		const static IndexType UNVISITED_VERTEX_INDEX = INDEX_TYPE_MAX;
+		const static size_t VOLUME_STYLE_COUNT = VOLUME_STYLE_CUBE + 1;
+		const static size_t CUBE_VERTEX_COUNT = VX8 + 1;
+		const static size_t QUAD_VERTEX_INDEX_COUNT = V3 + 1;
+	}
+}
