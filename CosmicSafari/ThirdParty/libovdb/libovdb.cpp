@@ -8,10 +8,10 @@ using namespace ovdb::meshing; //TODO: Remove 'using' to match UE4 coding standa
 using namespace ovdb::tools;
 
 typedef OvdbVoxelVolume<TreeVdbType> VolumeType;
-std::map<meshing::IDType, GridPtr> GridRegions;
+std::map<IDType, GridPtr> GridRegions;
 std::map<IDType, VolumeType> GridVolumes;
 
-void fillTerrainHoles(GridPtr grid, const float outsideValue);
+void fillSurfaceGaps(GridPtr grid, const float outsideValue);
 bool isVoxelMissing(GridCPtr grid, const CoordType &coord, const float outsideValue);
 IDType addGridRegion(GridPtr grid, const std::wstring &gridInfo);
 GridPtr getGridByID(IDType gridID);
@@ -119,36 +119,17 @@ int OvdbWriteVdbGrid(IDType gridID, const std::string &filename)
 	return error;
 }
 
-int OvdbVolumeToMesh(const std::string &filename, const std::string &gridName, OvdbMeshMethod meshMethod, float isoValue)
-{
-	int error = 0;
-	try
-	{
-		//Read a grid from file and then mesh it
-		IDType gridID = INVALID_GRID_ID;
-		OvdbReadVdb(filename, gridName, gridID);
-		OvdbVolumeToMesh(gridID, meshMethod, isoValue);
-	}
-	catch (openvdb::Exception &e)
-	{
-		std::ofstream logfile;
-		logfile.open("C:\\Users\\zach\\Documents\\Unreal Projects\\obtuse-tanuki\\CosmicSafari\\ThirdParty\\exceptions.log");
-		logfile << "OvdbVolumeToMesh: " << e.what() << std::endl;
-		logfile.close();
-		error = 1;
-	}
-	return error;
-}
-
-int OvdbVolumeToMesh(IDType gridID, OvdbMeshMethod meshMethod, float isoValue)
+//Note: Probably will eventually generate regionID internally (e.g. for when using a database or some other scheme to store generated terrain)
+int OvdbVolumeToMesh(IDType gridID, IDType regionID, OvdbMeshMethod meshMethod, float isoValue)
 {
     int error = 0;
     try
     {
 		GridCPtr grid = getGridByID(gridID);
-		VolumeType &volumeData = GridVolumes[gridID];
-		volumeData.buildVolume(gridID, VOLUME_STYLE_CUBE, isoValue);
-		volumeData.doMesh(gridID, meshMethod);
+		VolumeType volume(grid);
+		std::map<IDType, VolumeType>::iterator i = GridVolumes.insert(regionID, volume);
+		i->second.buildVolume(gridID, VOLUME_STYLE_CUBE, isoValue);
+		i->second.doMesh(gridID, meshMethod);
     }
     catch (openvdb::Exception &e)
     {
@@ -161,21 +142,19 @@ int OvdbVolumeToMesh(IDType gridID, OvdbMeshMethod meshMethod, float isoValue)
     return error;
 }
 
-int OvdbYieldNextMeshPoint(IDType gridID, float &vx, float &vy, float &vz)
+int OvdbYieldNextMeshPoint(IDType regionID, float &vx, float &vy, float &vz)
 {
 	static IDType prevID = INVALID_GRID_ID;
 	static VolumeType *volumeData = nullptr;
-	static GridCPtr grid = nullptr;
 	static VolumeVerticesType::const_iterator iter;
-	if (gridID != prevID)
+	if (regionID != prevID)
 	{
-		grid = getConstGridByID(gridID);
-		volumeData = &(GridVolumes[gridID]);
-		prevID = gridID;
-		iter = volumeData->getVertices(gridID).begin();
+		volumeData = &(GridVolumes[regionID]);
+		prevID = regionID;
+		iter = volumeData->getVertices(regionID).begin();
 	}
 
-    if (iter == volumeData->getVertices(gridID).end())
+    if (iter == volumeData->getVertices(regionID).end())
     {
 		prevID = INVALID_GRID_ID;
         return 0;
@@ -187,21 +166,19 @@ int OvdbYieldNextMeshPoint(IDType gridID, float &vx, float &vy, float &vz)
     return 1;
 }
 
-int OvdbYieldNextMeshPolygon(IDType gridID, uint32_t &i1, uint32_t &i2, uint32_t &i3)
+int OvdbYieldNextMeshPolygon(IDType regionID, uint32_t &i1, uint32_t &i2, uint32_t &i3)
 {
 	static IDType prevID = INVALID_GRID_ID;
 	static VolumeType *volumeData = nullptr;
-	static GridCPtr grid = nullptr;
 	static VolumePolygonsType::const_iterator iter;
-	if (gridID != prevID)
+	if (regionID != prevID)
 	{
-		grid = getConstGridByID(gridID);
-		volumeData = &(GridVolumes[gridID]);
-		prevID = gridID;
-		iter = volumeData->getPolygons(gridID).begin();
+		volumeData = &(GridVolumes[regionID]);
+		prevID = regionID;
+		iter = volumeData->getPolygons(regionID).begin();
 	}
 
-	if (iter == volumeData->getPolygons(gridID).end())
+	if (iter == volumeData->getPolygons(regionID).end())
 	{
 		prevID = INVALID_GRID_ID;
 		return 0;
@@ -213,21 +190,19 @@ int OvdbYieldNextMeshPolygon(IDType gridID, uint32_t &i1, uint32_t &i2, uint32_t
     return 1;
 }
 
-int OvdbYieldNextMeshNormal(IDType gridID, float &nx, float &ny, float &nz)
+int OvdbYieldNextMeshNormal(IDType regionID, float &nx, float &ny, float &nz)
 {
 	static IDType prevID = INVALID_GRID_ID;
 	static VolumeType *volumeData = nullptr;
-	static GridCPtr grid = nullptr;
 	static VolumeNormalsType::const_iterator iter;
-	if (gridID != prevID)
+	if (regionID != prevID)
 	{
-		grid = getConstGridByID(gridID);
-		volumeData = &(GridVolumes[gridID]);
-		prevID = gridID;
-		iter = volumeData->getNormals(gridID).begin();
+		volumeData = &(GridVolumes[regionID]);
+		prevID = regionID;
+		iter = volumeData->getNormals(regionID).begin();
 	}
 
-	if (iter == volumeData->getNormals(gridID).end())
+	if (iter == volumeData->getNormals(regionID).end())
 	{
 		prevID = INVALID_GRID_ID;
 		return 0;
@@ -280,15 +255,15 @@ IDType OvdbCreateLibNoiseVolume(const std::string &gridName, float surfaceValue,
 		openvdb::tools::pruneLevelSet(grid->tree());
 		//Note: signed flood-fill will not work (crashes) if a level-set grid is broken up into multiple regions
 		openvdb::tools::doSignedFloodFill(grid->tree(), outsideValue, insideValue, true, 1); //TODO: Mess with the grain size parameter
-		fillTerrainHoles(grid, outsideValue);
+		fillSurfaceGaps(grid, outsideValue);
 		std::string str = gridInfoStr.str();
 		gridID = addGridRegion(grid, std::wstring(str.begin(), str.end()));
 	}
 	return gridID;
 }
 
-//Fill in the holes which are on the sides of inclines by checking for an inside voxel that is off and adjacent to an outside value
-void fillTerrainHoles(GridPtr grid, const float outsideValue)
+//Fill in the gaps which are on the sides of inclines by checking for an inside voxel that is off and adjacent to an outside value
+void fillSurfaceGaps(GridPtr grid, const float outsideValue)
 {
 	for (auto i = grid->beginValueOn(); i; ++i)
 	{
@@ -336,8 +311,6 @@ IDType addGridRegion(GridPtr grid, const std::wstring& gridInfo)
 	gridIDStr << GridRegions.size() << gridInfo;
 	IDType gridID = gridIDStr.str();
 	GridRegions.insert(std::pair<IDType, GridPtr>(gridID, grid));
-	VolumeType volume(grid);
-	GridVolumes.insert(std::pair<IDType, VolumeType>(gridID, volume));
 	return gridID;
 }
 

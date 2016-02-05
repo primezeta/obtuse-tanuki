@@ -36,10 +36,9 @@ LIB_OVDB_API int OvdbInitialize();
 LIB_OVDB_API int OvdbUninitialize();
 LIB_OVDB_API int OvdbReadVdb(const std::string &filename, const std::string gridName, ovdb::meshing::IDType &gridID);
 LIB_OVDB_API int OvdbWriteVdbGrid(ovdb::meshing::IDType gridID, const std::string &filename);
-LIB_OVDB_API int OvdbVolumeToMesh(const std::string &filename, const std::string &gridName, ovdb::meshing::OvdbMeshMethod meshMethod, float isoValue);
-LIB_OVDB_API int OvdbVolumeToMesh(ovdb::meshing::IDType gridID, ovdb::meshing::OvdbMeshMethod meshMethod, float isoValue);
-LIB_OVDB_API int OvdbYieldNextMeshPoint(ovdb::meshing::IDType gridID, float &vx, float &vy, float &vz);
-LIB_OVDB_API int OvdbYieldNextMeshPolygon(ovdb::meshing::IDType gridID, uint32_t &i1, uint32_t &i2, uint32_t &i3);
-LIB_OVDB_API int OvdbYieldNextMeshNormal(ovdb::meshing::IDType gridID, float &nx, float &ny, float &nz);
+LIB_OVDB_API int OvdbVolumeToMesh(ovdb::meshing::IDType gridID, ovdb::meshing::IDType regionID, ovdb::meshing::OvdbMeshMethod meshMethod, float isoValue);
+LIB_OVDB_API int OvdbYieldNextMeshPoint(ovdb::meshing::IDType regionID, float &vx, float &vy, float &vz);
+LIB_OVDB_API int OvdbYieldNextMeshPolygon(ovdb::meshing::IDType regionID, uint32_t &i1, uint32_t &i2, uint32_t &i3);
+LIB_OVDB_API int OvdbYieldNextMeshNormal(ovdb::meshing::IDType regionID, float &nx, float &ny, float &nz);
 LIB_OVDB_API ovdb::meshing::IDType OvdbCreateLibNoiseVolume(const std::string &gridName, float surfaceValue, const ovdb::meshing::VolumeDimensions &dimensions, uint32_t libnoiseRange, float &isovalue);
 #endif

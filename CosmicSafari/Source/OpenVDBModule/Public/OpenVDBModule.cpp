@@ -41,28 +41,26 @@ FString FOpenVDBModule::CreateDynamicVdb(float surfaceValue, const FIntVector &b
 	return gridID.data();
 }
 
-bool FOpenVDBModule::CreateMesh(const FString &gridID, float isoValue)
+FString FOpenVDBModule::CreateGridMeshRegion(const FString &gridID, int32 regionIndex, float isoValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
 {
-	//TODO: Handle Ovdb errors
-	return OvdbVolumeToMesh(gridID.GetCharArray().GetData(), MESHING_NAIVE, isoValue) == 0;
+	FString regionID = FString::Printf(TEXT("%s:%d"), *gridID, regionIndex);
+	if (OvdbVolumeToMesh(gridID.GetCharArray().GetData(), regionID.GetCharArray().GetData(), ovdb::meshing::MESHING_NAIVE, isoValue) != 0)
+	{
+		regionID = FString(INVALID_GRID_ID.data());
+	}
+	return regionID;
 }
 
-bool FOpenVDBModule::CreateGreedyMesh(const FString &gridID, float isoValue)
-{
-	//TODO: Handle Ovdb errors
-	return OvdbVolumeToMesh(gridID.GetCharArray().GetData(), MESHING_GREEDY, isoValue) == 0;
-}
-
-bool FOpenVDBModule::GetMeshGeometry(const FString &gridID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
+bool FOpenVDBModule::GetMeshGeometry(const FString &regionID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
 {
 	FVector vertex;
-	while (OvdbYieldNextMeshPoint(gridID.GetCharArray().GetData(), vertex.X, vertex.Y, vertex.Z))
+	while (OvdbYieldNextMeshPoint(regionID.GetCharArray().GetData(), vertex.X, vertex.Y, vertex.Z))
 	{
 		Vertices.Add(vertex);
 	}
 
 	uint32 triangleIndices[3];
-	while (OvdbYieldNextMeshPolygon(gridID.GetCharArray().GetData(), triangleIndices[0], triangleIndices[1], triangleIndices[2]))
+	while (OvdbYieldNextMeshPolygon(regionID.GetCharArray().GetData(), triangleIndices[0], triangleIndices[1], triangleIndices[2]))
 	{
 		for (int i = 0; i < 3; i++)
 		{
@@ -79,35 +77,11 @@ bool FOpenVDBModule::GetMeshGeometry(const FString &gridID, TArray<FVector> &Ver
 	}
 
 	FVector normal;
-	while (OvdbYieldNextMeshNormal(gridID.GetCharArray().GetData(), normal.X, normal.Y, normal.Z))
+	while (OvdbYieldNextMeshNormal(regionID.GetCharArray().GetData(), normal.X, normal.Y, normal.Z))
 	{
 		Normals.Add(normal);
 	}
 	return true; //TODO: Handle errors
-}
-
-bool FOpenVDBModule::GetVDBMesh(const FString &gridID, float isoValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
-{
-	if (CreateMesh(gridID, isoValue))
-	{
-		if (GetMeshGeometry(gridID, Vertices, TriangleIndices, Normals))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-bool FOpenVDBModule::GetVDBGreedyMesh(const FString &gridID, float isoValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
-{
-	if (CreateGreedyMesh(gridID, isoValue))
-	{
-		if (GetMeshGeometry(gridID, Vertices, TriangleIndices, Normals))
-		{
-			return true;
-		}
-	}
-	return false;
 }
 
 void FOpenVDBModule::ShutdownModule()

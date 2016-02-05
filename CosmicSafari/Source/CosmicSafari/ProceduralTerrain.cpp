@@ -97,8 +97,7 @@ void AProceduralTerrain::BeginPlay()
 		checkf(colors != nullptr, TEXT("ProceduralTerrain: null mesh section colors (section %d)"), sectionIndex);
 		checkf(tangents != nullptr, TEXT("ProceduralTerrain: null mesh section tangents (section %d)"), sectionIndex);
 
-		FString regionID = FString::Printf(TEXT("%s:%d"), *VolumeName, sectionIndex);
-		if (openVDBModule->GetVDBMesh(regionID, GridIsoValue, *vertices, *indices, *normals))
+		if (openVDBModule->GetRegionMesh(GridID, sectionIndex, GridIsoValue, *vertices, *indices, *normals))
 		{
 			TerrainMeshComponent->CreateTerrainMeshSection(sectionIndex, bCreateCollision, *vertices, *indices, *uvs, *normals, *colors, *tangents);
 			TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
