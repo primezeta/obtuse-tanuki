@@ -1,6 +1,7 @@
 #ifndef __OPENVDBMODULE_H__
 #define __OPENVDBMODULE_H__
 
+#include "libovdb.h"
 #include "EngineMinimal.h"
 
 class OPENVDBMODULE_API FOpenVDBModule : public IModuleInterface
@@ -21,7 +22,7 @@ public:
 
 	FString CreateDynamicVdb(float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range, float &isoValue);
 	FString ReadVDBFile(FString vdbFilename, FString gridName);
-	FString CreateGridMeshRegion(const FString &gridID, int32 regionIndex, float isoValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
+	FString CreateGridMeshRegion(const FString &gridID, int32 regionIndex, ovdb::meshing::VolumeDimensions &dims, float isoValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
 
 private:	
 	bool GetMeshGeometry(const FString &gridID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);

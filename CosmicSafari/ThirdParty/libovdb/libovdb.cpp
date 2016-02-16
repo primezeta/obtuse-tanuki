@@ -7,67 +7,68 @@ using namespace ovdb; //TODO: Remove 'using' to match UE4 coding standards
 using namespace ovdb::meshing; //TODO: Remove 'using' to match UE4 coding standards
 using namespace ovdb::tools;
 
-typedef std::map<IDType, GridPtr> GridVolumesType;
+typedef std::map<IDType, GridPtr> GridByIDType;
 typedef OvdbVoxelVolume<TreeVdbType> VolumeType;
-typedef std::map<IDType, VolumeType, IDLessThan> GridRegionsType;
+typedef std::map<IDType, VolumeType, IDLessThan> GridVolumesType;
 
-GridVolumesType GridRegions; //TODO: Fix naming. A region should refer to a subset of a grid
-GridRegionsType GridVolumes;
+GridByIDType GridByID;
+GridVolumesType GridVolumes;
 
-void fillSurfaceGaps(GridPtr grid, const float outsideValue);
-bool isVoxelMissing(GridCPtr grid, const CoordType &coord, const float outsideValue);
-IDType addGridRegion(GridPtr grid, const std::wstring &gridInfo);
-GridPtr getGridByID(IDType gridID);
-GridCPtr getConstGridByID(IDType gridID);
-void checkGrid(IDType gridID, const GridCPtr constGrid);
-void checkGridID(IDType gridID);
-void checkRegionID(IDType regionID);
+IDType addGrid(GridPtr grid, const std::wstring &gridInfo);
+GridPtr getGridByID(const IDType &gridID);
+GridCPtr getConstGridByID(const IDType &gridID);
+void checkGrid(const IDType &gridID, const GridCPtr constGrid);
+void checkGridID(const IDType &gridID);
+void checkVolumeID(const IDType &volumeID);
 std::string gridNamesList(const openvdb::io::File &file);
+
+//Return the scalar grid with each coord(x,y,z[floor noiseValue]) = noiseValue and return isoValue = noiseRange[fabs max - min] * surfaceValue[0,1]
+openvdb::FloatGrid::Ptr create2DNoiseMap(const int32_t &width, const int32_t &height, const int32_t &range);
 
 int OvdbInitialize()
 {
-    int error = 0;
-    try
-    {
-        openvdb::initialize();
-    }
-    catch (openvdb::Exception &e)
-    {
-        std::ofstream logfile;
-        logfile.open("C:\\Users\\zach\\Documents\\Unreal Projects\\obtuse-tanuki\\CosmicSafari\\ThirdParty\\exceptions.log");
-        logfile << "OvdbInitialize: " << e.what() << std::endl;
-        logfile.close();
-        error = 1;
-    }
-    return error;
+	int error = 0;
+	try
+	{
+		openvdb::initialize();
+	}
+	catch (openvdb::Exception &e)
+	{
+		std::ofstream logfile;
+		logfile.open("C:\\Users\\zach\\Documents\\Unreal Projects\\obtuse-tanuki\\CosmicSafari\\ThirdParty\\exceptions.log");
+		logfile << "OvdbInitialize: " << e.what() << std::endl;
+		logfile.close();
+		error = 1;
+	}
+	return error;
 }
 
 int OvdbUninitialize()
 {
-    int error = 0;
-    try
-    {
-        openvdb::uninitialize();
-    }
-    catch (openvdb::Exception &e)
-    {
-        std::ofstream logfile;
-        logfile.open("C:\\Users\\zach\\Documents\\Unreal Projects\\obtuse-tanuki\\CosmicSafari\\ThirdParty\\exceptions.log");
-        logfile << "OvdbUninitialize: " << e.what() << std::endl;
-        logfile.close();
-        error = 1;
-    }
-    return error;
+	int error = 0;
+	try
+	{
+		openvdb::uninitialize();
+	}
+	catch (openvdb::Exception &e)
+	{
+		std::ofstream logfile;
+		logfile.open("C:\\Users\\zach\\Documents\\Unreal Projects\\obtuse-tanuki\\CosmicSafari\\ThirdParty\\exceptions.log");
+		logfile << "OvdbUninitialize: " << e.what() << std::endl;
+		logfile.close();
+		error = 1;
+	}
+	return error;
 }
 
 int OvdbReadVdb(const std::string &filename, const std::string gridName, IDType &gridID)
 {
-    int error = 0;
-    try
-    {
+	int error = 0;
+	try
+	{
 		//A .vdb might have multiple grids, so we need the grid ID along with just the filename
-        openvdb::io::File file(filename);
-        file.open();
+		openvdb::io::File file(filename);
+		file.open();
 		if (file.getSize() < 1)
 		{
 			OPENVDB_THROW(openvdb::IoError, "Could not read " + filename);
@@ -85,21 +86,21 @@ int OvdbReadVdb(const std::string &filename, const std::string gridName, IDType 
 		{
 			OPENVDB_THROW(openvdb::RuntimeError, "No valid grids in " + filename);
 		}
-		gridID = addGridRegion(grid, std::wstring(gridName.begin(), gridName.end()));
-    }
-    catch (openvdb::Exception &e)
-    {
-        std::ofstream logfile;
-        logfile.open("C:\\Users\\zach\\Documents\\Unreal Projects\\obtuse-tanuki\\CosmicSafari\\ThirdParty\\exceptions.log");
-        logfile << "OvdbReadVdbGrid: " << e.what() << std::endl;
-        logfile.close();
-        error = 1;
-    }
+		gridID = addGrid(grid, std::wstring(gridName.begin(), gridName.end()));
+	}
+	catch (openvdb::Exception &e)
+	{
+		std::ofstream logfile;
+		logfile.open("C:\\Users\\zach\\Documents\\Unreal Projects\\obtuse-tanuki\\CosmicSafari\\ThirdParty\\exceptions.log");
+		logfile << "OvdbReadVdbGrid: " << e.what() << std::endl;
+		logfile.close();
+		error = 1;
+	}
 	//TODO: Reorganize throw/catches to give a call trace
-    return error;
+	return error;
 }
 
-int OvdbWriteVdbGrid(IDType gridID, const std::string &filename)
+int OvdbWriteVdbGrid(const IDType &gridID, const std::string &filename)
 {
 	int error = 0;
 	try
@@ -123,61 +124,67 @@ int OvdbWriteVdbGrid(IDType gridID, const std::string &filename)
 	return error;
 }
 
-//Note: Probably will eventually generate regionID internally (e.g. for when using a database or some other scheme to store generated terrain)
-int OvdbVolumeToMesh(IDType gridID, IDType regionID, const VolumeDimensions &regionDims, OvdbMeshMethod meshMethod, float isoValue)
+//Note: Probably will eventually generate volumeID internally (e.g. for when using a database or some other scheme to store generated terrain)
+int OvdbVolumeToMesh(const ovdb::meshing::IDType &gridID, const ovdb::meshing::IDType &volumeID, ovdb::meshing::VolumeDimensions volumeDims, ovdb::meshing::OvdbMeshMethod meshMethod, float isoValue)
 {
-    int error = 0;
-    try
-    {
-		checkRegionID(regionID);
-		auto &volume = GridVolumes.emplace(regionID, VolumeType(getGridByID(gridID))).first->second;
-		openvdb::math::CoordBBox bbox(CoordType(regionDims.x0, regionDims.y0, regionDims.z0), CoordType(regionDims.x1, regionDims.y1, regionDims.z1));
+	int error = 0;
+	try
+	{
+		GridPtr grid = getGridByID(gridID);
+		auto i = GridVolumes.find(volumeID);
+		if (i == GridVolumes.end())
+		{
+			i = GridVolumes.insert(std::make_pair(volumeID, VolumeType(grid))).first;
+		}
+		auto &volume = i->second;
+		checkVolumeID(volumeID);
+		openvdb::math::CoordBBox bbox(CoordType(volumeDims.x0, volumeDims.y0, volumeDims.z0), CoordType(volumeDims.x1, volumeDims.y1, volumeDims.z1));
 		volume.doSurfaceMesh(bbox, VOLUME_STYLE_CUBE, isoValue, meshMethod);
-    }
-    catch (openvdb::Exception &e)
-    {
-        std::ofstream logfile;
-        logfile.open("C:\\Users\\zach\\Documents\\Unreal Projects\\obtuse-tanuki\\CosmicSafari\\ThirdParty\\exceptions.log");
-        logfile << "OvdbVolumeToMesh: " << e.what() << std::endl;
-        logfile.close();
-        error = 1;
-    }
-    return error;
+	}
+	catch (openvdb::Exception &e)
+	{
+		std::ofstream logfile;
+		logfile.open("C:\\Users\\zach\\Documents\\Unreal Projects\\obtuse-tanuki\\CosmicSafari\\ThirdParty\\exceptions.log");
+		logfile << "OvdbVolumeToMesh: " << e.what() << std::endl;
+		logfile.close();
+		error = 1;
+	}
+	return error;
 }
 
-int OvdbYieldNextMeshPoint(IDType regionID, float &vx, float &vy, float &vz)
+int OvdbYieldNextMeshPoint(const IDType &volumeID, float &vx, float &vy, float &vz)
 {
 	static IDType prevID = INVALID_GRID_ID;
 	static VolumeType *volumeData = nullptr;
 	static VolumeVerticesType::const_iterator iter;
-	if (regionID != prevID)
+	if (volumeID != prevID)
 	{
-		volumeData = &(GridVolumes[regionID]);
-		prevID = regionID;
+		volumeData = &(GridVolumes[volumeID]);
+		prevID = volumeID;
 		iter = volumeData->getVertices().begin();
 	}
 
-    if (iter == volumeData->getVertices().end())
-    {
+	if (iter == volumeData->getVertices().end())
+	{
 		prevID = INVALID_GRID_ID;
-        return 0;
-    }
-    vx = float(iter->x());
-    vy = float(iter->y());
-    vz = float(iter->z());
+		return 0;
+	}
+	vx = float(iter->x());
+	vy = float(iter->y());
+	vz = float(iter->z());
 	++iter;
-    return 1;
+	return 1;
 }
 
-int OvdbYieldNextMeshPolygon(IDType regionID, uint32_t &i1, uint32_t &i2, uint32_t &i3)
+int OvdbYieldNextMeshPolygon(const IDType &volumeID, uint32_t &i1, uint32_t &i2, uint32_t &i3)
 {
 	static IDType prevID = INVALID_GRID_ID;
 	static VolumeType *volumeData = nullptr;
 	static VolumePolygonsType::const_iterator iter;
-	if (regionID != prevID)
+	if (volumeID != prevID)
 	{
-		volumeData = &(GridVolumes[regionID]);
-		prevID = regionID;
+		volumeData = &(GridVolumes[volumeID]);
+		prevID = volumeID;
 		iter = volumeData->getPolygons().begin();
 	}
 
@@ -186,22 +193,22 @@ int OvdbYieldNextMeshPolygon(IDType regionID, uint32_t &i1, uint32_t &i2, uint32
 		prevID = INVALID_GRID_ID;
 		return 0;
 	}
-    i1 = uint32_t(iter->x());
-    i2 = uint32_t(iter->y());
-    i3 = uint32_t(iter->z());
+	i1 = uint32_t(iter->x());
+	i2 = uint32_t(iter->y());
+	i3 = uint32_t(iter->z());
 	++iter;
-    return 1;
+	return 1;
 }
 
-int OvdbYieldNextMeshNormal(IDType regionID, float &nx, float &ny, float &nz)
+int OvdbYieldNextMeshNormal(const IDType &volumeID, float &nx, float &ny, float &nz)
 {
 	static IDType prevID = INVALID_GRID_ID;
 	static VolumeType *volumeData = nullptr;
 	static VolumeNormalsType::const_iterator iter;
-	if (regionID != prevID)
+	if (volumeID != prevID)
 	{
-		volumeData = &(GridVolumes[regionID]);
-		prevID = regionID;
+		volumeData = &(GridVolumes[volumeID]);
+		prevID = volumeID;
 		iter = volumeData->getNormals().begin();
 	}
 
@@ -218,122 +225,89 @@ int OvdbYieldNextMeshNormal(IDType regionID, float &nx, float &ny, float &nz)
 }
 
 //Surface value must be between 0 and 1
-IDType OvdbCreateLibNoiseVolume(const std::string &gridName, float surfaceValue, const VolumeDimensions &volumeDimensions, uint32_t libnoiseRange, float &isovalue)
+IDType OvdbCreateLibNoiseVolume(const ovdb::meshing::NameType &volumeName, float surfaceValue, const VolumeDimensions &volumeDimensions, float &isoValue)
 {
-	IDType gridID = INVALID_GRID_ID;
-	const openvdb::math::CoordBBox mapBounds(CoordType(volumeDimensions.x0, volumeDimensions.y0, volumeDimensions.z0), CoordType(volumeDimensions.x1, volumeDimensions.y1, volumeDimensions.z1));
-	const noise::utils::NoiseMap &noiseMap = CreateNoiseHeightMap(1.0, volumeDimensions.sizeX(), volumeDimensions.sizeY());
-	float minNoise, maxNoise;
-	GetHeightMapRange(noiseMap, minNoise, maxNoise);
-	
-	std::ostringstream gridInfoStr;
-	gridInfoStr << gridName << "[" << volumeDimensions.x0 << "," << volumeDimensions.y0 << "," << volumeDimensions.z0 << "|" << volumeDimensions.x1 << "," << volumeDimensions.y1 << "," << volumeDimensions.z1 << "]";
+	//Create a valid level-set from the 2D noise grid
+	openvdb::FloatGrid::Ptr levelSet = create2DNoiseMap(volumeDimensions.sizeX(), volumeDimensions.sizeY(), volumeDimensions.sizeZ());
+	//const openvdb::CoordBBox &noiseBounds = noiseGrid->evalActiveVoxelBoundingBox();
+	//openvdb::FloatGrid::Accessor noiseAcc = noiseGrid->getAccessor();
+	//openvdb::FloatGrid::Ptr levelSet = openvdb::createLevelSet<openvdb::FloatGrid>();
+	//openvdb::FloatGrid::Accessor levelSetAcc = levelSet->getAccessor();
 
-	{ //TODO: Refactor
-		const float minNoiseValue = minNoise; //Lowest height map noise value
-		const float maxNoiseValue = maxNoise; //Largest height map noise value
-		const float outsideValue = isovalue + 1.0f; //Value considered as outside the level-set
-		const float insideValue = -outsideValue; //Value considered as inside the level-set
-		const float noiseRange = maxNoiseValue - minNoiseValue; //Maximum range of the height map. TODO: What if max value is negative or 0?
-		const float noiseZ0 = -minNoiseValue; //Value to add to a noise map value so that all values start from 0
-		const float noiseValueToWorldConversion = libnoiseRange / noiseRange; //Scale factor mapping from the height map to the specified range. TODO: Support zero noise range? (something like a flat surface?)
+	//for (openvdb::FloatGrid::ValueOnCIter i = noiseGrid->cbeginValueOn(); i; ++i)
+	//{
+	//	//Find the coord with lowest z-value to calculate how many voxels we should set vertically
+	//	const openvdb::Coord &coord = i.getCoord();
 
-		//Isovalue is the surface value with respect to the possible range of height map values
-		//Note: I have no idea if that is the actual definition of an isovalue but it feels good to me ¯\_(?)_/¯
-		isovalue = noiseRange * surfaceValue; //TODO: Constrain surface value between 0 and 1?
+	//	//Always place at least 1 voxel and the very bottom voxel such that the level-set will be enclosed
+	//	levelSetAcc.setValueOn(openvdb::Coord(coord.x(), coord.y(), 0));
 
-		//Create the default level set
-		GridPtr grid = openvdb::createLevelSet<GridVdbType>();
-		grid->setName(gridInfoStr.str());
+	//	//At the boundaries set all voxels from top to bottom
+	//	openvdb::Coord lowestCoord = coord;
+	//	if (coord.x() == noiseBounds.min().x() ||
+	//		coord.x() == noiseBounds.max().x() ||
+	//		coord.y() == noiseBounds.min().y() ||
+	//		coord.y() == noiseBounds.max().y())
+	//	{
+	//		lowestCoord = openvdb::Coord(0, 0, 1);
+	//	}
+	//	else
+	//	{
+	//		//Otherwise set voxels vertically down to the lowest neighboring height-map value
+	//		if (coord.offsetBy(1, 0, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(1, 0, 0); }
+	//		if (coord.offsetBy(-1, 0, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(-1, 0, 0); }
+	//		if (coord.offsetBy(0, 1, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(0, 1, 0); }
+	//		if (coord.offsetBy(0, -1, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(0, -1, 0); }
+	//		if (coord.offsetBy(1, 1, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(1, 1, 0); }
+	//		if (coord.offsetBy(-1, 1, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(-1, 1, 0); }
+	//		if (coord.offsetBy(1, -1, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(1, -1, 0); }
+	//		if (coord.offsetBy(-1, -1, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(-1, -1, 0); }
+	//		lowestCoord = openvdb::Coord(lowestCoord.x(), lowestCoord.y(), noiseAcc.getValue(lowestCoord));
+	//	}
 
-		//Activate each voxel at the height map value
-		for (int x = mapBounds.min().x(); x <= mapBounds.max().x(); x++)
-		{
-			for (int y = mapBounds.min().y(); y <= mapBounds.max().y(); y++)
-			{
-				int h = int(openvdb::math::RoundDown((noiseMap.GetValue(x, y) + noiseZ0) * noiseValueToWorldConversion));
-				grid->tree().setValue(CoordType(x, y, h), isovalue);
-			}
-		}
-		openvdb::tools::pruneLevelSet(grid->tree());
-		//Note: signed flood-fill will not work (crashes) if a level-set grid is broken up into multiple regions
-		openvdb::tools::doSignedFloodFill(grid->tree(), outsideValue, insideValue, true, 1); //TODO: Mess with the grain size parameter
-		fillSurfaceGaps(grid, outsideValue);
-		std::string str = gridInfoStr.str();
-		gridID = addGridRegion(grid, std::wstring(str.begin(), str.end()));
-	}
+	//	for (int32_t z = lowestCoord.z(); z <= coord.z(); ++z)
+	//	{
+	//		levelSetAcc.setValueOn(openvdb::Coord(coord.x(), coord.y(), z));
+	//	}
+	//}
+
+	const float outsideValue = 1.0f;
+	const float insideValue = -1.0f;
+	//openvdb::tools::doSignedFloodFill(levelSet->tree(), outsideValue, insideValue, false, 1); //TODO: Mess with the grain size parameter
+
+	//template<class GridType>
+	//inline typename GridType::Ptr
+	//levelSetRebuild(const GridType& grid, float isovalue = 0,
+	//	float halfWidth = float(LEVEL_SET_HALF_WIDTH), const math::Transform* xform = NULL);
+
+	openvdb::tools::pruneLevelSet(levelSet->tree());
+	return addGrid(levelSet, std::wstring(volumeName.begin(), volumeName.end()));
+}
+
+IDType addGrid(GridPtr grid, const std::wstring& gridInfo)
+{
+	IDType gridID = gridInfo;
+	GridByID.insert(std::pair<IDType, GridPtr>(gridID, grid));
 	return gridID;
 }
 
-//Fill in the gaps which are on the sides of inclines by checking for an inside voxel that is off and adjacent to an outside value
-void fillSurfaceGaps(GridPtr grid, const float outsideValue)
-{
-	for (auto i = grid->beginValueOn(); i; ++i)
-	{
-		if (!i.isVoxelValue()) //Skip tile values
-		{
-			continue;
-		}
-		const CoordType coord = i.getCoord();
-		CoordType below(i.getCoord().x(), i.getCoord().y(), i.getCoord().z());
-		//Start at the voxel immediately below the current voxel and check if any single neighboring voxel is outside
-		for (int32_t z = 1; z <= i.getCoord().z(); z++)
-		{
-			//If there is a neighboring 'missing' voxel, that means there is a hole in the terrain so activate this voxel to patch up the hole
-			CoordType below = coord.offsetBy(0, 0, -z);
-			if (isVoxelMissing(grid, below, outsideValue))
-			{
-				//Activate the voxel while retaining the voxel 'outside' value so that the actual surface can still be differentiated by voxels on the sides of inclines
-				grid->getAccessor().setValueOn(below);
-			}
-		}
-	}
-}
-
-//Check if a voxel is inside but adjacent to an outside voxel (i.e. it is a "hole" in the terrain)
-bool isVoxelMissing(GridCPtr grid, const CoordType &coord, const float outsideValue)
-{
-	//If the coord pertains to a voxel (not a tile), check for any one adjacent voxel to the below-voxel that is an 'outside value'
-	//TODO: How to guarantee access to geometrically neighboring voxel values (instead of tile values) without potentially skipping a coord?
-	CoordType adjacentL = coord.offsetBy(1, 0, 0);  //To the left
-	CoordType adjacentR = coord.offsetBy(-1, 0, 0); //To the right
-	CoordType adjacentF = coord.offsetBy(0, 1, 0);  //To the front
-	CoordType adjacentB = coord.offsetBy(0, -1, 0); //To the back
-	//Check that any one adjacent value is a voxel, is off, and is outside
-	GridCAcc acc = grid->getConstAccessor();
-	return acc.isVoxel(coord) &&
-	 ((acc.isVoxel(adjacentL) && !acc.isValueOn(adjacentL) && openvdb::math::isApproxEqual(acc.getValue(adjacentL), outsideValue)) ||
-	  (acc.isVoxel(adjacentR) && !acc.isValueOn(adjacentR) && openvdb::math::isApproxEqual(acc.getValue(adjacentR), outsideValue)) ||
-	  (acc.isVoxel(adjacentF) && !acc.isValueOn(adjacentF) && openvdb::math::isApproxEqual(acc.getValue(adjacentF), outsideValue)) ||
-	  (acc.isVoxel(adjacentB) && !acc.isValueOn(adjacentB) && openvdb::math::isApproxEqual(acc.getValue(adjacentB), outsideValue)));
-}
-
-IDType addGridRegion(GridPtr grid, const std::wstring& gridInfo) //TODO: Change name from "add region" to "add grid volume"
-{
-	std::wostringstream gridIDStr;
-	gridIDStr << GridRegions.size() << gridInfo;
-	IDType gridID = gridIDStr.str();
-	GridRegions.insert(std::pair<IDType, GridPtr>(gridID, grid));
-	return gridID;
-}
-
-GridPtr getGridByID(IDType gridID)
+GridPtr getGridByID(const IDType &gridID)
 {
 	checkGridID(gridID);
-	GridPtr grid = openvdb::gridPtrCast<GridVdbType>(GridRegions[gridID]);
+	GridPtr grid = openvdb::gridPtrCast<GridVdbType>(GridByID[gridID]);
 	checkGrid(gridID, grid);
 	return grid;
 }
 
-GridCPtr getConstGridByID(IDType gridID)
+GridCPtr getConstGridByID(const IDType &gridID)
 {
 	checkGridID(gridID);
-	GridCPtr constGrid = openvdb::gridConstPtrCast<GridVdbType>(GridRegions[gridID]);
+	GridCPtr constGrid = openvdb::gridConstPtrCast<GridVdbType>(GridByID[gridID]);
 	checkGrid(gridID, constGrid);
 	return constGrid;
 }
 
-void checkGrid(IDType gridID, const GridCPtr constGrid)
+void checkGrid(const IDType &gridID, const GridCPtr constGrid)
 {
 	if (constGrid == nullptr)
 	{
@@ -344,14 +318,14 @@ void checkGrid(IDType gridID, const GridCPtr constGrid)
 	}
 }
 
-void checkGridID(IDType gridID)
+void checkGridID(const IDType &gridID)
 {
 	if (gridID == INVALID_GRID_ID)
 	{
 		OPENVDB_THROW(openvdb::RuntimeError, "Invalid grid ID!");
 	}
-	
-	if (GridRegions.empty() || GridRegions.find(gridID) == GridRegions.end())
+
+	if (GridByID.empty() || GridByID.find(gridID) == GridByID.end())
 	{
 		std::wostringstream message;
 		message << "Grid ID " << gridID << " does not exist!";
@@ -360,17 +334,17 @@ void checkGridID(IDType gridID)
 	}
 }
 
-void checkRegionID(IDType regionID)
+void checkVolumeID(const IDType &volumeID)
 {
-	if (regionID == INVALID_GRID_ID)
+	if (volumeID == INVALID_GRID_ID)
 	{
-		OPENVDB_THROW(openvdb::RuntimeError, "Invalid region ID!");
+		OPENVDB_THROW(openvdb::RuntimeError, "Invalid volume ID!");
 	}
 
-	if (GridVolumes.empty() || GridVolumes.find(regionID) == GridVolumes.end())
+	if (GridVolumes.empty() || GridVolumes.find(volumeID) == GridVolumes.end())
 	{
 		std::wostringstream message;
-		message << "Region ID " << regionID << " does not exist!";
+		message << "Volume ID " << volumeID << " does not exist!";
 		std::wstring str = message.str();
 		OPENVDB_THROW(openvdb::RuntimeError, std::string(str.begin(), str.end()));
 	}
@@ -379,17 +353,82 @@ void checkRegionID(IDType regionID)
 std::string gridNamesList(const openvdb::io::File &file)
 {
 	//Used for printing debug info
-    //Must call with an open file
-    std::string validNames;
-    openvdb::io::File::NameIterator nameIter = file.beginName();
-    while (nameIter != file.endName())
-    {
-        validNames += nameIter.gridName();
-        ++nameIter;
-        if (nameIter != file.endName())
-        {
-            validNames += ", ";
-        }
-    }
-    return validNames;
+	//Must call with an open file
+	std::string validNames;
+	openvdb::io::File::NameIterator nameIter = file.beginName();
+	while (nameIter != file.endName())
+	{
+		validNames += nameIter.gridName();
+		++nameIter;
+		if (nameIter != file.endName())
+		{
+			validNames += ", ";
+		}
+	}
+	return validNames;
+}
+
+openvdb::FloatGrid::Ptr create2DNoiseMap(const int32_t &width, const int32_t &height, const int32_t &range) //Note: Assume bbox dims are bounded below at 0. TODO: Error check bounds
+{
+	//Construct a height map across the coordinate range
+	float minNoise, maxNoise;
+	const noise::utils::NoiseMap &noiseMap = CreateNoiseHeightMap(1.0, width - 1, height - 1, minNoise, maxNoise);
+	const float noiseRange = fabs(maxNoise - minNoise);
+	const float noiseUnit = noiseRange / range;
+
+	//Create a grid with transform according to noise map scale
+	openvdb::VectorGrid::Ptr grid = openvdb::VectorGrid::create();
+	grid->setName("libnoise");
+	grid->insertMeta("range", openvdb::FloatMetadata(noiseRange));
+	grid->insertMeta("minimum", openvdb::FloatMetadata(minNoise));
+	grid->insertMeta("maximum", openvdb::FloatMetadata(maxNoise));
+	grid->insertMeta("unit", openvdb::FloatMetadata(noiseUnit));
+	const openvdb::Vec3d noiseScale(1.0, 1.0, noiseUnit);
+	const openvdb::Vec3d noiseTranslate(0.0, 0.0, minNoise);
+	openvdb::math::Transform::Ptr xyzTransform = openvdb::math::Transform::Ptr(new openvdb::math::Transform(openvdb::math::MapBase::Ptr(new openvdb::math::ScaleTranslateMap(noiseScale, noiseTranslate))));
+
+	//Initialize each noise xy to the noise value
+	openvdb::VectorGrid::Accessor acc = grid->getAccessor();
+	for (int32_t x = 0; x < width; x++)
+	{
+		for (int32_t y = 0; y < height; y++)
+		{
+			const float noiseValue = noiseMap.GetValue(x, y);
+			const openvdb::Vec3d worldXYZ(x, y, noiseValue);
+			const openvdb::Coord xyz = xyzTransform->worldToIndexNodeCentered(worldXYZ);
+			acc.setValueOn(xyz, openvdb::Vec3d(x, y, 0.0));
+
+			//Initialize each voxel below to a multiple of min noise
+			for (int32_t z = 1; z < xyz.z(); ++z)
+			{
+				acc.setValueOn(xyz.offsetBy(0, 0, -z), openvdb::Vec3d(x, y, z*minNoise));
+			}
+		}
+	}
+
+	openvdb::FloatGrid::Ptr divGrid = openvdb::tools::divergence(*grid);
+	for (openvdb::FloatGrid::ValueOnIter i = divGrid->beginValueOn(); i; ++i)
+	{
+		const float &divValue = i.getValue();
+		if (divValue < 4.0f*minNoise || openvdb::math::isApproxEqual(divValue, 4.0f*minNoise))
+		{
+			i.setActiveState(false);
+		}
+	}
+	for (openvdb::FloatGrid::ValueOffIter i = divGrid->beginValueOff(); i; ++i)
+	{
+		if (i.getCoord().z() == 0)
+		{
+			i.setActiveState(true);
+		}
+		else if (i.getCoord().x() == 0 || i.getCoord().x() == width-1 ||
+			     i.getCoord().y() == 0 || i.getCoord().y() == height-1)
+		{
+			if (i.getValue() < 0.0f)
+			{
+				i.setActiveState(true);
+			}
+		}
+	}
+	return divGrid;
 }

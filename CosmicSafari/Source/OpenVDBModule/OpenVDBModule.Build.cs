@@ -105,8 +105,6 @@ public class OpenVDBModule : ModuleRules
             return new string[]
             {
                 Path.Combine(ModulePath, "..", "..", "Build", PlatformPath, ConfigurationPath),
-                //Path.Combine(ThirdPartyPath, "OpenVDB", "dependencies", "lib", PlatformPath, ConfigurationPath),
-                //Path.Combine(ThirdPartyPath, "boost"),
             };
         }
     }
@@ -118,8 +116,6 @@ public class OpenVDBModule : ModuleRules
             return new string[]
             {
                 "libovdb.lib",
-                //"zlibstat.lib",
-                //"Half.lib"
             };
         }
     }

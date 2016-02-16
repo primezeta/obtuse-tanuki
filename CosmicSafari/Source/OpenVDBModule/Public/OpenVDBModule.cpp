@@ -17,38 +17,48 @@ void FOpenVDBModule::StartupModule()
 
 FString FOpenVDBModule::ReadVDBFile(FString vdbFilename, FString gridName)
 {
+	static IDType internalID; //Workaround for UE4 tarray TBB race condition during deallocation
 	std::wstring wfname = *vdbFilename;
 	std::wstring wgname = *gridName;
 	std::string fname = std::string(wfname.begin(), wfname.end());
 	std::string gname = std::string(wgname.begin(), wgname.end());
 
-	IDType gridID = INVALID_GRID_ID;
-	if (OvdbReadVdb(fname, gname, gridID))
+	internalID = INVALID_GRID_ID;
+	if (OvdbReadVdb(fname, gname, internalID))
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to read vdb file!"));
 	}
-	return gridID.data();
+	//UE4 seems to internally use TBB (threads) to handle string memory and a race condition can cause a crash, so do the following to successfully copy the string
+	return FString(FString::Printf(TEXT("%s"), internalID.c_str()));
 }
 
 FString FOpenVDBModule::CreateDynamicVdb(float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range, float &isoValue)
 {
-	VolumeDimensions volumeDimensions(boundsStart.X, boundsEnd.X, boundsStart.Y, boundsEnd.Y, boundsStart.Z, boundsEnd.Z);
-	IDType gridID = OvdbCreateLibNoiseVolume("noise", surfaceValue, volumeDimensions, (uint32)range, isoValue); //TODO: Range check dims since internally they are unsigned;
-	if (gridID == INVALID_GRID_ID)
+	static IDType internalID; //Workaround for UE4 tarray TBB race condition during deallocation
+	VolumeDimensions volumeDimensions(boundsStart.X, boundsEnd.Y, boundsStart.Z, boundsEnd.X, boundsStart.Y, range);
+	internalID = OvdbCreateLibNoiseVolume("noise", surfaceValue, volumeDimensions, isoValue); //TODO: Range check dims since internally they are unsigned;
+	if (internalID == INVALID_GRID_ID)
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create dynamic vdb! (invalid grid ID)"));
 	}
-	return gridID.data();
+	//UE4 seems to internally use TBB (threads) to handle string memory and a race condition can cause a crash, so do the following to successfully copy the string
+	return FString(FString::Printf(TEXT("%s"), internalID.c_str()));
 }
 
-FString FOpenVDBModule::CreateGridMeshRegion(const FString &gridID, int32 regionIndex, float isoValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
+FString FOpenVDBModule::CreateGridMeshRegion(const FString &gridID, int32 regionIndex, ovdb::meshing::VolumeDimensions &dims, float isoValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
 {
-	FString regionID = FString::Printf(TEXT("%s:%d"), *gridID, regionIndex);
-	if (OvdbVolumeToMesh(gridID.GetCharArray().GetData(), regionID.GetCharArray().GetData(), ovdb::meshing::MESHING_NAIVE, isoValue) != 0)
+	static IDType internalID; //Workaround for UE4 tarray TBB race condition during deallocation
+	FString id = FString::Printf(TEXT("%d"), regionIndex);
+	ovdb::meshing::IDType gid = gridID.GetCharArray().GetData();
+	ovdb::meshing::IDType rid = id.GetCharArray().GetData();
+	if (OvdbVolumeToMesh(gid, rid, dims, ovdb::meshing::MESHING_NAIVE, isoValue) != 0)
 	{
-		regionID = FString(INVALID_GRID_ID.data());
+		//UE4 seems to internally use TBB (threads) to handle string memory and a race condition can cause a crash, so do the following to successfully copy the string
+		internalID = INVALID_GRID_ID;
+		id = FString(FString::Printf(TEXT("%s"), internalID.c_str()));
 	}
-	return regionID;
+	GetMeshGeometry(id, Vertices, TriangleIndices, Normals);
+	return id;
 }
 
 bool FOpenVDBModule::GetMeshGeometry(const FString &regionID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)

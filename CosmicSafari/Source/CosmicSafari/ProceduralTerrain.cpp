@@ -1,7 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "CosmicSafari.h"
-#include "libovdb.h"
 #include "ProceduralTerrain.h"
 
 FOpenVDBModule * AProceduralTerrain::openVDBModule = nullptr;
@@ -55,6 +54,7 @@ AProceduralTerrain::AProceduralTerrain()
 void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+	int32 maxHeight = 0;
 	GridID = openVDBModule->CreateDynamicVdb(MeshSurfaceValue, MapBoundsStart, MapBoundsEnd, HeightMapRange, GridIsoValue);
 	if (GridID == TEXT(""))
 	{
@@ -97,7 +97,9 @@ void AProceduralTerrain::BeginPlay()
 		checkf(colors != nullptr, TEXT("ProceduralTerrain: null mesh section colors (section %d)"), sectionIndex);
 		checkf(tangents != nullptr, TEXT("ProceduralTerrain: null mesh section tangents (section %d)"), sectionIndex);
 
-		if (openVDBModule->GetRegionMesh(GridID, sectionIndex, GridIsoValue, *vertices, *indices, *normals))
+		ovdb::meshing::VolumeDimensions dims(boundsStart->X, boundsEnd->X, boundsStart->Y, boundsEnd->Y, boundsStart->Z, HeightMapRange);
+		FString regionID = openVDBModule->CreateGridMeshRegion(GridID, sectionIndex, dims, GridIsoValue, *vertices, *indices, *normals);
+		if (regionID != FString(ovdb::meshing::INVALID_GRID_ID.data()))
 		{
 			TerrainMeshComponent->CreateTerrainMeshSection(sectionIndex, bCreateCollision, *vertices, *indices, *uvs, *normals, *colors, *tangents);
 			TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
