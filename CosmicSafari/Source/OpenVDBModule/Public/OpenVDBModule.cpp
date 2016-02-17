@@ -36,7 +36,7 @@ FString FOpenVDBModule::CreateDynamicVdb(float surfaceValue, const FIntVector &b
 {
 	static IDType internalID; //Workaround for UE4 tarray TBB race condition during deallocation
 	VolumeDimensions volumeDimensions(boundsStart.X, boundsEnd.Y, boundsStart.Z, boundsEnd.X, boundsStart.Y, range);
-	internalID = OvdbCreateLibNoiseVolume("noise", surfaceValue, volumeDimensions, isoValue); //TODO: Range check dims since internally they are unsigned;
+	internalID = OvdbCreateLibNoiseLevelSet("noise", surfaceValue, volumeDimensions, isoValue); //TODO: Range check dims since internally they are unsigned;
 	if (internalID == INVALID_GRID_ID)
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create dynamic vdb! (invalid grid ID)"));

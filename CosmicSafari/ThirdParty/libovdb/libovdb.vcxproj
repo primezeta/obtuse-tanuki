@@ -135,6 +135,7 @@
       <SDLCheck>false</SDLCheck>
       <ProgramDataBaseFileName>$(IntDir)vc$(PlatformToolsetVersion).pdb</ProgramDataBaseFileName>
       <RemoveUnreferencedCodeData>false</RemoveUnreferencedCodeData>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(SolutionDir)Build\$(Platform)\$(Configuration);C:\boost\boost_1_59_0\lib64-msvc-14.0;$(SolutionDir)ThirdParty\OpenVDB\dependencies\lib\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>

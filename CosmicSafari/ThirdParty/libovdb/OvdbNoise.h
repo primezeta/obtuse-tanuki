@@ -19,6 +19,6 @@ namespace ovdb
 		} NoiseMapBounds;
 
 		void GetHeightMapRange(const noise::utils::NoiseMap& noiseMap, float &minHeightMapValue, float &maxHeightMapValue);
-		noise::utils::NoiseMap& CreateNoiseHeightMap(double scale, int width, int height);
+		noise::utils::NoiseMap& CreateNoiseHeightMap(double scale, int width, int height, float &minValue, float &maxValue);
 	}
 }

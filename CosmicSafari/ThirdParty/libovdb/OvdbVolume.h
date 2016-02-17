@@ -24,17 +24,15 @@ namespace ovdb
 				primitiveVertices[7] = bbox.getEnd();
 			}
 
-			void setVertexIndex(CubeVertex v, IndexType i) { primitiveIndices[v] = i; }
+			IndexType& operator[](CubeVertex v) { return primitiveIndices[v]; }
 			CoordType& getCoord(CubeVertex v) { return primitiveVertices[v]; }
-			IndexType getIndex(CubeVertex v) { return primitiveIndices[v]; }
 			//Add the vertex indices in counterclockwise order on each quad face
-			QuadIndicesType getQuadXY0() { return openvdb::Vec4I(primitiveIndices[VX3], primitiveIndices[VX4], primitiveIndices[VX7], primitiveIndices[VX5]); }
-			QuadIndicesType getQuadXY1() { return openvdb::Vec4I(primitiveIndices[VX6], primitiveIndices[VX2], primitiveIndices[VX0], primitiveIndices[VX1]); }
-			QuadIndicesType getQuadXZ0() { return openvdb::Vec4I(primitiveIndices[VX7], primitiveIndices[VX4], primitiveIndices[VX2], primitiveIndices[VX6]); }
-			QuadIndicesType getQuadXZ1() { return openvdb::Vec4I(primitiveIndices[VX5], primitiveIndices[VX1], primitiveIndices[VX0], primitiveIndices[VX3]); }
-			QuadIndicesType getQuadYZ0() { return openvdb::Vec4I(primitiveIndices[VX7], primitiveIndices[VX6], primitiveIndices[VX1], primitiveIndices[VX5]); }
-			QuadIndicesType getQuadYZ1() { return openvdb::Vec4I(primitiveIndices[VX0], primitiveIndices[VX2], primitiveIndices[VX4], primitiveIndices[VX3]); }
-
+			QuadIndicesType getQuadXY0() { return openvdb::Vec4I(primitiveIndices[3], primitiveIndices[4], primitiveIndices[7], primitiveIndices[5]); }
+			QuadIndicesType getQuadXY1() { return openvdb::Vec4I(primitiveIndices[6], primitiveIndices[2], primitiveIndices[0], primitiveIndices[1]); }
+			QuadIndicesType getQuadXZ0() { return openvdb::Vec4I(primitiveIndices[7], primitiveIndices[4], primitiveIndices[2], primitiveIndices[6]); }
+			QuadIndicesType getQuadXZ1() { return openvdb::Vec4I(primitiveIndices[5], primitiveIndices[1], primitiveIndices[0], primitiveIndices[3]); }
+			QuadIndicesType getQuadYZ0() { return openvdb::Vec4I(primitiveIndices[7], primitiveIndices[6], primitiveIndices[1], primitiveIndices[5]); }
+			QuadIndicesType getQuadYZ1() { return openvdb::Vec4I(primitiveIndices[0], primitiveIndices[2], primitiveIndices[4], primitiveIndices[3]); }
 		private:
 			CoordType primitiveVertices[CUBE_VERTEX_COUNT];
 			IndexType primitiveIndices[CUBE_VERTEX_COUNT];
@@ -58,29 +56,39 @@ namespace ovdb
 			typedef typename GridType::ValueOffIter GridValueOffIterType;
 
 			//Note: Grids don't have an end value. Just need to check if the iter is null
-			TreeTypeCPtr getCRegionTree() const { return regionTree; }
-			TreeTypePtr getRegionTree() { return regionTree; }
-			GridValueAllCIterType valuesAllCBegin() const { return getCRegionTree()->cbeginValueAll(); }
-			GridValueAllIterType valuesAllBegin() { return getRegionTree()->beginValueAll(); }
-			GridValueOnCIterType valuesOnCBegin() const { return getCRegionTree()->cbeginValueOn(); }
-			GridValueOnIterType valuesOnBegin() { return getRegionTree()->beginValueOn(); }
-			GridValueOffCIterType valuesOffCBegin() const { return getCRegionTree()->cbeginValueOff(); }
-			GridValueOffIterType valuesOffBegin() { return getRegionTree()->beginValueOff(); }
+			GridValueAllCIterType valuesAllCBegin() const { return regionGrid->cbeginValueAll(); }
+			GridValueAllIterType valuesAllBegin() { return regionGrid->beginValueAll(); }
+			GridValueOnCIterType valuesOnCBegin() const { return regionGrid->cbeginValueOn(); }
+			GridValueOnIterType valuesOnBegin() { return regionGrid->beginValueOn(); }
+			GridValueOffCIterType valuesOffCBegin() const { return regionGrid->cbeginValueOff(); }
+			GridValueOffIterType valuesOffBegin() { return regionGrid->beginValueOff(); }
 
 			OvdbVoxelVolume() : volumeGrid(nullptr) {};
-			OvdbVoxelVolume(GridTypeCPtr grid) : volumeGrid(grid) {}
-			OvdbVoxelVolume(OvdbVoxelVolume &rhs) : volumeGrid(rhs.volumeGrid)
+			OvdbVoxelVolume(GridTypeCPtr grid)
+				//: volumeGrid(openvdb::gridConstPtrCast<GridType>(grid->copyGrid())) { }
+				: volumeGrid(grid) { }
+			OvdbVoxelVolume(OvdbVoxelVolume &rhs)
+				//: volumeGrid(openvdb::gridConstPtrCast<GridType>(rhs.volumeGrid->copyGrid()))
+				: volumeGrid(rhs.volumeGrid)
 			{
+				if (rhs.regionGrid)
+				{
+					regionGrid = openvdb::gridPtrCast<GridType>(rhs.regionGrid->copyGrid());
+				}
+				if (rhs.visitedVertexIndices)
+				{
+					visitedVertexIndices = openvdb::gridPtrCast<IndexGridType>(rhs.visitedVertexIndices->copyGrid());
+				}
+				volumeBBox = rhs.volumeBBox;
 				vertices.clear();
 				polygons.clear();
 				normals.clear();
 				quads.clear();
-				regionTree = boost::static_pointer_cast<TreeType>(rhs.regionTree->copy());
-				visitedVertexIndices = rhs.visitedVertexIndices->copy();
 				vertices.insert(vertices.begin(), rhs.vertices.begin(), rhs.vertices.end());
 				polygons.insert(polygons.begin(), rhs.polygons.begin(), rhs.polygons.end());
 				normals.insert(normals.begin(), rhs.normals.begin(), rhs.normals.end());
-				quads.insert(rhs.quads.begin(), rhs.quads.end());
+				//quads.insert(rhs.quads.begin(), rhs.quads.end());
+				quads.insert(quads.begin(), rhs.quads.begin(), rhs.quads.end());
 			}
 
 			VolumeVerticesType &getVertices() { return vertices; }
@@ -89,70 +97,84 @@ namespace ovdb
 
 			void doSurfaceMesh(const openvdb::math::CoordBBox &meshBBox, VolumeStyle volumeStyle, float isoValue, OvdbMeshMethod method) //TODO: Swap isovalue/surface value among parameters
 			{
-				regionBBox = meshBBox;
-				initializeRegion();
+				initializeRegion(meshBBox);
 				buildRegionMeshSurface(volumeStyle, isoValue);
 				doMesh(method);
 			}
 
 		private:
 			const GridTypeCPtr volumeGrid;
-			TreeTypePtr regionTree;
-			openvdb::math::CoordBBox regionBBox;
+			GridTypePtr regionGrid;
+			IndexGridPtr visitedVertexIndices;
+			openvdb::math::CoordBBox volumeBBox;
 			VolumeVerticesType vertices;
 			VolumePolygonsType polygons;
 			VolumeNormalsType normals;
-			UniqueQuadsType quads;
-			IndexGridPtr visitedVertexIndices;
+			//UniqueQuadsType quads;
+			std::vector<OvdbQuad> quads;
 
-			void initializeRegion()
+			void initializeRegion(const openvdb::math::CoordBBox &bbox)
 			{
-				//The visited vertex grid mirrors the region, except that values are indices of vertices already used by a quad (or max index if not yet used)
+				if (bbox == volumeBBox)
+				{
+					return; //Don't need to do anything
+				}
+
+				//Clip bounding box has changed
+				volumeBBox = bbox;
+
+				//regionGrid = GridType::create(volumeGrid->background());
+				//regionGrid->setTransform(volumeGrid->transformPtr()->copy());
+				//regionGrid->topologyUnion(*volumeGrid);
+				//regionGrid->clip(volumeBBox);
+
 				visitedVertexIndices = IndexGridType::create(INDEX_TYPE_MAX);
 				visitedVertexIndices->setTransform(volumeGrid->transformPtr()->copy());
 				visitedVertexIndices->topologyUnion(*volumeGrid);
-				visitedVertexIndices->clip(regionBBox);
-
-				//Tree clipping is destructive so copy the grid tree prior to clipping
-				TreeTypePtr subtreePtr = boost::static_pointer_cast<TreeType>(volumeGrid->tree().copy());
-				subtreePtr->clip(regionBBox);
-				regionTree = subtreePtr;
+				//visitedVertexIndices->clip(volumeBBox);
 			}
 
 			void buildRegionMeshSurface(VolumeStyle volumeStyle, float isoValue) 
 			{
 				//Step through only voxels that are on
-				for (GridValueOnCIterType i = valuesOnCBegin(); i; ++i)
+				//for (GridValueOnCIterType i = valuesOnCBegin(); i; ++i)
+				for (GridValueOnCIterType i = volumeGrid->cbeginValueOn(); i; ++i)
 				{
-					const CoordType &startCoord = i.getCoord();
 					//Skip tile values and values that are not on the surface
 					if (!i.isVoxelValue())
 					{
 						continue;
 					}
-					float value = volumeGrid->getConstAccessor().getValue(startCoord);
-					if (!openvdb::math::isApproxEqual(value, isoValue))
-					{
-						continue;
-					}
+
+					const CoordType &startCoord = i.getCoord();
+					//float value = volumeGrid->getConstAccessor().getValue(startCoord);
+					//if (!openvdb::math::isApproxEqual(value, isoValue))
+					//{
+					//	continue;
+					//}
 
 					//Set up the 6 quads
 					if (volumeStyle == VOLUME_STYLE_CUBE)
 					{
-						OvdbPrimitiveCube primitiveIndices(startCoord);
-						buildCubeQuads(primitiveIndices);
-						OvdbQuad xy0(primitiveIndices.getQuadXY0());
-						OvdbQuad xy1(primitiveIndices.getQuadXY1());
-						OvdbQuad xz0(primitiveIndices.getQuadXZ0());
-						OvdbQuad xz1(primitiveIndices.getQuadXZ1());
-						OvdbQuad yz0(primitiveIndices.getQuadYZ0());
-						OvdbQuad yz1(primitiveIndices.getQuadYZ1());
-						quads[OvdbQuadKey(xy0)] = xy0;
-						quads[OvdbQuadKey(xy1)] = xy1;
-						quads[OvdbQuadKey(xz0)] = xz0;
-						quads[OvdbQuadKey(xz1)] = xz1;
-						quads[OvdbQuadKey(yz0)] = yz0;
-						quads[OvdbQuadKey(yz1)] = yz1;
+						OvdbPrimitiveCube primitiveIndices = buildCubeQuads(startCoord);
+						//OvdbQuad xy0(primitiveIndices.getQuadXY0());
+						//OvdbQuad xy1(primitiveIndices.getQuadXY1());
+						//OvdbQuad xz0(primitiveIndices.getQuadXZ0());
+						//OvdbQuad xz1(primitiveIndices.getQuadXZ1());
+						//OvdbQuad yz0(primitiveIndices.getQuadYZ0());
+						//OvdbQuad yz1(primitiveIndices.getQuadYZ1());
+						//quads.emplace(OvdbQuadKey(xy0), xy0);
+						//quads.emplace(OvdbQuadKey(xy1), xy1);
+						//quads.emplace(OvdbQuadKey(xz0), xz0);
+						//quads.emplace(OvdbQuadKey(xz1), xz1);
+						//quads.emplace(OvdbQuadKey(yz0), yz0);
+						//quads.emplace(OvdbQuadKey(yz1), yz1);
+						quads.push_back(OvdbQuad(primitiveIndices.getQuadXY0()));
+						quads.push_back(OvdbQuad(primitiveIndices.getQuadXY1()));
+						quads.push_back(OvdbQuad(primitiveIndices.getQuadXZ0()));
+						quads.push_back(OvdbQuad(primitiveIndices.getQuadXZ1()));
+						quads.push_back(OvdbQuad(primitiveIndices.getQuadYZ0()));
+						quads.push_back(OvdbQuad(primitiveIndices.getQuadYZ1()));
 					}
 				}
 			}
@@ -172,9 +194,11 @@ namespace ovdb
 				//}
 
 				//Finally, collect polygon and normal data
-				for (UniqueQuadsType::const_iterator i = quads.begin(); i != quads.end(); ++i)
+				//for (UniqueQuadsType::const_iterator i = quads.begin(); i != quads.end(); ++i)
+				for (std::vector<OvdbQuad>::const_iterator i = quads.begin(); i != quads.end(); ++i)
 				{
-					const OvdbQuad &q = i->second;
+					//const OvdbQuad &q = i->second;
+					const OvdbQuad &q = *i;
 					if (q.quadIsMerged())
 					{
 						continue;
@@ -189,24 +213,26 @@ namespace ovdb
 				}
 			}
 
-			void buildCubeQuads(OvdbPrimitiveCube &primitiveIndices)
+			OvdbPrimitiveCube buildCubeQuads(const openvdb::Coord &startCoord)
 			{
 				//Make 6 quads, each of width / height 1
+				OvdbPrimitiveCube primitiveIndices(startCoord);
 				for (uint32_t i = 0; i < CUBE_VERTEX_COUNT; ++i)
 				{
-					CoordType coord = primitiveIndices.getCoord((CubeVertex)i);
+					CubeVertex vtx = (CubeVertex)i;
+					CoordType coord = primitiveIndices.getCoord(vtx);
 					IndexGridType::Accessor acc = visitedVertexIndices->getAccessor();
 					IndexType vertexIndex = acc.getValue(coord);
 					if (vertexIndex == UNVISITED_VERTEX_INDEX)
 					{
 						vertexIndex = IndexType(vertices.size()); //TODO: Error check index ranges
-						QuadVertexType vertex = volumeGrid->indexToWorld(coord);
-						vertices.push_back(vertex);
+						vertices.push_back(volumeGrid->indexToWorld(coord));
 						//Since this is a new vertex save it to the global visited vertex grid for use by any other voxels in the same region that share it
 						acc.setValue(coord, vertexIndex);
 					}
-					primitiveIndices.setVertexIndex((CubeVertex)i, vertexIndex);
+					primitiveIndices[vtx] = vertexIndex;
 				}
+				return primitiveIndices;
 			}
 		};
 

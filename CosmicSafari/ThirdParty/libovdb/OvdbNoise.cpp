@@ -100,7 +100,7 @@ namespace ovdb
 		}
 
 		//Not sure what the scale actually means in the noise map...it's a double while height map values are floats
-		noise::utils::NoiseMap& CreateNoiseHeightMap(double scale, int width, int height)
+		noise::utils::NoiseMap& CreateNoiseHeightMap(double scale, int width, int height, float &minValue, float &maxValue)
 		{
 			double baseFrequency = 2.0;
 			double baseBias = 0.0;
@@ -119,7 +119,9 @@ namespace ovdb
 			noise::module::Select& terrainSelector = CreateTerrainSelector(terrainType, flatTerrain, mountainTerrain, noiseMapBounds.x0, noiseMapBounds.x1, edgeFalloff);
 			noise::module::Turbulence& finalTerrain = CreateFinalTerrain(terrainSelector, finalFrequency, finalPower);
 
-			return BuildHeightMap(finalTerrain, width, height, noiseMapBounds.x0, noiseMapBounds.x1, noiseMapBounds.y0, noiseMapBounds.y1);
+			noise::utils::NoiseMap& noiseMap = BuildHeightMap(finalTerrain, width, height, noiseMapBounds.x0, noiseMapBounds.x1, noiseMapBounds.y0, noiseMapBounds.y1);
+			GetHeightMapRange(noiseMap, minValue, maxValue);
+			return noiseMap;
 		}
 
 		void GetHeightMapRange(const noise::utils::NoiseMap& noiseMap, float &minHeightMapValue, float &maxHeightMapValue)

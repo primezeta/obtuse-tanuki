@@ -23,7 +23,7 @@ void checkVolumeID(const IDType &volumeID);
 std::string gridNamesList(const openvdb::io::File &file);
 
 //Return the scalar grid with each coord(x,y,z[floor noiseValue]) = noiseValue and return isoValue = noiseRange[fabs max - min] * surfaceValue[0,1]
-openvdb::FloatGrid::Ptr create2DNoiseMap(const int32_t &width, const int32_t &height, const int32_t &range);
+openvdb::FloatGrid::Ptr create2DNoiseVolume(const int32_t &width, const int32_t &height, const int32_t &range);
 
 int OvdbInitialize()
 {
@@ -225,63 +225,26 @@ int OvdbYieldNextMeshNormal(const IDType &volumeID, float &nx, float &ny, float 
 }
 
 //Surface value must be between 0 and 1
-IDType OvdbCreateLibNoiseVolume(const ovdb::meshing::NameType &volumeName, float surfaceValue, const VolumeDimensions &volumeDimensions, float &isoValue)
+IDType OvdbCreateLibNoiseLevelSet(const ovdb::meshing::NameType &volumeName, float surfaceValue, const VolumeDimensions &volumeDimensions, float &isoValue)
 {
 	//Create a valid level-set from the 2D noise grid
-	openvdb::FloatGrid::Ptr levelSet = create2DNoiseMap(volumeDimensions.sizeX(), volumeDimensions.sizeY(), volumeDimensions.sizeZ());
-	//const openvdb::CoordBBox &noiseBounds = noiseGrid->evalActiveVoxelBoundingBox();
-	//openvdb::FloatGrid::Accessor noiseAcc = noiseGrid->getAccessor();
-	//openvdb::FloatGrid::Ptr levelSet = openvdb::createLevelSet<openvdb::FloatGrid>();
-	//openvdb::FloatGrid::Accessor levelSetAcc = levelSet->getAccessor();
+	openvdb::FloatGrid::Ptr noiseVolume = create2DNoiseVolume(volumeDimensions.sizeX(), volumeDimensions.sizeY(), volumeDimensions.sizeZ());
+	openvdb::FloatGrid::Accessor noiseVolumeAcc = noiseVolume->getAccessor();
+	const openvdb::CoordBBox bbox = noiseVolume->evalActiveVoxelBoundingBox();
+	for (int32_t x = bbox.min().x(); x <= bbox.max().x(); ++x)
+	{
+		for (int32_t y = bbox.min().y(); y <= bbox.max().y(); ++y)
+		{
+			noiseVolumeAcc.setValueOn(openvdb::Coord(x, y, 0), 0.0f);
+		}
+	}
 
-	//for (openvdb::FloatGrid::ValueOnCIter i = noiseGrid->cbeginValueOn(); i; ++i)
-	//{
-	//	//Find the coord with lowest z-value to calculate how many voxels we should set vertically
-	//	const openvdb::Coord &coord = i.getCoord();
-
-	//	//Always place at least 1 voxel and the very bottom voxel such that the level-set will be enclosed
-	//	levelSetAcc.setValueOn(openvdb::Coord(coord.x(), coord.y(), 0));
-
-	//	//At the boundaries set all voxels from top to bottom
-	//	openvdb::Coord lowestCoord = coord;
-	//	if (coord.x() == noiseBounds.min().x() ||
-	//		coord.x() == noiseBounds.max().x() ||
-	//		coord.y() == noiseBounds.min().y() ||
-	//		coord.y() == noiseBounds.max().y())
-	//	{
-	//		lowestCoord = openvdb::Coord(0, 0, 1);
-	//	}
-	//	else
-	//	{
-	//		//Otherwise set voxels vertically down to the lowest neighboring height-map value
-	//		if (coord.offsetBy(1, 0, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(1, 0, 0); }
-	//		if (coord.offsetBy(-1, 0, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(-1, 0, 0); }
-	//		if (coord.offsetBy(0, 1, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(0, 1, 0); }
-	//		if (coord.offsetBy(0, -1, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(0, -1, 0); }
-	//		if (coord.offsetBy(1, 1, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(1, 1, 0); }
-	//		if (coord.offsetBy(-1, 1, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(-1, 1, 0); }
-	//		if (coord.offsetBy(1, -1, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(1, -1, 0); }
-	//		if (coord.offsetBy(-1, -1, 0).z() < lowestCoord.z()) { lowestCoord = coord.offsetBy(-1, -1, 0); }
-	//		lowestCoord = openvdb::Coord(lowestCoord.x(), lowestCoord.y(), noiseAcc.getValue(lowestCoord));
-	//	}
-
-	//	for (int32_t z = lowestCoord.z(); z <= coord.z(); ++z)
-	//	{
-	//		levelSetAcc.setValueOn(openvdb::Coord(coord.x(), coord.y(), z));
-	//	}
-	//}
-
+	isoValue = 0.0f;
 	const float outsideValue = 1.0f;
 	const float insideValue = -1.0f;
-	//openvdb::tools::doSignedFloodFill(levelSet->tree(), outsideValue, insideValue, false, 1); //TODO: Mess with the grain size parameter
-
-	//template<class GridType>
-	//inline typename GridType::Ptr
-	//levelSetRebuild(const GridType& grid, float isovalue = 0,
-	//	float halfWidth = float(LEVEL_SET_HALF_WIDTH), const math::Transform* xform = NULL);
-
-	openvdb::tools::pruneLevelSet(levelSet->tree());
-	return addGrid(levelSet, std::wstring(volumeName.begin(), volumeName.end()));
+	openvdb::tools::doSignedFloodFill(noiseVolume->tree(), outsideValue, insideValue, true, 1); //TODO: Mess with the grain size parameter
+	//openvdb::FloatGrid::Ptr levelSet = openvdb::tools::levelSetRebuild(*noiseVolume, isoValue);
+	return addGrid(noiseVolume, std::wstring(volumeName.begin(), volumeName.end()));
 }
 
 IDType addGrid(GridPtr grid, const std::wstring& gridInfo)
@@ -368,16 +331,17 @@ std::string gridNamesList(const openvdb::io::File &file)
 	return validNames;
 }
 
-openvdb::FloatGrid::Ptr create2DNoiseMap(const int32_t &width, const int32_t &height, const int32_t &range) //Note: Assume bbox dims are bounded below at 0. TODO: Error check bounds
+openvdb::FloatGrid::Ptr create2DNoiseVolume(const int32_t &width, const int32_t &height, const int32_t &range) //Note: Assume bbox dims are bounded below at 0. TODO: Error check bounds
 {
 	//Construct a height map across the coordinate range
 	float minNoise, maxNoise;
 	const noise::utils::NoiseMap &noiseMap = CreateNoiseHeightMap(1.0, width - 1, height - 1, minNoise, maxNoise);
 	const float noiseRange = fabs(maxNoise - minNoise);
 	const float noiseUnit = noiseRange / range;
+	const float noiseUnitInv = range / noiseRange;
 
 	//Create a grid with transform according to noise map scale
-	openvdb::VectorGrid::Ptr grid = openvdb::VectorGrid::create();
+	openvdb::FloatGrid::Ptr grid = openvdb::FloatGrid::create();
 	grid->setName("libnoise");
 	grid->insertMeta("range", openvdb::FloatMetadata(noiseRange));
 	grid->insertMeta("minimum", openvdb::FloatMetadata(minNoise));
@@ -387,48 +351,40 @@ openvdb::FloatGrid::Ptr create2DNoiseMap(const int32_t &width, const int32_t &he
 	const openvdb::Vec3d noiseTranslate(0.0, 0.0, minNoise);
 	openvdb::math::Transform::Ptr xyzTransform = openvdb::math::Transform::Ptr(new openvdb::math::Transform(openvdb::math::MapBase::Ptr(new openvdb::math::ScaleTranslateMap(noiseScale, noiseTranslate))));
 
-	//Initialize each noise xy to the noise value
-	openvdb::VectorGrid::Accessor acc = grid->getAccessor();
+	openvdb::FloatGrid::Accessor acc = grid->getAccessor();
+	std::vector<float> neighborValues;
+	neighborValues.resize(5);
+
 	for (int32_t x = 0; x < width; x++)
 	{
 		for (int32_t y = 0; y < height; y++)
 		{
 			const float noiseValue = noiseMap.GetValue(x, y);
-			const openvdb::Vec3d worldXYZ(x, y, noiseValue);
-			const openvdb::Coord xyz = xyzTransform->worldToIndexNodeCentered(worldXYZ);
-			acc.setValueOn(xyz, openvdb::Vec3d(x, y, 0.0));
-
-			//Initialize each voxel below to a multiple of min noise
-			for (int32_t z = 1; z < xyz.z(); ++z)
-			{
-				acc.setValueOn(xyz.offsetBy(0, 0, -z), openvdb::Vec3d(x, y, z*minNoise));
-			}
+			neighborValues[0] = noiseValue;
+			neighborValues[1] = (x > 0 ? noiseMap.GetValue(x - 1, y) : minNoise);
+			neighborValues[2] = (x < width ? noiseMap.GetValue(x + 1, y) : minNoise);
+			neighborValues[3] = (y > 0 ? noiseMap.GetValue(x, y - 1) : minNoise);
+			neighborValues[4] = (y < height ? noiseMap.GetValue(x, y + 1) : minNoise);
+			std::sort(neighborValues.begin(), neighborValues.end());
+			const openvdb::Coord xyz = xyzTransform->worldToIndexNodeCentered(openvdb::Vec3d(x, y, noiseValue));
+			acc.setValueOn(xyz, noiseValue - neighborValues[0]);
 		}
 	}
 
-	openvdb::FloatGrid::Ptr divGrid = openvdb::tools::divergence(*grid);
-	for (openvdb::FloatGrid::ValueOnIter i = divGrid->beginValueOn(); i; ++i)
+	for (openvdb::FloatGrid::ValueOnIter i = grid->beginValueOn(); i; ++i)
 	{
-		const float &divValue = i.getValue();
-		if (divValue < 4.0f*minNoise || openvdb::math::isApproxEqual(divValue, 4.0f*minNoise))
+		const float &gridValue = i.getValue();
+		if (gridValue > 0.0f)
 		{
-			i.setActiveState(false);
-		}
-	}
-	for (openvdb::FloatGrid::ValueOffIter i = divGrid->beginValueOff(); i; ++i)
-	{
-		if (i.getCoord().z() == 0)
-		{
-			i.setActiveState(true);
-		}
-		else if (i.getCoord().x() == 0 || i.getCoord().x() == width-1 ||
-			     i.getCoord().y() == 0 || i.getCoord().y() == height-1)
-		{
-			if (i.getValue() < 0.0f)
+			const openvdb::Coord &coord = i.getCoord();
+			const int32_t numBelow = openvdb::math::Floor(gridValue * noiseUnitInv);
+			for (int32_t zoff = 1; zoff <= numBelow; ++zoff)
 			{
-				i.setActiveState(true);
+				acc.setValueOn(coord.offsetBy(0, 0, -zoff), 0.0f);
 			}
+			i.setValue(0.0f);
+			//acc.setValueOn(openvdb::Coord(coord.x(), coord.y(), 0), 0.0f);
 		}
 	}
-	return divGrid;
+	return grid;
 }

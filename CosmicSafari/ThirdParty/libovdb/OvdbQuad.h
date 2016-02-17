@@ -21,10 +21,10 @@ namespace ovdb
 				return *this;
 			}
 			const QuadIndicesType& quad() const { return indices; }
-			QuadUVType quadU() const { return openvdb::Vec2I(indices[V0], indices[V1]); }
-			QuadUVType quadV() const { return openvdb::Vec2I(indices[V0], indices[V3]); }
-			PolygonIndicesType quadPoly1() const { return openvdb::Vec3I(indices[V0], indices[V1], indices[V2]); }
-			PolygonIndicesType quadPoly2() const { return openvdb::Vec3I(indices[V0], indices[V2], indices[V3]); }
+			QuadUVType quadU() const { return openvdb::Vec2I(indices[0], indices[1]); }
+			QuadUVType quadV() const { return openvdb::Vec2I(indices[0], indices[3]); }
+			PolygonIndicesType quadPoly1() const { return openvdb::Vec3I(indices[0], indices[1], indices[2]); }
+			PolygonIndicesType quadPoly2() const { return openvdb::Vec3I(indices[0], indices[2], indices[3]); }
 			bool quadIsMerged() const { return isMerged; }
 			void setIsMerged() { isMerged = true; }
 			void mergeU(OvdbQuad &rhs)
@@ -67,10 +67,7 @@ namespace ovdb
 			const QuadIndicesType &indices;
 			bool operator==(const _OvdbQuadKey_ &rhs) const
 			{
-				return indices.x() == rhs.indices.x() &&
-					indices.y() == rhs.indices.y() &&
-					indices.z() == rhs.indices.z() &&
-					indices.w() == rhs.indices.w();
+				return indices.eq(rhs.indices);
 			}
 		} OvdbQuadKey;
 
@@ -78,10 +75,17 @@ namespace ovdb
 		{
 			std::size_t operator()(const OvdbQuadKey& k) const
 			{
-				return std::hash<IndexType>()(k.indices.x())
-					^ ((std::hash<IndexType>()(k.indices.y()) << 1) >> 1)
-					^ ((std::hash<IndexType>()(k.indices.z()) << 1) >> 1)
-					^ (std::hash<IndexType>()(k.indices.w()) << 1);
+				//Sort the indices so that a face that is shared by a single cube hashes to the same value
+				std::vector<IndexType> idxs;
+				idxs.push_back(k.indices[0]);
+				idxs.push_back(k.indices[1]);
+				idxs.push_back(k.indices[2]);
+				idxs.push_back(k.indices[3]);
+				std::sort(idxs.begin(), idxs.end());
+				return std::hash<IndexType>()(idxs[0])
+					^ ((std::hash<IndexType>()(idxs[1]) << 1) >> 1)
+					^ ((std::hash<IndexType>()(idxs[2]) << 1) >> 1)
+					^ (std::hash<IndexType>()(idxs[3]) << 1);
 			}
 		};
 	}
