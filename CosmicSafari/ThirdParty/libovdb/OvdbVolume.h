@@ -64,12 +64,8 @@ namespace ovdb
 			GridValueOffIterType valuesOffBegin() { return regionGrid->beginValueOff(); }
 
 			OvdbVoxelVolume() : volumeGrid(nullptr) {};
-			OvdbVoxelVolume(GridTypeCPtr grid)
-				//: volumeGrid(openvdb::gridConstPtrCast<GridType>(grid->copyGrid())) { }
-				: volumeGrid(grid) { }
-			OvdbVoxelVolume(OvdbVoxelVolume &rhs)
-				//: volumeGrid(openvdb::gridConstPtrCast<GridType>(rhs.volumeGrid->copyGrid()))
-				: volumeGrid(rhs.volumeGrid)
+			OvdbVoxelVolume(GridTypeCPtr grid) : volumeGrid(grid) { }
+			OvdbVoxelVolume(OvdbVoxelVolume &rhs) : volumeGrid(rhs.volumeGrid)
 			{
 				if (rhs.regionGrid)
 				{
@@ -137,7 +133,7 @@ namespace ovdb
 			void buildRegionMeshSurface(VolumeStyle volumeStyle, float isoValue) 
 			{
 				//Step through only voxels that are on
-				//for (GridValueOnCIterType i = valuesOnCBegin(); i; ++i)
+				auto acc = volumeGrid->getAccessor();
 				for (GridValueOnCIterType i = volumeGrid->cbeginValueOn(); i; ++i)
 				{
 					//Skip tile values and values that are not on the surface
@@ -147,34 +143,44 @@ namespace ovdb
 					}
 
 					const CoordType &startCoord = i.getCoord();
-					//float value = volumeGrid->getConstAccessor().getValue(startCoord);
-					//if (!openvdb::math::isApproxEqual(value, isoValue))
-					//{
-					//	continue;
-					//}
-
-					//Set up the 6 quads
 					if (volumeStyle == VOLUME_STYLE_CUBE)
 					{
+						//Mesh a cube at the active voxel and additionally fill in voxels below until the lowest neighboring voxel is reached
+						const CoordType &right = startCoord.offsetBy(1, 0, 0);
+						const CoordType &left = startCoord.offsetBy(-1, 0, 0);
+						const CoordType &front = startCoord.offsetBy(0, 1, 0);
+						const CoordType &back = startCoord.offsetBy(0, -1, 0);
+						float rightValue = acc.getValue(right);
+						float leftValue = acc.getValue(left);
+						float frontValue = acc.getValue(front);
+						float backValue = acc.getValue(back);
+						const float unit = volumeGrid->metaValue<float>("unit");
+						const int32_t rightDeltaZ = rightValue / unit;
+						const int32_t leftDeltaZ = leftValue / unit;
+						const int32_t frontDeltaZ = frontValue / unit;
+						const int32_t backDeltaZ = backValue / unit;
+						const int32_t deltaZ = openvdb::math::Max(rightDeltaZ, openvdb::math::Max(leftDeltaZ, openvdb::math::Max(frontDeltaZ, backDeltaZ)));
+
+						//Mesh the active voxel
 						OvdbPrimitiveCube primitiveIndices = buildCubeQuads(startCoord);
-						//OvdbQuad xy0(primitiveIndices.getQuadXY0());
-						//OvdbQuad xy1(primitiveIndices.getQuadXY1());
-						//OvdbQuad xz0(primitiveIndices.getQuadXZ0());
-						//OvdbQuad xz1(primitiveIndices.getQuadXZ1());
-						//OvdbQuad yz0(primitiveIndices.getQuadYZ0());
-						//OvdbQuad yz1(primitiveIndices.getQuadYZ1());
-						//quads.emplace(OvdbQuadKey(xy0), xy0);
-						//quads.emplace(OvdbQuadKey(xy1), xy1);
-						//quads.emplace(OvdbQuadKey(xz0), xz0);
-						//quads.emplace(OvdbQuadKey(xz1), xz1);
-						//quads.emplace(OvdbQuadKey(yz0), yz0);
-						//quads.emplace(OvdbQuadKey(yz1), yz1);
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadXY0()));
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadXY1()));
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadXZ0()));
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadXZ1()));
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadYZ0()));
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadYZ1()));
+
+						//Mesh all voxels below until the lowest neighboring voxel is reached (but do not mesh the voxel next to the lowest neighbor)
+						for (int z = 1; z < deltaZ; ++z)
+						{
+							OvdbPrimitiveCube primitiveIndices = buildCubeQuads(startCoord.offsetBy(0, 0, -z));
+							quads.push_back(OvdbQuad(primitiveIndices.getQuadXY0()));
+							quads.push_back(OvdbQuad(primitiveIndices.getQuadXY1()));
+							quads.push_back(OvdbQuad(primitiveIndices.getQuadXZ0()));
+							quads.push_back(OvdbQuad(primitiveIndices.getQuadXZ1()));
+							quads.push_back(OvdbQuad(primitiveIndices.getQuadYZ0()));
+							quads.push_back(OvdbQuad(primitiveIndices.getQuadYZ1()));
+						}
 					}
 				}
 			}
