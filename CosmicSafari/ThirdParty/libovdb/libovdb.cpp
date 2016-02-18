@@ -23,7 +23,7 @@ void checkVolumeID(const IDType &volumeID);
 std::string gridNamesList(const openvdb::io::File &file);
 
 //Return the scalar grid with each coord(x,y,z[floor noiseValue]) = noiseValue and return isoValue = noiseRange[fabs max - min] * surfaceValue[0,1]
-openvdb::FloatGrid::Ptr create2DNoiseVolume(const int32_t &width, const int32_t &height, const int32_t &range);
+openvdb::FloatGrid::Ptr create2DNoiseVolume(const int32_t &width, const int32_t &height, const int32_t &range, float surfaceValue);
 
 int OvdbInitialize()
 {
@@ -224,27 +224,14 @@ int OvdbYieldNextMeshNormal(const IDType &volumeID, float &nx, float &ny, float 
 	return 1;
 }
 
-//Surface value must be between 0 and 1
-IDType OvdbCreateLibNoiseLevelSet(const ovdb::meshing::NameType &volumeName, float surfaceValue, const VolumeDimensions &volumeDimensions, float &isoValue)
+IDType OvdbCreateLibNoiseLevelSet(const ovdb::meshing::NameType &volumeName, float surfaceValue, const VolumeDimensions &volumeDimensions)
 {
 	//Create a valid level-set from the 2D noise grid
-	openvdb::FloatGrid::Ptr noiseVolume = create2DNoiseVolume(volumeDimensions.sizeX(), volumeDimensions.sizeY(), volumeDimensions.sizeZ());
-	openvdb::FloatGrid::Accessor noiseVolumeAcc = noiseVolume->getAccessor();
-	const openvdb::CoordBBox bbox = noiseVolume->evalActiveVoxelBoundingBox();
-	for (int32_t x = bbox.min().x(); x <= bbox.max().x(); ++x)
-	{
-		for (int32_t y = bbox.min().y(); y <= bbox.max().y(); ++y)
-		{
-			noiseVolumeAcc.setValueOn(openvdb::Coord(x, y, 0), 0.0f);
-		}
-	}
-
-	isoValue = 0.0f;
-	const float outsideValue = 1.0f;
-	const float insideValue = -1.0f;
-	openvdb::tools::doSignedFloodFill(noiseVolume->tree(), outsideValue, insideValue, true, 1); //TODO: Mess with the grain size parameter
-	//openvdb::FloatGrid::Ptr levelSet = openvdb::tools::levelSetRebuild(*noiseVolume, isoValue);
-	return addGrid(noiseVolume, std::wstring(volumeName.begin(), volumeName.end()));
+	openvdb::FloatGrid::Ptr noiseVolume2d = create2DNoiseVolume(volumeDimensions.sizeX(), volumeDimensions.sizeY(), volumeDimensions.sizeZ(), surfaceValue);
+	const float outsideValue = surfaceValue + 1.0;
+	const float insideValue = surfaceValue - 1.0f;
+	openvdb::tools::doSignedFloodFill(noiseVolume2d->tree(), outsideValue, insideValue, true, 1); //TODO: Mess with the grain size parameter
+	return addGrid(noiseVolume2d, std::wstring(volumeName.begin(), volumeName.end()));
 }
 
 IDType addGrid(GridPtr grid, const std::wstring& gridInfo)
@@ -331,7 +318,7 @@ std::string gridNamesList(const openvdb::io::File &file)
 	return validNames;
 }
 
-openvdb::FloatGrid::Ptr create2DNoiseVolume(const int32_t &width, const int32_t &height, const int32_t &range) //Note: Assume bbox dims are bounded below at 0. TODO: Error check bounds
+openvdb::FloatGrid::Ptr create2DNoiseVolume(const int32_t &width, const int32_t &height, const int32_t &range, float surfaceValue) //Note: Assume bbox dims are bounded below at 0. TODO: Error check bounds
 {
 	//Construct a height map across the coordinate range
 	float minNoise, maxNoise;
@@ -341,7 +328,7 @@ openvdb::FloatGrid::Ptr create2DNoiseVolume(const int32_t &width, const int32_t 
 	const float noiseUnitInv = range / noiseRange;
 
 	//Create a grid with transform according to noise map scale
-	openvdb::FloatGrid::Ptr grid = openvdb::FloatGrid::create();
+	openvdb::FloatGrid::Ptr grid = openvdb::createLevelSet<openvdb::FloatGrid>();
 	grid->setName("libnoise");
 	grid->insertMeta("range", openvdb::FloatMetadata(noiseRange));
 	grid->insertMeta("minimum", openvdb::FloatMetadata(minNoise));
@@ -355,6 +342,7 @@ openvdb::FloatGrid::Ptr create2DNoiseVolume(const int32_t &width, const int32_t 
 	std::vector<float> neighborValues;
 	neighborValues.resize(5);
 
+	//Initialize the grid to voxels on at noise map locations
 	for (int32_t x = 0; x < width; x++)
 	{
 		for (int32_t y = 0; y < height; y++)
@@ -371,20 +359,21 @@ openvdb::FloatGrid::Ptr create2DNoiseVolume(const int32_t &width, const int32_t 
 		}
 	}
 
+	//Set voxels as defined by the noise map height such that vertical cliffs are filled in down to the lowest neighboring noise map value
 	for (openvdb::FloatGrid::ValueOnIter i = grid->beginValueOn(); i; ++i)
 	{
 		const float &gridValue = i.getValue();
-		if (gridValue > 0.0f)
+		const openvdb::Coord &coord = i.getCoord();
+		if (!openvdb::math::isApproxEqual(gridValue, surfaceValue))
 		{
-			const openvdb::Coord &coord = i.getCoord();
 			const int32_t numBelow = openvdb::math::Floor(gridValue * noiseUnitInv);
 			for (int32_t zoff = 1; zoff <= numBelow; ++zoff)
 			{
-				acc.setValueOn(coord.offsetBy(0, 0, -zoff), 0.0f);
+				acc.setValueOn(coord.offsetBy(0, 0, -zoff), surfaceValue);
 			}
-			i.setValue(0.0f);
-			//acc.setValueOn(openvdb::Coord(coord.x(), coord.y(), 0), 0.0f);
 		}
+		i.setValue(surfaceValue); //Reset to the surface value
+		acc.setValueOn(openvdb::Coord(coord.x(), coord.y(), 0), surfaceValue); //Set the lowest z-line to all on
 	}
 	return grid;
 }

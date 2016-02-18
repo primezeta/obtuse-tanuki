@@ -55,7 +55,7 @@ void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 	int32 maxHeight = 0;
-	GridID = openVDBModule->CreateDynamicVdb(MeshSurfaceValue, MapBoundsStart, MapBoundsEnd, HeightMapRange, GridIsoValue);
+	GridID = openVDBModule->CreateDynamicVdb(MeshSurfaceValue, MapBoundsStart, MapBoundsEnd, HeightMapRange);
 	if (GridID == TEXT(""))
 	{
 		UE_LOG(LogFlying, Fatal, TEXT("Dynamic grid is invalid!")); //TODO: Better error handling
