@@ -65,16 +65,12 @@ namespace ovdb
 
 			OvdbVoxelVolume() : volumeGrid(nullptr) {};
 			OvdbVoxelVolume(GridTypeCPtr grid) : volumeGrid(grid) { }
-			OvdbVoxelVolume(OvdbVoxelVolume &rhs) : volumeGrid(rhs.volumeGrid)
+			OvdbVoxelVolume(OvdbVoxelVolume &rhs) { (*this) = rhs; }
+			OvdbVoxelVolume &operator=(const OvdbVoxelVolume &rhs)
 			{
-				if (rhs.regionGrid)
-				{
-					regionGrid = openvdb::gridPtrCast<GridType>(rhs.regionGrid->copyGrid());
-				}
-				if (rhs.visitedVertexIndices)
-				{
-					visitedVertexIndices = openvdb::gridPtrCast<IndexGridType>(rhs.visitedVertexIndices->copyGrid());
-				}
+				volumeGrid = rhs.volumeGrid;
+				regionGrid = rhs.regionGrid;
+				visitedVertexIndices = rhs.visitedVertexIndices;
 				volumeBBox = rhs.volumeBBox;
 				vertices.clear();
 				polygons.clear();
@@ -83,8 +79,8 @@ namespace ovdb
 				vertices.insert(vertices.begin(), rhs.vertices.begin(), rhs.vertices.end());
 				polygons.insert(polygons.begin(), rhs.polygons.begin(), rhs.polygons.end());
 				normals.insert(normals.begin(), rhs.normals.begin(), rhs.normals.end());
-				//quads.insert(rhs.quads.begin(), rhs.quads.end());
 				quads.insert(quads.begin(), rhs.quads.begin(), rhs.quads.end());
+				return *this;
 			}
 
 			VolumeVerticesType &getVertices() { return vertices; }
@@ -99,7 +95,7 @@ namespace ovdb
 			}
 
 		private:
-			const GridTypeCPtr volumeGrid;
+			GridTypeCPtr volumeGrid;
 			GridTypePtr regionGrid;
 			IndexGridPtr visitedVertexIndices;
 			openvdb::math::CoordBBox volumeBBox;
@@ -134,6 +130,7 @@ namespace ovdb
 			{
 				//Step through only voxels that are on
 				auto acc = volumeGrid->getAccessor();
+				openvdb::VectorGrid::Ptr gradient = openvdb::tools::gradient(*volumeGrid);
 				for (GridValueOnCIterType i = volumeGrid->cbeginValueOn(); i; ++i)
 				{
 					//Skip tile values and values that are not on the surface
@@ -141,46 +138,33 @@ namespace ovdb
 					{
 						continue;
 					}
-
-					const CoordType &startCoord = i.getCoord();
+					const CoordType &coord = i.getCoord();
+					const float &density = acc.getValue(coord);
 					if (volumeStyle == VOLUME_STYLE_CUBE)
 					{
-						//Mesh a cube at the active voxel and additionally fill in voxels below until the lowest neighboring voxel is reached
-						const CoordType &right = startCoord.offsetBy(1, 0, 0);
-						const CoordType &left = startCoord.offsetBy(-1, 0, 0);
-						const CoordType &front = startCoord.offsetBy(0, 1, 0);
-						const CoordType &back = startCoord.offsetBy(0, -1, 0);
-						float rightValue = acc.getValue(right);
-						float leftValue = acc.getValue(left);
-						float frontValue = acc.getValue(front);
-						float backValue = acc.getValue(back);
-						const float unit = volumeGrid->metaValue<float>("unit");
-						const int32_t rightDeltaZ = rightValue / unit;
-						const int32_t leftDeltaZ = leftValue / unit;
-						const int32_t frontDeltaZ = frontValue / unit;
-						const int32_t backDeltaZ = backValue / unit;
-						const int32_t deltaZ = openvdb::math::Max(rightDeltaZ, openvdb::math::Max(leftDeltaZ, openvdb::math::Max(frontDeltaZ, backDeltaZ)));
-
-						//Mesh the active voxel
-						OvdbPrimitiveCube primitiveIndices = buildCubeQuads(startCoord);
+						//Mesh the voxel as a simple cube						
+						OvdbPrimitiveCube primitiveIndices = buildCubeQuads(coord);
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadXY0()));
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadXY1()));
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadXZ0()));
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadXZ1()));
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadYZ0()));
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadYZ1()));
-
-						//Mesh all voxels below until the lowest neighboring voxel is reached (but do not mesh the voxel next to the lowest neighbor)
-						for (int z = 1; z < deltaZ; ++z)
-						{
-							OvdbPrimitiveCube primitiveIndices = buildCubeQuads(startCoord.offsetBy(0, 0, -z));
-							quads.push_back(OvdbQuad(primitiveIndices.getQuadXY0()));
-							quads.push_back(OvdbQuad(primitiveIndices.getQuadXY1()));
-							quads.push_back(OvdbQuad(primitiveIndices.getQuadXZ0()));
-							quads.push_back(OvdbQuad(primitiveIndices.getQuadXZ1()));
-							quads.push_back(OvdbQuad(primitiveIndices.getQuadYZ0()));
-							quads.push_back(OvdbQuad(primitiveIndices.getQuadYZ1()));
-						}
+					}
+					else if (volumeStyle == MARCHING_CUBES)
+					{
+						openvdb::VectorGrid::Ptr volumeGrad = openvdb::tools::gradient(*volumeGrid);
+						const float gridValue = i.getValue();
+						std::vector<openvdb::Vec3d> vertices;
+						vertices.resize(8);
+						vertices[0] = volumeGrid->indexToWorld(coord);
+						vertices[1] = volumeGrid->indexToWorld(coord.offsetBy(1, 0, 0));
+						vertices[2] = volumeGrid->indexToWorld(coord.offsetBy(0, 1, 0));
+						vertices[3] = volumeGrid->indexToWorld(coord.offsetBy(1, 1, 0));
+						vertices[4] = volumeGrid->indexToWorld(coord.offsetBy(0, 0, 1));
+						vertices[5] = volumeGrid->indexToWorld(coord.offsetBy(1, 0, 1));
+						vertices[6] = volumeGrid->indexToWorld(coord.offsetBy(0, 1, 1));
+						vertices[7] = volumeGrid->indexToWorld(coord.offsetBy(1, 1, 1));
 					}
 				}
 			}

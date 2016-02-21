@@ -20,5 +20,6 @@ namespace ovdb
 
 		void GetHeightMapRange(const noise::utils::NoiseMap& noiseMap, float &minHeightMapValue, float &maxHeightMapValue);
 		noise::utils::NoiseMap& CreateNoiseHeightMap(double scale, int width, int height, float &minValue, float &maxValue);
+		noise::module::Perlin& CreatePerlinNoise(double frequency, double persistence, int octaveCount);
 	}
 }

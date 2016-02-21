@@ -20,7 +20,7 @@ public:
 		return FModuleManager::Get().IsModuleLoaded("OpenVDBModule");
 	}
 
-	FString CreateDynamicVdb(float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range);
+	FString CreateDynamicVdb(float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range, double scaleXYZ, double frequency, double lacunarity, double persistence, int octaveCount);
 	FString ReadVDBFile(FString vdbFilename, FString gridName);
 	FString CreateGridMeshRegion(const FString &gridID, int32 regionIndex, ovdb::meshing::VolumeDimensions &dims, float isoValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
 

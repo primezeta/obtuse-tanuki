@@ -32,11 +32,12 @@ FString FOpenVDBModule::ReadVDBFile(FString vdbFilename, FString gridName)
 	return FString(FString::Printf(TEXT("%s"), internalID.c_str()));
 }
 
-FString FOpenVDBModule::CreateDynamicVdb(float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range)
+FString FOpenVDBModule::CreateDynamicVdb(float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range,
+	double scaleXYZ, double frequency, double lacunarity, double persistence, int octaveCount)
 {
 	static IDType internalID; //Workaround for UE4 tarray TBB race condition during deallocation
-	VolumeDimensions volumeDimensions(boundsStart.X, boundsEnd.Y, boundsStart.Z, boundsEnd.X, boundsStart.Y, range);
-	internalID = OvdbCreateLibNoiseGrid("noise", surfaceValue, volumeDimensions); //TODO: Range check dims since internally they are unsigned;
+	VolumeDimensions volumeDimensions(boundsStart.X, boundsEnd.X, boundsStart.Y, boundsEnd.Y, boundsStart.Z, boundsStart.Z + range - 1);
+	internalID = OvdbCreateLibNoiseGrid("noise", volumeDimensions, surfaceValue, scaleXYZ, frequency, lacunarity, persistence, octaveCount); //TODO: Range check dims since internally they are unsigned;
 	if (internalID == INVALID_GRID_ID)
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create dynamic vdb! (invalid grid ID)"));

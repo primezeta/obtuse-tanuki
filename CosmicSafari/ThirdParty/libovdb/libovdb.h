@@ -42,5 +42,5 @@ LIB_OVDB_API int OvdbVolumeToMesh(const ovdb::meshing::IDType &gridID, const ovd
 LIB_OVDB_API int OvdbYieldNextMeshPoint(const ovdb::meshing::IDType &volumeID, float &vx, float &vy, float &vz);
 LIB_OVDB_API int OvdbYieldNextMeshPolygon(const ovdb::meshing::IDType &volumeID, uint32_t &i1, uint32_t &i2, uint32_t &i3);
 LIB_OVDB_API int OvdbYieldNextMeshNormal(const ovdb::meshing::IDType &volumeID, float &nx, float &ny, float &nz);
-LIB_OVDB_API ovdb::meshing::IDType OvdbCreateLibNoiseGrid(const ovdb::meshing::NameType &volumeName, float surfaceValue, const ovdb::meshing::VolumeDimensions &volumeDimensions);
+LIB_OVDB_API ovdb::meshing::IDType OvdbCreateLibNoiseGrid(const ovdb::meshing::NameType &volumeName, const ovdb::meshing::VolumeDimensions &dimensions, float surfaceValue, double scaleXYZ, double frequency, double lacunarity, double persistence, int octaveCount);
 #endif

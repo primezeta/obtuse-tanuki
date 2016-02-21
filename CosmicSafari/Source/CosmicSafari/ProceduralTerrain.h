@@ -37,6 +37,21 @@ public:
 	float MeshSurfaceValue;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
+	float scaleXYZ;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
+	float frequency;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
+	float lacunarity;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
+	float persistence;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
+	int32 octaveCount;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
 	FIntVector MapBoundsStart; //TODO: Error check dim ranges since internally to openvdb they are unsigned
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")

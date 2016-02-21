@@ -23,7 +23,7 @@ void checkVolumeID(const IDType &volumeID);
 std::string gridNamesList(const openvdb::io::File &file);
 
 //Return the scalar grid with each coord(x,y,z[floor noiseValue]) = noiseValue and return isoValue = noiseRange[fabs max - min] * surfaceValue[0,1]
-openvdb::FloatGrid::Ptr create2DNoiseGrid(const float surfaceValue, const int32_t &width, const int32_t &height, const int32_t &range);
+openvdb::FloatGrid::Ptr create2DNoiseUnsignedDistanceGrid(const float surfaceValue, const int32_t &width, const int32_t &height, const int32_t &range);
 
 int OvdbInitialize()
 {
@@ -131,15 +131,10 @@ int OvdbVolumeToMesh(const ovdb::meshing::IDType &gridID, const ovdb::meshing::I
 	try
 	{
 		GridPtr grid = getGridByID(gridID);
-		auto i = GridVolumes.find(volumeID);
-		if (i == GridVolumes.end())
-		{
-			i = GridVolumes.insert(std::make_pair(volumeID, VolumeType(grid))).first;
-		}
-		auto &volume = i->second;
+		GridVolumes[volumeID] = VolumeType(grid);
 		checkVolumeID(volumeID);
 		openvdb::math::CoordBBox bbox(CoordType(volumeDims.x0, volumeDims.y0, volumeDims.z0), CoordType(volumeDims.x1, volumeDims.y1, volumeDims.z1));
-		volume.doSurfaceMesh(bbox, VOLUME_STYLE_CUBE, isoValue, meshMethod);
+		GridVolumes[volumeID].doSurfaceMesh(bbox, VOLUME_STYLE_CUBE, isoValue, meshMethod);
 	}
 	catch (openvdb::Exception &e)
 	{
@@ -224,16 +219,121 @@ int OvdbYieldNextMeshNormal(const IDType &volumeID, float &nx, float &ny, float 
 	return 1;
 }
 
-IDType OvdbCreateLibNoiseGrid(const ovdb::meshing::NameType &volumeName, float surfaceValue, const VolumeDimensions &volumeDimensions)
+IDType OvdbCreateLibNoiseGrid(const ovdb::meshing::NameType &volumeName, const ovdb::meshing::VolumeDimensions &dimensions, float surfaceValue, double scaleXYZ, double frequency, double lacunarity, double persistence, int octaveCount)
 {
-	openvdb::FloatGrid::Ptr noiseGrid = create2DNoiseGrid(surfaceValue, volumeDimensions.sizeX(), volumeDimensions.sizeY(), volumeDimensions.sizeZ());
+	const int sizeX = dimensions.sizeX();
+	const int sizeY = dimensions.sizeY();
+	const int sizeZ = dimensions.sizeZ();
+
+	noise::module::Perlin perlin;
+	perlin.SetFrequency(frequency);
+	perlin.SetLacunarity(lacunarity * scaleXYZ);
+	perlin.SetPersistence(persistence);
+	perlin.SetOctaveCount(octaveCount);
+	//perlin.SetFrequency(1.0);
+	//perlin.SetLacunarity(2.01 * scaleXYZ);
+	//perlin.SetPersistence(0.5);
+	//perlin.SetOctaveCount(9);
+
+	openvdb::FloatGrid::Ptr noiseGrid = openvdb::createGrid<openvdb::FloatGrid>();
+	openvdb::FloatGrid::Accessor acc = noiseGrid->getAccessor();
+	noiseGrid->setTransform(openvdb::math::Transform::Ptr(new openvdb::math::Transform(openvdb::math::MapBase::Ptr(new openvdb::math::ScaleMap(openvdb::Vec3d(scaleXYZ))))));
+	openvdb::BoolGrid::Ptr mask = openvdb::BoolGrid::create(false);
+	mask->topologyUnion(*noiseGrid);
+	mask->setTransform(noiseGrid->transform().copy());
+	openvdb::BoolGrid::Accessor maskAcc = mask->getAccessor();
+
+	for (int x = 0; x <= sizeX; ++x)
+	{
+		for (int y = 0; y <= sizeY; ++y)
+		{
+			for (int z = 0; z <= sizeZ; ++z)
+			{
+				const openvdb::Coord coord = openvdb::Coord(x, y, z);
+				const openvdb::Vec3d xyz = noiseGrid->indexToWorld(coord);
+				const double &vx = xyz.x();
+				const double &vy = xyz.y();
+				const double &vz = xyz.z();
+				//Start with a plane at z = 0
+				double density = -vz;
+				//Add the density value to the plane
+				density += perlin.GetValue(vx, vy, vz);
+				acc.setValueOnly(coord, (float)density);
+				if (x < sizeX && y < sizeY && z < sizeZ)
+				{
+					//If the voxel is not a pad voxel turn it on
+					//Otherwise an activated voxel with background value 0 appears as if it is on the surface when it should not even be used at all
+					maskAcc.setValueOn(coord);
+				}
+			}
+		}
+	}
+
+	for (openvdb::BoolGrid::ValueOnIter i = mask->beginValueOn(); i; ++i)
+	{
+		const openvdb::Coord &coord = i.getCoord();
+		const openvdb::Coord r = coord.offsetBy(1, 0, 0);
+		const openvdb::Coord f = coord.offsetBy(0, 1, 0);
+		const openvdb::Coord u = coord.offsetBy(0, 0, 1);
+		const openvdb::Coord rf = coord.offsetBy(1, 1, 0);
+		const openvdb::Coord ru = coord.offsetBy(1, 0, 1);
+		const openvdb::Coord fu = coord.offsetBy(0, 1, 1);
+		const openvdb::Coord rfu = coord.offsetBy(1, 1, 1);
+		const float value = acc.getValue(coord);
+		const float neighborValue100 = acc.getValue(r);
+		const float neighborValue010 = acc.getValue(f);
+		const float neighborValue001 = acc.getValue(u);
+		const float neighborValue110 = acc.getValue(rf);
+		const float neighborValue101 = acc.getValue(ru);
+		const float neighborValue011 = acc.getValue(fu);
+		const float neighborValue111 = acc.getValue(rfu);
+		uint8_t insideBits = 0;
+		//For each neighboring value set a bit if it is inside the surface (inside = positive value)
+		if (value > surfaceValue)
+		{
+			insideBits |= 1;
+		}
+		if (neighborValue100 > surfaceValue)
+		{
+			insideBits |= 2;
+		}
+		if (neighborValue010 > surfaceValue)
+		{
+			insideBits |= 4;
+		}
+		if (neighborValue001 > surfaceValue)
+		{
+			insideBits |= 8;
+		}
+		if (neighborValue110 > surfaceValue)
+		{
+			insideBits |= 16;
+		}
+		if (neighborValue101 > surfaceValue)
+		{
+			insideBits |= 32;
+		}
+		if (neighborValue011 > surfaceValue)
+		{
+			insideBits |= 64;
+		}
+		if (neighborValue111 > surfaceValue)
+		{
+			insideBits |= 128;
+		}
+		if (insideBits > 0 && insideBits < 255)
+		{
+			//At least one vertex (but not all nor none) is on the other side of the surface from the others so activate the voxel
+			acc.setValueOn(coord);
+		}
+	}
 	return addGrid(noiseGrid, std::wstring(volumeName.begin(), volumeName.end()));
 }
 
 IDType addGrid(GridPtr grid, const std::wstring& gridInfo)
 {
 	IDType gridID = gridInfo;
-	GridByID.insert(std::pair<IDType, GridPtr>(gridID, grid));
+	GridByID[gridID] = grid;
 	return gridID;
 }
 
@@ -312,47 +412,4 @@ std::string gridNamesList(const openvdb::io::File &file)
 		}
 	}
 	return validNames;
-}
-
-openvdb::FloatGrid::Ptr create2DNoiseGrid(const float surfaceValue, const int32_t &width, const int32_t &height, const int32_t &range) //Note: Assume bbox dims are bounded below at 0. TODO: Error check bounds
-{
-	//Construct a height map across the coordinate range
-	float minNoise, maxNoise;
-	const noise::utils::NoiseMap &noiseMap = CreateNoiseHeightMap(1.0, width - 1, height - 1, minNoise, maxNoise);
-	const float noiseRange = fabs(maxNoise - minNoise);
-	const float noiseUnit = noiseRange / range;
-	const float noiseUnitInv = range / noiseRange;
-
-	//Create a grid with transform according to noise map scale and smallest noise value such that values start from 0
-	openvdb::FloatGrid::Ptr grid = openvdb::createGrid<openvdb::FloatGrid>();
-	grid->setName("libnoise");
-	grid->insertMeta("range", openvdb::FloatMetadata(noiseRange));
-	grid->insertMeta("minimum", openvdb::FloatMetadata(minNoise));
-	grid->insertMeta("maximum", openvdb::FloatMetadata(maxNoise));
-	grid->insertMeta("unit", openvdb::FloatMetadata(noiseUnit));
-	grid->insertMeta("unitInverse", openvdb::FloatMetadata(noiseUnitInv));
-	const openvdb::Vec3d noiseScale(1.0, 1.0, noiseUnit);
-	const openvdb::Vec3d noiseTranslate(0.0, 0.0, minNoise);
-	openvdb::math::Transform::Ptr transform = openvdb::math::Transform::Ptr(new openvdb::math::Transform(openvdb::math::MapBase::Ptr(new openvdb::math::ScaleTranslateMap(noiseScale, noiseTranslate))));
-
-	//Initialize the grid to mirror the 2d noise map
-	openvdb::FloatGrid::Accessor acc = grid->getAccessor();
-	for (int32_t x = 0; x < width; x++)
-	{
-		for (int32_t y = 0; y < height; y++)
-		{
-			const float noiseValue = noiseMap.GetValue(x, y);
-			const openvdb::Coord indexXYZ = transform->worldToIndexNodeCentered(openvdb::Vec3d(x, y, noiseValue));
-			acc.setValueOn(indexXYZ, surfaceValue);
-			for (int z = 1; z < height; ++z)
-			{
-				acc.setValueOnly(indexXYZ.offsetBy(0, 0, z), surfaceValue + z*noiseUnit);
-			}
-			for (int z = 1; z <= indexXYZ.z(); ++z)
-			{
-				acc.setValueOnly(indexXYZ.offsetBy(0, 0, -z), surfaceValue - (z*noiseUnit));
-			}
-		}
-	}
-	return grid;
 }

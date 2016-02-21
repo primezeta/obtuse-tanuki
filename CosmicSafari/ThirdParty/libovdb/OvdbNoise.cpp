@@ -6,7 +6,6 @@ namespace ovdb
 	{
 
 		noise::module::ScaleBias& CreateFlatTerrain(noise::module::Billow &baseFlatTerrain, double baseFrequency, double scale, double bias);
-		noise::module::Perlin& CreatePerlinNoise(double frequency, double persistence);
 		noise::module::Select& CreateTerrainSelector(noise::module::Perlin &terrainType,
 			noise::module::ScaleBias &flatTerrain,
 			noise::module::RidgedMulti &mountainTerrain,
@@ -30,12 +29,13 @@ namespace ovdb
 			return FlatTerrain;
 		}
 
-		noise::module::Perlin& CreatePerlinNoise(double frequency, double persistence)
+		noise::module::Perlin& CreatePerlinNoise(double frequency, double persistence, int octaveCount)
 		{
-			static noise::module::Perlin TerrainType;
-			TerrainType.SetFrequency(frequency);
-			TerrainType.SetPersistence(persistence);
-			return TerrainType;
+			static noise::module::Perlin PerlinModule;
+			PerlinModule.SetFrequency(frequency);
+			PerlinModule.SetPersistence(persistence);
+			PerlinModule.SetOctaveCount(octaveCount);
+			return PerlinModule;
 		}
 
 		noise::module::Select& CreateTerrainSelector(noise::module::Perlin &terrainType,
@@ -115,7 +115,7 @@ namespace ovdb
 			const NoiseMapBounds noiseMapBounds = NoiseMapBounds{ 2.0, 6.0, 1.0, 5.0 }; //TODO: Parameterize
 
 			noise::module::ScaleBias& flatTerrain = CreateFlatTerrain(baseFlatTerrain, baseFrequency, scale, baseBias);
-			noise::module::Perlin& terrainType = CreatePerlinNoise(perlinFrequency, perlinPersistence);
+			noise::module::Perlin& terrainType = CreatePerlinNoise(perlinFrequency, perlinPersistence, 0);
 			noise::module::Select& terrainSelector = CreateTerrainSelector(terrainType, flatTerrain, mountainTerrain, noiseMapBounds.x0, noiseMapBounds.x1, edgeFalloff);
 			noise::module::Turbulence& finalTerrain = CreateFinalTerrain(terrainSelector, finalFrequency, finalPower);
 
