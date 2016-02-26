@@ -22,18 +22,17 @@ void FOpenVDBModule::CreateDynamicVdb(const FString &gridID, float surfaceValue,
 
 void FOpenVDBModule::CreateGridMeshRegions(const FString &gridID, int32 regionCountX, int32 regionCountY, int32 regionCountZ, TArray<FString> &regionIDs)
 {
-	int32 rx, ry, rz;
-	if (OvdbInterface->MaskRegions(*gridID, regionCountX, regionCountY, regionCountZ, rx, ry, rz))
+	if (OvdbInterface->MaskRegions(*gridID, regionCountX, regionCountY, regionCountZ))
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to mask regions!"));
 	}
 	else
 	{
-		for (int32 x = 0; x < rx; ++x)
+		for (int32 x = 0; x < regionCountX; ++x)
 		{
-			for (int32 y = 0; y < ry; ++y)
+			for (int32 y = 0; y < regionCountY; ++y)
 			{
-				for (int32 z = 0; z < rz; ++z)
+				for (int32 z = 0; z < regionCountZ; ++z)
 				{
 					regionIDs.Add(FString::Printf(TEXT("%d,%d,%d"), x, y, z));
 				}

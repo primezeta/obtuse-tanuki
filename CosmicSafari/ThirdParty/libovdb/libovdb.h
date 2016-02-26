@@ -20,7 +20,7 @@ public:
 	IOvdb();
 	~IOvdb();
 	void InitializeGrid(const wchar_t * const gridID);
-	int MaskRegions(const wchar_t * const gridID, int32_t regionCountX, int32_t regionCountY, int32_t regionCountZ, int32_t &regionSizeX, int32_t &regionSizeY, int32_t &regionSizeZ);
+	int MaskRegions(const wchar_t * const gridID, int32_t regionCountX, int32_t regionCountY, int32_t regionCountZ);
 	int ReadGrid(const wchar_t * const gridID, const wchar_t * const filename);
 	int WriteGrid(const wchar_t * const gridID, const wchar_t * const filename);
 	int GridToMesh(const wchar_t * const gridID, OvdbMeshMethod meshMethod, float surfaceValue);

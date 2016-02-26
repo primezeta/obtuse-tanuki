@@ -71,16 +71,13 @@ void IOvdb::InitializeGrid(const wchar_t * const gridName)
 	addGrid(grid, name);
 }
 
-int IOvdb::MaskRegions(const wchar_t * const gridID, int32_t regionCountX, int32_t regionCountY, int32_t regionCountZ, int32_t &regionSizeX, int32_t &regionSizeY, int32_t &regionSizeZ)
+int IOvdb::MaskRegions(const wchar_t * const gridID, int32_t regionCountX, int32_t regionCountY, int32_t regionCountZ)
 {
 	try
 	{
 		auto grid = getGridByID(gridID);
 		const openvdb::Coord gridSize = grid->evalActiveVoxelBoundingBox().dim();
 		const openvdb::Coord regionSize(gridSize.x() / regionCountX, gridSize.y() / regionCountY, gridSize.z() / regionCountZ);
-		regionSizeX = regionSize.x();
-		regionSizeY = regionSize.y();
-		regionSizeZ = regionSize.z();
 		if (regionSize.x() < 1 || regionSize.y() < 1 || regionSize.z() < 1)
 		{
 			OPENVDB_THROW(openvdb::ValueError, "Region count must be 1 or greater per dimension");
