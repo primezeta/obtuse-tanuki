@@ -24,6 +24,8 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaSeconds) override;
 
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& e) override;
+
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
 	UProceduralTerrainMeshComponent * TerrainMeshComponent;
 
@@ -67,18 +69,15 @@ public:
 	bool bCreateCollision;
 
 private:
-	static FOpenVDBModule * openVDBModule;
+	static FOpenVDBModule * OpenVDBModule;
 	static void InitializeOpenVDBModule();
 
-	void InitializeMeshSections();
 	FString GridID;
-	float GridIsoValue;
 	TArray<int32> MeshSectionIndices;
+	TMap<int32, FString> MeshSectionIDs;
 	TMap<int32, bool> IsGridSectionMeshed;
-	TMap<int32, FIntVector> MeshSectionStart;
-	TMap<int32, FIntVector> MeshSectionEnd;
 	TMap<int32, TArray<FVector>> MeshSectionVertices;
-	TMap<int32, TArray<int32>> MeshSectionTriangleIndices;
+	TMap<int32, TArray<int32>> MeshSectionPolygons;
 	TMap<int32, TArray<FVector2D>> MeshSectionUVMap;
 	TMap<int32, TArray<FVector>> MeshSectionNormals;
 	TMap<int32, TArray<FColor>> MeshSectionVertexColors;

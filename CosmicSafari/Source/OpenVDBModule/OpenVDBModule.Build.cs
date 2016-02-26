@@ -82,7 +82,7 @@ public class OpenVDBModule : ModuleRules
             return new string[]
             {
                 Path.Combine(ModulePath, "Public"),
-                Path.Combine(ThirdPartyPath, "libovdb")
+                Path.Combine(ThirdPartyPath, "libovdb"),
             };
         }
     }
@@ -93,7 +93,7 @@ public class OpenVDBModule : ModuleRules
         {
             return new string[]
             {
-                Path.Combine(ModulePath, "Private")
+                Path.Combine(ModulePath, "Private"),
             };
         }
     }

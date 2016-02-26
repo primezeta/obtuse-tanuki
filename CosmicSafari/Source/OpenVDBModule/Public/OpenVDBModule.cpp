@@ -3,102 +3,82 @@
 
 DEFINE_LOG_CATEGORY(LogOpenVDBModule)
 
-using namespace ovdb;
-using namespace ovdb::meshing;
-
-void FOpenVDBModule::StartupModule()
+void FOpenVDBModule::ReadVDBFile(const FString &vdbFilename, const FString &gridName)
 {
-	if (OvdbInitialize())
-	{
-		//TODO: Handle Ovdb errors
-	}
-	return;
-}
-
-FString FOpenVDBModule::ReadVDBFile(FString vdbFilename, FString gridName)
-{
-	static IDType internalID; //Workaround for UE4 tarray TBB race condition during deallocation
-	std::wstring wfname = *vdbFilename;
-	std::wstring wgname = *gridName;
-	std::string fname = std::string(wfname.begin(), wfname.end());
-	std::string gname = std::string(wgname.begin(), wgname.end());
-
-	internalID = INVALID_GRID_ID;
-	if (OvdbReadVdb(fname, gname, internalID))
+	if (OvdbInterface->ReadGrid(*gridName, *vdbFilename))
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to read vdb file!"));
 	}
-	//UE4 seems to internally use TBB (threads) to handle string memory and a race condition can cause a crash, so do the following to successfully copy the string
-	return FString(FString::Printf(TEXT("%s"), internalID.c_str()));
 }
 
-FString FOpenVDBModule::CreateDynamicVdb(float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range,
-	double scaleXYZ, double frequency, double lacunarity, double persistence, int octaveCount)
-{
-	static IDType internalID; //Workaround for UE4 tarray TBB race condition during deallocation
-	VolumeDimensions volumeDimensions(boundsStart.X, boundsEnd.X, boundsStart.Y, boundsEnd.Y, boundsStart.Z, boundsStart.Z + range - 1);
-	internalID = OvdbCreateLibNoiseGrid("noise", volumeDimensions, surfaceValue, scaleXYZ, frequency, lacunarity, persistence, octaveCount); //TODO: Range check dims since internally they are unsigned;
-	if (internalID == INVALID_GRID_ID)
+void FOpenVDBModule::CreateDynamicVdb(const FString &gridID, float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range,
+	double scaleXYZ, double frequency, double lacunarity, double persistence, int32 octaveCount)
+{	
+	if (OvdbInterface->CreateLibNoiseGrid(*gridID, boundsEnd.X - boundsStart.X + 1, boundsEnd.Y - boundsStart.Y + 1, range, surfaceValue, scaleXYZ, frequency, lacunarity, persistence, octaveCount))
 	{
-		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create dynamic vdb! (invalid grid ID)"));
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create dynamic vdb!"));
 	}
-	//UE4 seems to internally use TBB (threads) to handle string memory and a race condition can cause a crash, so do the following to successfully copy the string
-	return FString(FString::Printf(TEXT("%s"), internalID.c_str()));
 }
 
-FString FOpenVDBModule::CreateGridMeshRegion(const FString &gridID, int32 regionIndex, ovdb::meshing::VolumeDimensions &dims, float isoValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
+void FOpenVDBModule::CreateGridMeshRegions(const FString &gridID, int32 regionCountX, int32 regionCountY, int32 regionCountZ, TArray<FString> &regionIDs)
 {
-	static IDType internalID; //Workaround for UE4 tarray TBB race condition during deallocation
-	FString id = FString::Printf(TEXT("%d"), regionIndex);
-	ovdb::meshing::IDType gid = gridID.GetCharArray().GetData();
-	ovdb::meshing::IDType rid = id.GetCharArray().GetData();
-	if (OvdbVolumeToMesh(gid, rid, dims, ovdb::meshing::MESHING_NAIVE, isoValue) != 0)
+	int32 rx, ry, rz;
+	if (OvdbInterface->MaskRegions(*gridID, regionCountX, regionCountY, regionCountZ, rx, ry, rz))
 	{
-		//UE4 seems to internally use TBB (threads) to handle string memory and a race condition can cause a crash, so do the following to successfully copy the string
-		internalID = INVALID_GRID_ID;
-		id = FString(FString::Printf(TEXT("%s"), internalID.c_str()));
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to mask regions!"));
 	}
-	GetMeshGeometry(id, Vertices, TriangleIndices, Normals);
-	return id;
-}
-
-bool FOpenVDBModule::GetMeshGeometry(const FString &regionID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
-{
-	FVector vertex;
-	while (OvdbYieldNextMeshPoint(regionID.GetCharArray().GetData(), vertex.X, vertex.Y, vertex.Z))
+	else
 	{
-		Vertices.Add(vertex);
-	}
-
-	uint32 triangleIndices[3];
-	while (OvdbYieldNextMeshPolygon(regionID.GetCharArray().GetData(), triangleIndices[0], triangleIndices[1], triangleIndices[2]))
-	{
-		for (int i = 0; i < 3; i++)
+		for (int32 x = 0; x < rx; ++x)
 		{
-			int32 testIndex = (int32)triangleIndices[i];
-			if (testIndex < 0)
+			for (int32 y = 0; y < ry; ++y)
 			{
-				UE_LOG(LogOpenVDBModule, Fatal, TEXT("Triangle index is too large!"));
-			}
-			else
-			{
-				TriangleIndices.Add(testIndex);
+				for (int32 z = 0; z < rz; ++z)
+				{
+					regionIDs.Add(FString::Printf(TEXT("%d,%d,%d"), x, y, z));
+				}
 			}
 		}
 	}
-
-	FVector normal;
-	while (OvdbYieldNextMeshNormal(regionID.GetCharArray().GetData(), normal.X, normal.Y, normal.Z))
-	{
-		Normals.Add(normal);
-	}
-	return true; //TODO: Handle errors
 }
 
-void FOpenVDBModule::ShutdownModule()
+void FOpenVDBModule::GetMeshGeometry(const FString &gridID, const FString &meshID, float surfaceValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
 {
-	OvdbUninitialize();
-	return;
+	if (OvdbInterface->RegionToMesh(*gridID, *meshID, IOvdb::PRIMITIVE_CUBES, surfaceValue))
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to get mesh geometry!"));
+	}
+	else
+	{
+		FVector vertex;
+		while (OvdbInterface->YieldVertex(*gridID, *meshID, vertex.X, vertex.Y, vertex.Z))
+		{
+			Vertices.Add(vertex);
+		}
+
+		uint32 triangleIndices[3];
+		while (OvdbInterface->YieldPolygon(*gridID, *meshID, triangleIndices[0], triangleIndices[1], triangleIndices[2]))
+		{
+			for (int i = 0; i < 3; i++)
+			{
+				int32 testIndex = (int32)triangleIndices[i];
+				if (testIndex < 0)
+				{
+					UE_LOG(LogOpenVDBModule, Fatal, TEXT("Triangle index is too large!"));
+				}
+				else
+				{
+					TriangleIndices.Add(testIndex);
+				}
+			}
+		}
+
+		FVector normal;
+		while (OvdbInterface->YieldNormal(*gridID, *meshID, normal.X, normal.Y, normal.Z))
+		{
+			Normals.Add(normal);
+		}
+	}
 }
 
 IMPLEMENT_GAME_MODULE(FOpenVDBModule, OpenVDBModule);

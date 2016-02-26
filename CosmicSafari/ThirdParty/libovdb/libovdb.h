@@ -10,37 +10,27 @@
 #endif
 #include <string>
 #include <stdint.h>
+#include <vector>
 
-namespace ovdb
+class LIB_OVDB_API IOvdb
 {
-	namespace meshing
-	{
-		enum OvdbMeshMethod { MESHING_NAIVE, MESHING_GREEDY };
-		typedef struct _VolumeDimensions_
-		{
-			//Dimensions of a volume or sub-volume. Bounds are inclusive
-			int32_t x0, x1, y0, y1, z0, z1;
-			_VolumeDimensions_(int32_t _x0, int32_t _x1, int32_t _y0, int32_t _y1, int32_t _z0, int32_t _z1)
-				: x0(_x0), x1(_x1), y0(_y0), y1(_y1), z0(_z0), z1(_z1) {}
-			int32_t _VolumeDimensions_::sizeX() const { return abs(x1 - x0) + 1; }
-			int32_t _VolumeDimensions_::sizeY() const { return abs(y1 - y0) + 1; }
-			int32_t _VolumeDimensions_::sizeZ() const { return abs(z1 - z0) + 1; }
-		} VolumeDimensions;
+public:
+	enum OvdbMeshMethod { PRIMITIVE_CUBES, MARCHING_CUBES };	
 
-		typedef std::string NameType;
-		typedef std::wstring IDType;
-		const static IDType INVALID_GRID_ID = std::wstring();
-	}
-}
+	IOvdb();
+	~IOvdb();
+	void InitializeGrid(const wchar_t * const gridID);
+	int MaskRegions(const wchar_t * const gridID, int32_t regionCountX, int32_t regionCountY, int32_t regionCountZ, int32_t &regionSizeX, int32_t &regionSizeY, int32_t &regionSizeZ);
+	int ReadGrid(const wchar_t * const gridID, const wchar_t * const filename);
+	int WriteGrid(const wchar_t * const gridID, const wchar_t * const filename);
+	int GridToMesh(const wchar_t * const gridID, OvdbMeshMethod meshMethod, float surfaceValue);
+	int RegionToMesh(const wchar_t * const gridID, const wchar_t * const meshID, OvdbMeshMethod meshMethod, float surfaceValue);
+	int YieldVertex(const wchar_t * const gridID, const wchar_t * const meshID, float &vx, float &vy, float &vz);
+	int YieldPolygon(const wchar_t * const gridID, const wchar_t * const meshID, uint32_t &i1, uint32_t &i2, uint32_t &i3);
+	int YieldNormal(const wchar_t * const gridID, const wchar_t * const meshID, float &nx, float &ny, float &nz);
+	int CreateLibNoiseGrid(const wchar_t * const gridID, int sizeX, int sizeY, int sizeZ, float surfaceValue, double scaleXYZ, double frequency, double lacunarity, double persistence, int octaveCount);
 
-#ifdef LIB_OVDB_API
-LIB_OVDB_API int OvdbInitialize();
-LIB_OVDB_API int OvdbUninitialize();
-LIB_OVDB_API int OvdbReadVdb(const std::string &filename, const std::string gridName, ovdb::meshing::IDType &gridID);
-LIB_OVDB_API int OvdbWriteVdbGrid(const ovdb::meshing::IDType &gridID, const std::string &filename);
-LIB_OVDB_API int OvdbVolumeToMesh(const ovdb::meshing::IDType &gridID, const ovdb::meshing::IDType &volumeID, ovdb::meshing::VolumeDimensions volumeDims, ovdb::meshing::OvdbMeshMethod meshMethod, float isoValue);
-LIB_OVDB_API int OvdbYieldNextMeshPoint(const ovdb::meshing::IDType &volumeID, float &vx, float &vy, float &vz);
-LIB_OVDB_API int OvdbYieldNextMeshPolygon(const ovdb::meshing::IDType &volumeID, uint32_t &i1, uint32_t &i2, uint32_t &i3);
-LIB_OVDB_API int OvdbYieldNextMeshNormal(const ovdb::meshing::IDType &volumeID, float &nx, float &ny, float &nz);
-LIB_OVDB_API ovdb::meshing::IDType OvdbCreateLibNoiseGrid(const ovdb::meshing::NameType &volumeName, const ovdb::meshing::VolumeDimensions &dimensions, float surfaceValue, double scaleXYZ, double frequency, double lacunarity, double persistence, int octaveCount);
-#endif
+private:
+};
+
+LIB_OVDB_API IOvdb * GetIOvdbInstance();

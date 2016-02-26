@@ -36,11 +36,10 @@ namespace ovdb
 		typedef std::vector<PolygonIndicesType> VolumePolygonsType;
 		typedef std::vector<QuadVertexType> VolumeNormalsType;
 
-		enum VolumeStyle { VOLUME_STYLE_CUBE, MARCHING_CUBES }; //TODO: Parameterize meshing functions with VolumeStyle
+		enum MeshMethod { METHOD_PRIMITIVE_CUBES, METHOD_MARCHING_CUBES };
 		enum CubeVertex { VX0, VX1, VX2, VX3, VX4, VX5, VX6, VX7, VX8 };
-		enum QuadVertexIndex { V0, V1, V2, V3 };		
+		enum QuadVertexIndex { V0, V1, V2, V3 };
 		const static IndexType UNVISITED_VERTEX_INDEX = INDEX_TYPE_MAX;
-		const static size_t VOLUME_STYLE_COUNT = VOLUME_STYLE_CUBE + 1;
 		const static size_t CUBE_VERTEX_COUNT = VX8 + 1;
 		const static size_t QUAD_VERTEX_INDEX_COUNT = V3 + 1;
 	}

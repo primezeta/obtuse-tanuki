@@ -55,23 +55,23 @@ namespace ovdb
 			typedef typename GridType::ValueOffCIter GridValueOffCIterType;
 			typedef typename GridType::ValueOffIter GridValueOffIterType;
 
-			//Note: Grids don't have an end value. Just need to check if the iter is null
-			GridValueAllCIterType valuesAllCBegin() const { return regionGrid->cbeginValueAll(); }
-			GridValueAllIterType valuesAllBegin() { return regionGrid->beginValueAll(); }
-			GridValueOnCIterType valuesOnCBegin() const { return regionGrid->cbeginValueOn(); }
-			GridValueOnIterType valuesOnBegin() { return regionGrid->beginValueOn(); }
-			GridValueOffCIterType valuesOffCBegin() const { return regionGrid->cbeginValueOff(); }
-			GridValueOffIterType valuesOffBegin() { return regionGrid->beginValueOff(); }
-
 			OvdbVoxelVolume() : volumeGrid(nullptr) {};
 			OvdbVoxelVolume(GridTypeCPtr grid) : volumeGrid(grid) { }
 			OvdbVoxelVolume(OvdbVoxelVolume &rhs) { (*this) = rhs; }
 			OvdbVoxelVolume &operator=(const OvdbVoxelVolume &rhs)
 			{
-				volumeGrid = rhs.volumeGrid;
-				regionGrid = rhs.regionGrid;
-				visitedVertexIndices = rhs.visitedVertexIndices;
-				volumeBBox = rhs.volumeBBox;
+				if (rhs.volumeGrid)
+				{
+					volumeGrid = rhs.volumeGrid;
+				}
+				if (rhs.regionMask)
+				{
+					regionMask = openvdb::gridPtrCast<openvdb::BoolGrid>(rhs.regionMask->copyGrid());
+				}
+				if (rhs.visitedVertexIndices)
+				{
+					visitedVertexIndices = openvdb::gridPtrCast<IndexGridType>(rhs.visitedVertexIndices->copyGrid());
+				}
 				vertices.clear();
 				polygons.clear();
 				normals.clear();
@@ -80,69 +80,60 @@ namespace ovdb
 				polygons.insert(polygons.begin(), rhs.polygons.begin(), rhs.polygons.end());
 				normals.insert(normals.begin(), rhs.normals.begin(), rhs.normals.end());
 				quads.insert(quads.begin(), rhs.quads.begin(), rhs.quads.end());
+				regionBBox = rhs.regionBBox;
+				isMeshed = rhs.isMeshed;
 				return *this;
 			}
 
 			VolumeVerticesType &getVertices() { return vertices; }
 			VolumePolygonsType &getPolygons() { return polygons; }
 			VolumeNormalsType &getNormals() { return normals; }
-
-			void doSurfaceMesh(const openvdb::math::CoordBBox &meshBBox, VolumeStyle volumeStyle, float isoValue, OvdbMeshMethod method) //TODO: Swap isovalue/surface value among parameters
-			{
-				initializeRegion(meshBBox);
-				buildRegionMeshSurface(volumeStyle, isoValue);
-				doMesh(method);
-			}
-
-		private:
-			GridTypeCPtr volumeGrid;
-			GridTypePtr regionGrid;
-			IndexGridPtr visitedVertexIndices;
-			openvdb::math::CoordBBox volumeBBox;
-			VolumeVerticesType vertices;
-			VolumePolygonsType polygons;
-			VolumeNormalsType normals;
-			//UniqueQuadsType quads;
-			std::vector<OvdbQuad> quads;
+			size_t vertexCount() { return vertices.size(); }
+			size_t polygonCount() { return polygons.size(); }
+			size_t normalCount() { return normals.size(); }
 
 			void initializeRegion(const openvdb::math::CoordBBox &bbox)
 			{
-				if (bbox == volumeBBox)
+				if (regionBBox != bbox)
 				{
-					return; //Don't need to do anything
+					regionBBox = bbox;
+					isMeshed = false;
+					auto acc = volumeGrid->getAccessor();
+					regionMask = openvdb::BoolGrid::create(false);
+					regionMask->setTransform(volumeGrid->transformPtr()->copy());
+					openvdb::BoolGrid::Accessor maskAcc = regionMask->getAccessor();
+					for (int32_t x = bbox.min().x(); x <= bbox.max().x(); ++x)
+					{
+						for (int32_t y = bbox.min().y(); y <= bbox.max().y(); ++y)
+						{
+							for (int32_t z = bbox.min().z(); z <= bbox.max().z(); ++z)
+							{
+								const openvdb::Coord coord(x, y, z);
+								if (acc.isValueOn(coord))
+								{
+									maskAcc.setValueOn(coord, true);
+								}
+							}
+						}
+					}
+					visitedVertexIndices = IndexGridType::create(UNVISITED_VERTEX_INDEX);
+					visitedVertexIndices->setTransform(volumeGrid->transformPtr()->copy());
+					visitedVertexIndices->topologyUnion(*regionMask);
 				}
-
-				//Clip bounding box has changed
-				volumeBBox = bbox;
-
-				//regionGrid = GridType::create(volumeGrid->background());
-				//regionGrid->setTransform(volumeGrid->transformPtr()->copy());
-				//regionGrid->topologyUnion(*volumeGrid);
-				//regionGrid->clip(volumeBBox);
-
-				visitedVertexIndices = IndexGridType::create(INDEX_TYPE_MAX);
-				visitedVertexIndices->setTransform(volumeGrid->transformPtr()->copy());
-				visitedVertexIndices->topologyUnion(*volumeGrid);
-				//visitedVertexIndices->clip(volumeBBox);
 			}
 
-			void buildRegionMeshSurface(VolumeStyle volumeStyle, float isoValue) 
+			void doPrimitiveCubesMesh()
 			{
-				//Step through only voxels that are on
-				auto acc = volumeGrid->getAccessor();
-				openvdb::VectorGrid::Ptr gradient = openvdb::tools::gradient(*volumeGrid);
-				for (GridValueOnCIterType i = volumeGrid->cbeginValueOn(); i; ++i)
+				if (!isMeshed)
 				{
-					//Skip tile values and values that are not on the surface
-					if (!i.isVoxelValue())
+					isMeshed = true;
+					//Step through only voxels that are on
+					auto acc = volumeGrid->getAccessor();
+					for (openvdb::BoolGrid::ValueOnCIter i = regionMask->cbeginValueOn(); i; ++i)
 					{
-						continue;
-					}
-					const CoordType &coord = i.getCoord();
-					const float &density = acc.getValue(coord);
-					if (volumeStyle == VOLUME_STYLE_CUBE)
-					{
-						//Mesh the voxel as a simple cube						
+						const openvdb::Coord coord = i.getCoord();
+						const float &density = acc.getValue(coord);
+						//Mesh the voxel as a simple cube
 						OvdbPrimitiveCube primitiveIndices = buildCubeQuads(coord);
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadXY0()));
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadXY1()));
@@ -151,38 +142,29 @@ namespace ovdb
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadYZ0()));
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadYZ1()));
 					}
-					else if (volumeStyle == MARCHING_CUBES)
-					{
-						openvdb::VectorGrid::Ptr volumeGrad = openvdb::tools::gradient(*volumeGrid);
-						const float gridValue = i.getValue();
-						std::vector<openvdb::Vec3d> vertices;
-						vertices.resize(8);
-						vertices[0] = volumeGrid->indexToWorld(coord);
-						vertices[1] = volumeGrid->indexToWorld(coord.offsetBy(1, 0, 0));
-						vertices[2] = volumeGrid->indexToWorld(coord.offsetBy(0, 1, 0));
-						vertices[3] = volumeGrid->indexToWorld(coord.offsetBy(1, 1, 0));
-						vertices[4] = volumeGrid->indexToWorld(coord.offsetBy(0, 0, 1));
-						vertices[5] = volumeGrid->indexToWorld(coord.offsetBy(1, 0, 1));
-						vertices[6] = volumeGrid->indexToWorld(coord.offsetBy(0, 1, 1));
-						vertices[7] = volumeGrid->indexToWorld(coord.offsetBy(1, 1, 1));
-					}
+					collectGeometry();
 				}
 			}
 
-			void doMesh(OvdbMeshMethod method)
+			void doMarchingCubesMesh(const float &surfaceValue)
 			{
-				////If method is naive do nothing special
-				//if (method == MESHING_GREEDY)
-				//{
-				//	//Merge adjacent quads in a greedy manner
-				//	for (std::vector<OvdbQuad*>::iterator i = quads.begin(); i != quads.end(); ++i)
-				//	{
-				//		auto j = i;
-				//		++j;
-				//		for (; j != quads.end() && ((*i)->mergeQuadsByLength(**j) || (*i)->mergeQuadsByWidth(**j)); ++j);
-				//	}
-				//}
+				//TODO
+			}
 
+		private:
+			GridTypeCPtr volumeGrid;
+			openvdb::BoolGrid::Ptr regionMask;
+			IndexGridPtr visitedVertexIndices;
+			VolumeVerticesType vertices;
+			VolumePolygonsType polygons;
+			VolumeNormalsType normals;
+			//UniqueQuadsType quads;
+			std::vector<OvdbQuad> quads;
+			openvdb::CoordBBox regionBBox;
+			bool isMeshed;
+
+			void collectGeometry()
+			{
 				//Finally, collect polygon and normal data
 				//for (UniqueQuadsType::const_iterator i = quads.begin(); i != quads.end(); ++i)
 				for (std::vector<OvdbQuad>::const_iterator i = quads.begin(); i != quads.end(); ++i)
@@ -223,14 +205,6 @@ namespace ovdb
 					primitiveIndices[vtx] = vertexIndex;
 				}
 				return primitiveIndices;
-			}
-		};
-
-		struct IDLessThan
-		{
-			bool operator()(const IDType &lhs, const IDType& rhs) const
-			{
-				return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 			}
 		};
 	}

@@ -2,13 +2,14 @@
 #define __OPENVDBMODULE_H__
 
 #include "libovdb.h"
+//#include "LibNoise/module/perlin.h"
 #include "EngineMinimal.h"
 
 class OPENVDBMODULE_API FOpenVDBModule : public IModuleInterface
 {
 public:
-	virtual void StartupModule() override;
-	virtual void ShutdownModule() override;
+	
+	FOpenVDBModule() : OvdbInterface(GetIOvdbInstance()) {}
 
 	static inline FOpenVDBModule& Get()
 	{
@@ -20,14 +21,20 @@ public:
 		return FModuleManager::Get().IsModuleLoaded("OpenVDBModule");
 	}
 
-	FString CreateDynamicVdb(float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range, double scaleXYZ, double frequency, double lacunarity, double persistence, int octaveCount);
-	FString ReadVDBFile(FString vdbFilename, FString gridName);
-	FString CreateGridMeshRegion(const FString &gridID, int32 regionIndex, ovdb::meshing::VolumeDimensions &dims, float isoValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
+	UFUNCTION(BlueprintCallable)
+	void ReadVDBFile(const FString &vdbFilename, const FString &gridName);
 
-private:	
-	bool GetMeshGeometry(const FString &gridID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
+	UFUNCTION(BlueprintCallable)
+	void CreateDynamicVdb(const FString &gridID, float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range, double scaleXYZ, double frequency, double lacunarity, double persistence, int32 octaveCount);
 
-	TMap<FString, FString> MeshRegions;
+	UFUNCTION(BlueprintCallable)
+	void FOpenVDBModule::CreateGridMeshRegions(const FString &gridID, int32 regionCountX, int32 regionCountY, int32 regionCountZ, TArray<FString> &regionIDs);
+
+	UFUNCTION(BlueprintCallable)
+	void GetMeshGeometry(const FString &gridID, const FString &meshID, float surfaceValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
+
+private:
+	IOvdb * OvdbInterface;
 };
 
 DECLARE_LOG_CATEGORY_EXTERN(LogOpenVDBModule, Log, All);
