@@ -118,7 +118,8 @@ IOvdb * GetIOvdbInstance(const char * vdbFilename)
 IOvdb::IOvdb(const char * vdbFilename)
 {
 	openvdb::initialize();
-	openvdb::Metadata::registerType("BBoxd", BBoxdMetadata::createMetadata);
+	BBoxdMetadata::registerType();
+	//openvdb::Metadata::registerType("BBoxd", BBoxdMetadata::createMetadata);
 	instance_file = boost::shared_ptr<openvdb::io::File>(new openvdb::io::File(vdbFilename));	
 }
 
@@ -138,9 +139,9 @@ int IOvdb::InitializeGrid(const char * const gridName)
 	if (!boost::filesystem::exists(instance_file->filename()))
 	{
 		openvdb::GridPtrVec grids;
-		openvdb::FloatGrid::Ptr initialGrid = openvdb::FloatGrid::create();
-		initialGrid->setName(gridName);
-		grids.push_back(initialGrid);
+		//openvdb::FloatGrid::Ptr initialGrid = openvdb::FloatGrid::create();
+		//initialGrid->setName(gridName);
+		//grids.push_back(initialGrid);
 		instance_file->write(grids);
 		instance_file->setGridStatsMetadataEnabled(true);
 	}
@@ -212,58 +213,37 @@ int IOvdb::MeshRegion(const char * const regionName, float surfaceValue)
 	return 0;
 }
 
-bool IOvdb::YieldVertex(const char * const regionName, float &vx, float &vy, float &vz)
+bool IOvdb::YieldVertex(const char * const regionName, double &vx, double &vy, double &vz)
 {
 	auto i = regionMeshMap.find(regionName);
 	bool hasVertices = false;
-	openvdb::Vec3d * v = nullptr;
 	if (i != regionMeshMap.end())
 	{
-		hasVertices = i->second.nextVertex(v);
-		if (v)
-		{
-			vx = float(v->x());
-			vy = float(v->y());
-			vz = float(v->z());
-		}
+		hasVertices = i->second.nextVertex(vx, vy, vz);
 	}
-	return hasVertices && v;
+	return hasVertices;
 }
 
 bool IOvdb::YieldPolygon(const char * const regionName, uint32_t &i1, uint32_t &i2, uint32_t &i3)
 {
 	auto i = regionMeshMap.find(regionName);
 	bool hasPolygons = false;
-	openvdb::Vec3I * p = nullptr;
 	if (i != regionMeshMap.end())
 	{
-		hasPolygons = i->second.nextPolygon(p);
-		if (p)
-		{
-			i1 = p->x();
-			i2 = p->y();
-			i3 = p->z();
-		}
+		hasPolygons = i->second.nextPolygon(i1, i2, i3);
 	}
-	return hasPolygons && p;
+	return hasPolygons;
 }
 
-bool IOvdb::YieldNormal(const char * const regionName, float &nx, float &ny, float &nz)
+bool IOvdb::YieldNormal(const char * const regionName, double &nx, double &ny, double &nz)
 {
 	auto i = regionMeshMap.find(regionName);
 	bool hasNormals = false;
-	openvdb::Vec3d * n = nullptr;
 	if (i != regionMeshMap.end())
 	{
-		hasNormals = i->second.nextNormal(n);
-		if (n)
-		{
-			nx = float(n->x());
-			ny = float(n->y());
-			nz = float(n->z());
-		}
+		hasNormals = i->second.nextNormal(nx, ny, nz);
 	}
-	return hasNormals && n;
+	return hasNormals;
 }
 
 int IOvdb::PopulateRegionDensityPerlin(const char * const regionName, double scaleXYZ, double frequency, double lacunarity, double persistence, int octaveCount)

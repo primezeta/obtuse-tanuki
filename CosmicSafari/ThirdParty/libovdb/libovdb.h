@@ -23,9 +23,9 @@ public:
 	int DefineRegion(int x0, int y0, int z0, int x1, int y1, int z1, char * regionStr, size_t regionStrSize);
 	int LoadRegion(const char * const regionName);
 	int MeshRegion(const char * const regionName, float surfaceValue);
-	bool YieldVertex(const char * const regionName, float &vx, float &vy, float &vz);
+	bool YieldVertex(const char * const regionName, double &vx, double &vy, double &vz);
 	bool YieldPolygon(const char * const regionName, uint32_t &i1, uint32_t &i2, uint32_t &i3);
-	bool YieldNormal(const char * const regionName, float &nx, float &ny, float &nz);
+	bool YieldNormal(const char * const regionName, double &nx, double &ny, double &nz);
 	int PopulateRegionDensityPerlin(const char * const regionName, double scaleXYZ, double frequency, double lacunarity, double persistence, int octaveCount);
 };
 

@@ -54,10 +54,10 @@ void FOpenVDBModule::GenerateMesh(const FString &regionID, float surfaceValue)
 
 void FOpenVDBModule::GetMeshGeometry(const FString &regionID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
 {
-	FVector vertex;
-	while (OvdbInterface->YieldVertex(TCHAR_TO_UTF8(*regionID), vertex.X, vertex.Y, vertex.Z))
+	double vx, vy, vz;
+	while (OvdbInterface->YieldVertex(TCHAR_TO_UTF8(*regionID), vx, vy, vz))
 	{
-		Vertices.Add(vertex);
+		Vertices.Add(FVector((float)vx, (float)vy, (float)vz));
 	}
 
 	uint32 triangleIndices[3];
@@ -77,10 +77,10 @@ void FOpenVDBModule::GetMeshGeometry(const FString &regionID, TArray<FVector> &V
 		}
 	}
 
-	FVector normal;
-	while (OvdbInterface->YieldNormal(TCHAR_TO_UTF8(*regionID), normal.X, normal.Y, normal.Z))
+	double nx, ny, nz;
+	while (OvdbInterface->YieldNormal(TCHAR_TO_UTF8(*regionID), nx, ny, nz))
 	{
-		Normals.Add(normal);
+		Normals.Add(FVector((float)nx, (float)ny, (float)nz));
 	}
 }
 

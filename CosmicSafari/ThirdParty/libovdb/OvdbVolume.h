@@ -147,34 +147,40 @@ namespace ovdb
 				//TODO
 			}
 
-			bool nextVertex(const openvdb::Vec3d *v)
+			bool nextVertex(double &v1, double &v2, double &v3)
 			{
-				if (currentVertex != vertices.end())
+				if (currentVertex == vertices.end())
 				{
-					v = &(*currentVertex);
-					currentVertex++;
+					return false;
 				}
-				return currentVertex == vertices.end();
+				v1 = (*currentVertex)[0];
+				v2 = (*currentVertex)[1];
+				v3 = (*currentVertex)[2];
+				return ++currentVertex != vertices.end();
 			}
 
-			bool nextPolygon(const openvdb::Vec3I *p)
+			bool nextPolygon(uint32_t &p1, uint32_t &p2, uint32_t &p3)
 			{
-				if (currentPolygon != polygons.end())
+				if (currentPolygon == polygons.end())
 				{
-					p = &(*currentPolygon);
-					currentPolygon++;
+					return false;
 				}
-				return currentPolygon == polygons.end();
+				p1 = (*currentPolygon)[0];
+				p2 = (*currentPolygon)[1];
+				p3 = (*currentPolygon)[2];
+				return ++currentPolygon != polygons.end();
 			}
 
-			bool nextNormal(const openvdb::Vec3d *n)
+			bool nextNormal(double &n1, double &n2, double &n3)
 			{
-				if (currentNormal != normals.end())
+				if (currentNormal == normals.end())
 				{
-					n = &(*currentNormal);
-					currentNormal++;
+					return false;
 				}
-				return currentNormal == normals.end();
+				n1 = (*currentNormal)[0];
+				n2 = (*currentNormal)[1];
+				n3 = (*currentNormal)[2];
+				return ++currentNormal != normals.end();
 			}
 
 		private:
