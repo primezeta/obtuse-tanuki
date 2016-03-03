@@ -8,8 +8,6 @@
 class OPENVDBMODULE_API FOpenVDBModule : public IModuleInterface
 {
 public:
-	
-	FOpenVDBModule() : OvdbInterface(GetIOvdbInstance()) {}
 
 	static inline FOpenVDBModule& Get()
 	{
@@ -22,16 +20,22 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable)
-	void ReadVDBFile(const FString &vdbFilename, const FString &gridName);
+	void InitializeVDB(const FString &vdbFilename, const FString &gridID);
 
 	UFUNCTION(BlueprintCallable)
-	void CreateDynamicVdb(const FString &gridID, float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range, double scaleXYZ, double frequency, double lacunarity, double persistence, int32 octaveCount);
+	FString CreateRegion(const FString &gridID, const FIntVector &start, const FIntVector &end);
 
 	UFUNCTION(BlueprintCallable)
-	void FOpenVDBModule::CreateGridMeshRegions(const FString &gridID, int32 regionCountX, int32 regionCountY, int32 regionCountZ, TArray<FString> &regionIDs);
+	void LoadRegion(const FString &regionID);
 
 	UFUNCTION(BlueprintCallable)
-	void GetMeshGeometry(const FString &gridID, const FString &meshID, float surfaceValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
+	void FillRegionWithPerlinDensity(const FString &regionID, double scaleXYZ, double frequency, double lacunarity, double persistence, int32 octaveCount);
+
+	UFUNCTION(BlueprintCallable)
+	void GenerateMesh(const FString &regionID, float surfaceValue);
+
+	UFUNCTION(BlueprintCallable)
+	void GetMeshGeometry(const FString &regionID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
 
 private:
 	IOvdb * OvdbInterface;

@@ -3,80 +3,84 @@
 
 DEFINE_LOG_CATEGORY(LogOpenVDBModule)
 
-void FOpenVDBModule::ReadVDBFile(const FString &vdbFilename, const FString &gridName)
+void FOpenVDBModule::InitializeVDB(const FString &vdbFilename, const FString &gridID)
 {
-	if (OvdbInterface->ReadGrid(*gridName, *vdbFilename))
+	OvdbInterface = GetIOvdbInstance(TCHAR_TO_UTF8(*vdbFilename));
+	if (!OvdbInterface)
 	{
-		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to read vdb file!"));
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to open OVDB interface!"));
+	}
+	if (OvdbInterface->InitializeGrid(TCHAR_TO_UTF8(*gridID)))
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to open vdb file!"));
 	}
 }
 
-void FOpenVDBModule::CreateDynamicVdb(const FString &gridID, float surfaceValue, const FIntVector &boundsStart, const FIntVector &boundsEnd, int32 range,
-	double scaleXYZ, double frequency, double lacunarity, double persistence, int32 octaveCount)
-{	
-	if (OvdbInterface->CreateLibNoiseGrid(*gridID, boundsEnd.X - boundsStart.X + 1, boundsEnd.Y - boundsStart.Y + 1, range, surfaceValue, scaleXYZ, frequency, lacunarity, persistence, octaveCount))
+FString FOpenVDBModule::CreateRegion(const FString &gridID, const FIntVector &start, const FIntVector &end)
+{
+	//Set the region name as the region bounds coordinates
+	const static int maxNameLen = 256;
+	char nameCStr[maxNameLen];	
+	if (OvdbInterface->DefineRegion(start.X, start.Y, start.Z, end.X, end.Y, end.Z, nameCStr, maxNameLen))
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create region!"));
+	}
+	return FString::Printf(TEXT("%s"), UTF8_TO_TCHAR(nameCStr));
+}
+
+void FOpenVDBModule::LoadRegion(const FString &regionID)
+{
+	if (OvdbInterface->LoadRegion(TCHAR_TO_UTF8(*regionID)))
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to load region!"));
+	}
+}
+
+void FOpenVDBModule::FillRegionWithPerlinDensity(const FString &regionID, double scaleXYZ, double frequency, double lacunarity, double persistence, int32 octaveCount)
+{
+	if (OvdbInterface->PopulateRegionDensityPerlin(TCHAR_TO_UTF8(*regionID), scaleXYZ, frequency, lacunarity, persistence, octaveCount))
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to generate Perlin density grid!"));
+	}
+}
+
+void FOpenVDBModule::GenerateMesh(const FString &regionID, float surfaceValue)
+{
+	if (OvdbInterface->MeshRegion(TCHAR_TO_UTF8(*regionID), surfaceValue))
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create dynamic vdb!"));
 	}
 }
 
-void FOpenVDBModule::CreateGridMeshRegions(const FString &gridID, int32 regionCountX, int32 regionCountY, int32 regionCountZ, TArray<FString> &regionIDs)
+void FOpenVDBModule::GetMeshGeometry(const FString &regionID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
 {
-	if (OvdbInterface->MaskRegions(*gridID, regionCountX, regionCountY, regionCountZ))
+	FVector vertex;
+	while (OvdbInterface->YieldVertex(TCHAR_TO_UTF8(*regionID), vertex.X, vertex.Y, vertex.Z))
 	{
-		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to mask regions!"));
+		Vertices.Add(vertex);
 	}
-	else
+
+	uint32 triangleIndices[3];
+	while (OvdbInterface->YieldPolygon(TCHAR_TO_UTF8(*regionID), triangleIndices[0], triangleIndices[1], triangleIndices[2]))
 	{
-		for (int32 x = 0; x < regionCountX; ++x)
+		for (int i = 0; i < 3; i++)
 		{
-			for (int32 y = 0; y < regionCountY; ++y)
+			int32 testIndex = (int32)triangleIndices[i];
+			if (testIndex < 0)
 			{
-				for (int32 z = 0; z < regionCountZ; ++z)
-				{
-					regionIDs.Add(FString::Printf(TEXT("%d,%d,%d"), x, y, z));
-				}
+				UE_LOG(LogOpenVDBModule, Fatal, TEXT("Triangle index is too large!"));
+			}
+			else
+			{
+				TriangleIndices.Add(testIndex);
 			}
 		}
 	}
-}
 
-void FOpenVDBModule::GetMeshGeometry(const FString &gridID, const FString &meshID, float surfaceValue, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
-{
-	if (OvdbInterface->RegionToMesh(*gridID, *meshID, IOvdb::PRIMITIVE_CUBES, surfaceValue))
+	FVector normal;
+	while (OvdbInterface->YieldNormal(TCHAR_TO_UTF8(*regionID), normal.X, normal.Y, normal.Z))
 	{
-		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to get mesh geometry!"));
-	}
-	else
-	{
-		FVector vertex;
-		while (OvdbInterface->YieldVertex(*gridID, *meshID, vertex.X, vertex.Y, vertex.Z))
-		{
-			Vertices.Add(vertex);
-		}
-
-		uint32 triangleIndices[3];
-		while (OvdbInterface->YieldPolygon(*gridID, *meshID, triangleIndices[0], triangleIndices[1], triangleIndices[2]))
-		{
-			for (int i = 0; i < 3; i++)
-			{
-				int32 testIndex = (int32)triangleIndices[i];
-				if (testIndex < 0)
-				{
-					UE_LOG(LogOpenVDBModule, Fatal, TEXT("Triangle index is too large!"));
-				}
-				else
-				{
-					TriangleIndices.Add(testIndex);
-				}
-			}
-		}
-
-		FVector normal;
-		while (OvdbInterface->YieldNormal(*gridID, *meshID, normal.X, normal.Y, normal.Z))
-		{
-			Normals.Add(normal);
-		}
+		Normals.Add(normal);
 	}
 }
 

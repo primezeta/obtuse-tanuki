@@ -55,8 +55,11 @@ namespace ovdb
 			typedef typename GridType::ValueOffCIter GridValueOffCIterType;
 			typedef typename GridType::ValueOffIter GridValueOffIterType;
 
-			OvdbVoxelVolume() : volumeGrid(nullptr) {};
-			OvdbVoxelVolume(GridTypeCPtr grid) : volumeGrid(grid) { }
+			OvdbVoxelVolume() : volumeGrid(nullptr) {}
+			OvdbVoxelVolume(GridTypeCPtr grid) : volumeGrid(grid)
+			{
+				volAccPtr = boost::shared_ptr<openvdb::FloatGrid::ConstAccessor>(new openvdb::FloatGrid::ConstAccessor(volumeGrid->tree()));
+			}
 			OvdbVoxelVolume(OvdbVoxelVolume &rhs) { (*this) = rhs; }
 			OvdbVoxelVolume &operator=(const OvdbVoxelVolume &rhs)
 			{
@@ -64,13 +67,19 @@ namespace ovdb
 				{
 					volumeGrid = rhs.volumeGrid;
 				}
-				if (rhs.regionMask)
+				if (rhs.volAccPtr)
 				{
-					regionMask = openvdb::gridPtrCast<openvdb::BoolGrid>(rhs.regionMask->copyGrid());
+					volAccPtr.reset();
+					volAccPtr = rhs.volAccPtr;
 				}
 				if (rhs.visitedVertexIndices)
 				{
 					visitedVertexIndices = openvdb::gridPtrCast<IndexGridType>(rhs.visitedVertexIndices->copyGrid());
+				}
+				if (rhs.idxAccPtr)
+				{
+					idxAccPtr.reset();
+					idxAccPtr = rhs.idxAccPtr;
 				}
 				vertices.clear();
 				polygons.clear();
@@ -80,46 +89,34 @@ namespace ovdb
 				polygons.insert(polygons.begin(), rhs.polygons.begin(), rhs.polygons.end());
 				normals.insert(normals.begin(), rhs.normals.begin(), rhs.normals.end());
 				quads.insert(quads.begin(), rhs.quads.begin(), rhs.quads.end());
-				regionBBox = rhs.regionBBox;
 				isMeshed = rhs.isMeshed;
+				currentVertex = vertices.begin();
+				currentPolygon = polygons.begin();
+				currentNormal = normals.begin();
 				return *this;
 			}
 
-			VolumeVerticesType &getVertices() { return vertices; }
-			VolumePolygonsType &getPolygons() { return polygons; }
-			VolumeNormalsType &getNormals() { return normals; }
-			size_t vertexCount() { return vertices.size(); }
-			size_t polygonCount() { return polygons.size(); }
-			size_t normalCount() { return normals.size(); }
-
-			void initializeRegion(const openvdb::math::CoordBBox &bbox)
+			void initializeRegion()
 			{
-				if (regionBBox != bbox)
+				isMeshed = false;
+				if (visitedVertexIndices)
 				{
-					regionBBox = bbox;
-					isMeshed = false;
-					auto acc = volumeGrid->getAccessor();
-					regionMask = openvdb::BoolGrid::create(false);
-					regionMask->setTransform(volumeGrid->transformPtr()->copy());
-					openvdb::BoolGrid::Accessor maskAcc = regionMask->getAccessor();
-					for (int32_t x = bbox.min().x(); x <= bbox.max().x(); ++x)
-					{
-						for (int32_t y = bbox.min().y(); y <= bbox.max().y(); ++y)
-						{
-							for (int32_t z = bbox.min().z(); z <= bbox.max().z(); ++z)
-							{
-								const openvdb::Coord coord(x, y, z);
-								if (acc.isValueOn(coord))
-								{
-									maskAcc.setValueOn(coord, true);
-								}
-							}
-						}
-					}
-					visitedVertexIndices = IndexGridType::create(UNVISITED_VERTEX_INDEX);
-					visitedVertexIndices->setTransform(volumeGrid->transformPtr()->copy());
-					visitedVertexIndices->topologyUnion(*regionMask);
+					visitedVertexIndices.reset();
 				}
+				visitedVertexIndices = IndexGridType::create(UNVISITED_VERTEX_INDEX);
+				visitedVertexIndices->setTransform(volumeGrid->transformPtr()->copy());
+				visitedVertexIndices->topologyUnion(*volumeGrid);
+				if (idxAccPtr)
+				{
+					idxAccPtr.reset();
+				}
+				idxAccPtr = boost::shared_ptr<IndexGridType::Accessor>(new IndexGridType::Accessor(visitedVertexIndices->tree()));
+				vertices.clear();
+				polygons.clear();
+				normals.clear();
+				currentVertex = vertices.begin();
+				currentPolygon = polygons.begin();
+				currentNormal = normals.begin();
 			}
 
 			void doPrimitiveCubesMesh()
@@ -128,11 +125,10 @@ namespace ovdb
 				{
 					isMeshed = true;
 					//Step through only voxels that are on
-					auto acc = volumeGrid->getAccessor();
-					for (openvdb::BoolGrid::ValueOnCIter i = regionMask->cbeginValueOn(); i; ++i)
+					for (GridVdbType::ValueOnCIter i = volumeGrid->cbeginValueOn(); i; ++i)
 					{
 						const openvdb::Coord coord = i.getCoord();
-						const float &density = acc.getValue(coord);
+						const float &density = volAccPtr->getValue(coord);
 						//Mesh the voxel as a simple cube
 						OvdbPrimitiveCube primitiveIndices = buildCubeQuads(coord);
 						quads.push_back(OvdbQuad(primitiveIndices.getQuadXY0()));
@@ -151,16 +147,50 @@ namespace ovdb
 				//TODO
 			}
 
+			bool nextVertex(const openvdb::Vec3d *v)
+			{
+				if (currentVertex != vertices.end())
+				{
+					v = &(*currentVertex);
+					currentVertex++;
+				}
+				return currentVertex == vertices.end();
+			}
+
+			bool nextPolygon(const openvdb::Vec3I *p)
+			{
+				if (currentPolygon != polygons.end())
+				{
+					p = &(*currentPolygon);
+					currentPolygon++;
+				}
+				return currentPolygon == polygons.end();
+			}
+
+			bool nextNormal(const openvdb::Vec3d *n)
+			{
+				if (currentNormal != normals.end())
+				{
+					n = &(*currentNormal);
+					currentNormal++;
+				}
+				return currentNormal == normals.end();
+			}
+
 		private:
 			GridTypeCPtr volumeGrid;
-			openvdb::BoolGrid::Ptr regionMask;
 			IndexGridPtr visitedVertexIndices;
+			boost::shared_ptr<openvdb::FloatGrid::ConstAccessor> volAccPtr;
+			boost::shared_ptr<IndexGridType::Accessor> idxAccPtr;
 			VolumeVerticesType vertices;
 			VolumePolygonsType polygons;
 			VolumeNormalsType normals;
+			VolumeVerticesType::const_iterator currentVertex;
+			VolumePolygonsType::const_iterator currentPolygon;
+			VolumeNormalsType::const_iterator currentNormal;
+
 			//UniqueQuadsType quads;
 			std::vector<OvdbQuad> quads;
-			openvdb::CoordBBox regionBBox;
 			bool isMeshed;
 
 			void collectGeometry()
@@ -183,6 +213,9 @@ namespace ovdb
 					//normals.push_back();
 					//normals.push_back();
 				}
+				currentVertex = vertices.begin();
+				currentPolygon = polygons.begin();
+				currentNormal = normals.begin();
 			}
 
 			OvdbPrimitiveCube buildCubeQuads(const openvdb::Coord &startCoord)
@@ -191,16 +224,15 @@ namespace ovdb
 				OvdbPrimitiveCube primitiveIndices(startCoord);
 				for (uint32_t i = 0; i < CUBE_VERTEX_COUNT; ++i)
 				{
-					CubeVertex vtx = (CubeVertex)i;
-					CoordType coord = primitiveIndices.getCoord(vtx);
-					IndexGridType::Accessor acc = visitedVertexIndices->getAccessor();
-					IndexType vertexIndex = acc.getValue(coord);
+					const CubeVertex &vtx = (CubeVertex)i;
+					const openvdb::Coord &coord = primitiveIndices.getCoord(vtx);					
+					IndexType vertexIndex = idxAccPtr->getValue(coord);
 					if (vertexIndex == UNVISITED_VERTEX_INDEX)
 					{
 						vertexIndex = IndexType(vertices.size()); //TODO: Error check index ranges
 						vertices.push_back(volumeGrid->indexToWorld(coord));
 						//Since this is a new vertex save it to the global visited vertex grid for use by any other voxels in the same region that share it
-						acc.setValue(coord, vertexIndex);
+						idxAccPtr->setValue(coord, vertexIndex);
 					}
 					primitiveIndices[vtx] = vertexIndex;
 				}

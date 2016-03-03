@@ -17,20 +17,16 @@ class LIB_OVDB_API IOvdb
 public:
 	enum OvdbMeshMethod { PRIMITIVE_CUBES, MARCHING_CUBES };	
 
-	IOvdb();
+	IOvdb(const char * vdbFilename);
 	~IOvdb();
-	void InitializeGrid(const wchar_t * const gridID);
-	int MaskRegions(const wchar_t * const gridID, int32_t regionCountX, int32_t regionCountY, int32_t regionCountZ);
-	int ReadGrid(const wchar_t * const gridID, const wchar_t * const filename);
-	int WriteGrid(const wchar_t * const gridID, const wchar_t * const filename);
-	int GridToMesh(const wchar_t * const gridID, OvdbMeshMethod meshMethod, float surfaceValue);
-	int RegionToMesh(const wchar_t * const gridID, const wchar_t * const meshID, OvdbMeshMethod meshMethod, float surfaceValue);
-	int YieldVertex(const wchar_t * const gridID, const wchar_t * const meshID, float &vx, float &vy, float &vz);
-	int YieldPolygon(const wchar_t * const gridID, const wchar_t * const meshID, uint32_t &i1, uint32_t &i2, uint32_t &i3);
-	int YieldNormal(const wchar_t * const gridID, const wchar_t * const meshID, float &nx, float &ny, float &nz);
-	int CreateLibNoiseGrid(const wchar_t * const gridID, int sizeX, int sizeY, int sizeZ, float surfaceValue, double scaleXYZ, double frequency, double lacunarity, double persistence, int octaveCount);
-
-private:
+	int InitializeGrid(const char * const gridName);
+	int DefineRegion(int x0, int y0, int z0, int x1, int y1, int z1, char * regionStr, size_t regionStrSize);
+	int LoadRegion(const char * const regionName);
+	int MeshRegion(const char * const regionName, float surfaceValue);
+	bool YieldVertex(const char * const regionName, float &vx, float &vy, float &vz);
+	bool YieldPolygon(const char * const regionName, uint32_t &i1, uint32_t &i2, uint32_t &i3);
+	bool YieldNormal(const char * const regionName, float &nx, float &ny, float &nz);
+	int PopulateRegionDensityPerlin(const char * const regionName, double scaleXYZ, double frequency, double lacunarity, double persistence, int octaveCount);
 };
 
-LIB_OVDB_API IOvdb * GetIOvdbInstance();
+LIB_OVDB_API IOvdb * GetIOvdbInstance(const char * vdbFilename);

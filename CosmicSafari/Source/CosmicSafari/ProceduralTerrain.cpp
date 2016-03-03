@@ -54,36 +54,47 @@ AProceduralTerrain::AProceduralTerrain()
 void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	GridID = TEXT("libnoise");
-	OpenVDBModule->CreateDynamicVdb(GridID, MeshSurfaceValue, MapBoundsStart, MapBoundsEnd, HeightMapRange, scaleXYZ, frequency, lacunarity, persistence, octaveCount);
+	OpenVDBModule->InitializeVDB(VDBLocation, VolumeName);
+	FString regionID = OpenVDBModule->CreateRegion(VolumeName, MapBoundsStart, FIntVector(MapBoundsEnd.X, MapBoundsEnd.Y, HeightMapRange));
+	MeshSectionIndices.Add(0);
+	MeshSectionIDs.Add(0, regionID);
+	OpenVDBModule->LoadRegion(regionID);
+	OpenVDBModule->FillRegionWithPerlinDensity(regionID, scaleXYZ, frequency, lacunarity, persistence, octaveCount);
+	OpenVDBModule->GenerateMesh(regionID, MeshSurfaceValue);
+
+	for (auto i = MeshSectionIndices.CreateConstIterator(); i; ++i)
+	{
+		int32 sectionIndex = *i;
+		IsGridSectionMeshed.Add(sectionIndex, false);
+		MeshSectionVertices.Add(sectionIndex, TArray<FVector>());
+		MeshSectionPolygons.Add(sectionIndex, TArray<int32>());
+		MeshSectionUVMap.Add(sectionIndex, TArray<FVector2D>());
+		MeshSectionNormals.Add(sectionIndex, TArray<FVector>());
+		MeshSectionVertexColors.Add(sectionIndex, TArray<FColor>());
+		MeshSectionTangents.Add(sectionIndex, TArray<FProcMeshTangent>());
+	}
 }
 
 // Called when the game starts or when spawned
 void AProceduralTerrain::BeginPlay()
 {
-	Super::BeginPlay();	
+	Super::BeginPlay();
 
-	int32 sectionIndex = 0;
-	TArray<FString> regions;
-	OpenVDBModule->CreateGridMeshRegions(GridID, RegionCount.X, RegionCount.Y, RegionCount.Z, regions);
-	for (auto i = regions.CreateConstIterator(); i; ++i)
+	for (auto i = MeshSectionIndices.CreateConstIterator(); i; ++i)
 	{
-		if (*i != FString())
+		const int32 &sectionIndex = *i;
+		if (!IsGridSectionMeshed[sectionIndex])
 		{
-			MeshSectionIndices.Add(sectionIndex);
-			MeshSectionIDs.Add(sectionIndex, *i);
-			IsGridSectionMeshed.Add(sectionIndex, false);
-			MeshSectionVertices.Add(sectionIndex, TArray<FVector>());
-			MeshSectionPolygons.Add(sectionIndex, TArray<int32>());
-			MeshSectionUVMap.Add(sectionIndex, TArray<FVector2D>());
-			MeshSectionNormals.Add(sectionIndex, TArray<FVector>());
-			MeshSectionVertexColors.Add(sectionIndex, TArray<FColor>());
-			MeshSectionTangents.Add(sectionIndex, TArray<FProcMeshTangent>());
-			sectionIndex++;
-		}
-		else
-		{
-			UE_LOG(LogFlying, Fatal, TEXT("Failed to load vdb geometry!"));
+			OpenVDBModule->GetMeshGeometry(MeshSectionIDs[sectionIndex], MeshSectionVertices[sectionIndex], MeshSectionPolygons[sectionIndex], MeshSectionNormals[sectionIndex]);
+			TerrainMeshComponent->CreateTerrainMeshSection(*i, bCreateCollision,
+				MeshSectionVertices[sectionIndex],
+				MeshSectionPolygons[sectionIndex],
+				MeshSectionUVMap[sectionIndex],
+				MeshSectionNormals[sectionIndex],
+				MeshSectionVertexColors[sectionIndex],
+				MeshSectionTangents[sectionIndex]);
+			TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
+			IsGridSectionMeshed[sectionIndex] = true;
 		}
 	}
 }
@@ -92,27 +103,6 @@ void AProceduralTerrain::BeginPlay()
 void AProceduralTerrain::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	//Mesh one section per tick
-	static auto i = MeshSectionIndices.CreateConstIterator();
-	if (i)
-	{
-		const int32 &sectionIndex = *i;
-		if (!IsGridSectionMeshed[sectionIndex])
-		{
-			IsGridSectionMeshed[sectionIndex] = true;
-			OpenVDBModule->GetMeshGeometry(GridID, MeshSectionIDs[sectionIndex], MeshSurfaceValue, MeshSectionVertices[sectionIndex], MeshSectionPolygons[sectionIndex], MeshSectionNormals[sectionIndex]);
-			TerrainMeshComponent->CreateTerrainMeshSection(sectionIndex, bCreateCollision,
-				MeshSectionVertices[sectionIndex],
-				MeshSectionPolygons[sectionIndex],
-				MeshSectionUVMap[sectionIndex],
-				MeshSectionNormals[sectionIndex],
-				MeshSectionVertexColors[sectionIndex],
-				MeshSectionTangents[sectionIndex]);
-			TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
-		}
-		++i;
-	}
 }
 
 void AProceduralTerrain::PostEditChangeProperty(struct FPropertyChangedEvent& e)

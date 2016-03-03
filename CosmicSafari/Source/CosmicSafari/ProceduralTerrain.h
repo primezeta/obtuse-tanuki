@@ -33,6 +33,9 @@ public:
 	UMaterial * TerrainMaterial;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
+	FString VDBLocation;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
 	FString VolumeName;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ProceduralTerrain")
@@ -72,7 +75,6 @@ private:
 	static FOpenVDBModule * OpenVDBModule;
 	static void InitializeOpenVDBModule();
 
-	FString GridID;
 	TArray<int32> MeshSectionIndices;
 	TMap<int32, FString> MeshSectionIDs;
 	TMap<int32, bool> IsGridSectionMeshed;
