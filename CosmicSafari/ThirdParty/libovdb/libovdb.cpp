@@ -55,8 +55,9 @@ typedef struct _PerlinNoiseFillOp
 		const openvdb::Coord coord = iter.getCoord();
 		const openvdb::Vec3d vec = grid.indexToWorld(coord);
 		//Subtract the z component in order to define a central flat plane from which density values extend
-		const float density = (float)(perlin.GetValue(vec.x(), vec.y(), vec.z()) - vec.z());
-		acc.setValueOnly(coord, density);
+		double density = -vec.z();
+		density += perlin.GetValue(vec.x(), vec.y(), vec.z());
+		acc.setValueOnly(coord, (float)density);
 	}
 } PerlinNoiseFillOp;
 
@@ -85,23 +86,24 @@ typedef struct _ExtractSurfaceOp
 	static void doOp(const openvdb::BoolGrid::ValueOnCIter& iter, openvdb::FloatGrid::Accessor &acc, const float &surfaceValue)
 	{
 		const openvdb::Coord coord = iter.getCoord();
-		if (iter.getValue() == true)
+		uint8_t insideBits = 0;
+		//For each neighboring value set a bit if it is inside the surface (inside = positive value)
+		if (acc.getValue(coord) > surfaceValue) { insideBits |= 1; }
+		if (acc.getValue(coord.offsetBy(1, 0, 0)) > surfaceValue) { insideBits |= 2; }
+		if (acc.getValue(coord.offsetBy(0, 1, 0)) > surfaceValue) { insideBits |= 4; }
+		if (acc.getValue(coord.offsetBy(0, 0, 1)) > surfaceValue) { insideBits |= 8; }
+		if (acc.getValue(coord.offsetBy(1, 1, 0)) > surfaceValue) { insideBits |= 16; }
+		if (acc.getValue(coord.offsetBy(1, 0, 1)) > surfaceValue) { insideBits |= 32; }
+		if (acc.getValue(coord.offsetBy(0, 1, 1)) > surfaceValue) { insideBits |= 64; }
+		if (acc.getValue(coord.offsetBy(1, 1, 1)) > surfaceValue) { insideBits |= 128; }
+		if (insideBits > 0 && insideBits < 255)
 		{
-			uint8_t insideBits = 0;
-			//For each neighboring value set a bit if it is inside the surface (inside = positive value)
-			if (acc.getValue(coord) > surfaceValue) { insideBits |= 1; }
-			if (acc.getValue(coord.offsetBy(1, 0, 0)) > surfaceValue) { insideBits |= 2; }
-			if (acc.getValue(coord.offsetBy(0, 1, 0)) > surfaceValue) { insideBits |= 4; }
-			if (acc.getValue(coord.offsetBy(0, 0, 1)) > surfaceValue) { insideBits |= 8; }
-			if (acc.getValue(coord.offsetBy(1, 1, 0)) > surfaceValue) { insideBits |= 16; }
-			if (acc.getValue(coord.offsetBy(1, 0, 1)) > surfaceValue) { insideBits |= 32; }
-			if (acc.getValue(coord.offsetBy(0, 1, 1)) > surfaceValue) { insideBits |= 64; }
-			if (acc.getValue(coord.offsetBy(1, 1, 1)) > surfaceValue) { insideBits |= 128; }
-			if (insideBits > 0 && insideBits < 255)
-			{
-				//At least one vertex, but not all, is/are on the other side of the surface from the others so activate this voxel for meshing
-				acc.setValueOn(coord);
-			}
+			//At least one vertex, but not all, is/are on the other side of the surface from the others so activate this voxel for meshing
+			acc.setActiveState(coord, iter.getValue());
+		}
+		else
+		{
+			acc.setActiveState(coord, false);
 		}
 	}
 } ExtractSurfaceOp;
@@ -262,17 +264,17 @@ int IOvdb::PopulateRegionDensityPerlin(const char * const regionName, double sca
 	regionMaskPtrMap[regionName] = maskGrid;
 
 	//Initialize all mask voxels to on that are within the region
-	openvdb::Vec3d worldMin = densityGrid->worldToIndex(regionBBoxd.min());
-	openvdb::Vec3d worldMax = densityGrid->worldToIndex(regionBBoxd.max());
-	int maxXWithPad = 1 + (int)worldMax.x();
-	int maxYWithPad = 1 + (int)worldMax.y();
-	int maxZWithPad = 1 + (int)worldMax.z();
+	const openvdb::Vec3d &bboxMin = regionBBoxd.min();
+	const openvdb::Vec3d &bboxMax = regionBBoxd.max();
+	const int maxXWithPad = 1 + (int)bboxMax.x();
+	const int maxYWithPad = 1 + (int)bboxMax.y();
+	const int maxZWithPad = 1 + (int)bboxMax.z();
 	auto &maskGridTree = maskGrid->tree();
-	for (int x = (int)worldMin.x(); x <= maxXWithPad; ++x)
+	for (int x = (int)bboxMin.x(); x <= maxXWithPad; ++x)
 	{
-		for (int y = (int)worldMin.y(); y <= maxYWithPad; ++y)
+		for (int y = (int)bboxMin.y(); y <= maxYWithPad; ++y)
 		{
-			for (int z = (int)worldMin.z(); z <= maxZWithPad; ++z)
+			for (int z = (int)bboxMin.z(); z <= maxZWithPad; ++z)
 			{
 				//Setting active this way because according to comments in ValueTransformer.h, modifyValue functions are "typically significantly faster than calling getValue() followed by setValue()"
 				if (x == maxXWithPad || y == maxYWithPad || z == maxZWithPad)
@@ -291,7 +293,7 @@ int IOvdb::PopulateRegionDensityPerlin(const char * const regionName, double sca
 	}
 
 	//Among all active mask voxels set the corresponding density grid value to the Perlin noise value (voxel states will be inactive)
-	PerlinNoiseFillOp perlinNoiseFillOp(densityGrid, frequency, lacunarity * scaleXYZ, persistence, octaveCount);
+	PerlinNoiseFillOp perlinNoiseFillOp(densityGrid, frequency, lacunarity, persistence, octaveCount);
 	openvdb::tools::foreach(maskGridTree.cbeginValueOn(), perlinNoiseFillOp);
 	return 0;
 }
