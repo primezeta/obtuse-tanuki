@@ -55,7 +55,8 @@ void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 	OpenVDBModule->InitializeVDB(VDBLocation, VolumeName);
-	FString regionID = OpenVDBModule->CreateRegion(VolumeName, MapBoundsStart, FIntVector(MapBoundsEnd.X, MapBoundsEnd.Y, HeightMapRange));
+	FString regionID = "all";
+	OpenVDBModule->CreateRegion(VolumeName, regionID, MapBoundsStart, FIntVector(MapBoundsEnd.X, MapBoundsEnd.Y, HeightMapRange));
 	MeshSectionIndices.Add(0);
 	MeshSectionIDs.Add(0, regionID);
 	OpenVDBModule->LoadRegion(regionID);

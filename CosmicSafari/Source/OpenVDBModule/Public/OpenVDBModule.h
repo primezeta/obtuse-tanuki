@@ -23,7 +23,7 @@ public:
 	void InitializeVDB(const FString &vdbFilename, const FString &gridID);
 
 	UFUNCTION(BlueprintCallable)
-	FString CreateRegion(const FString &gridID, const FIntVector &start, const FIntVector &end);
+	void CreateRegion(const FString &gridID, const FString &regionID, const FIntVector &start, const FIntVector &end);
 
 	UFUNCTION(BlueprintCallable)
 	void LoadRegion(const FString &regionID);
@@ -38,7 +38,9 @@ public:
 	void GetMeshGeometry(const FString &regionID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals);
 
 private:
-	IOvdb * OvdbInterface;
+	Ovdb * OvdbInterface;
+	FString GridID;
+	TArray<FString> RegionIDs;
 };
 
 DECLARE_LOG_CATEGORY_EXTERN(LogOpenVDBModule, Log, All);

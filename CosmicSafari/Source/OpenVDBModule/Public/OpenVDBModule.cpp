@@ -5,27 +5,42 @@ DEFINE_LOG_CATEGORY(LogOpenVDBModule)
 
 void FOpenVDBModule::InitializeVDB(const FString &vdbFilename, const FString &gridID)
 {
-	OvdbInterface = GetIOvdbInstance(TCHAR_TO_UTF8(*vdbFilename));
+	OvdbInterface = IOvdb::GetIOvdbInstance(TCHAR_TO_UTF8(*vdbFilename), TCHAR_TO_UTF8(*gridID));
 	if (!OvdbInterface)
 	{
-		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to open OVDB interface!"));
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create VDB interface!"));
 	}
-	if (OvdbInterface->InitializeGrid(TCHAR_TO_UTF8(*gridID)))
+	
+	GridID = gridID;
+	static size_t maxStrLen = 256;
+	size_t regionsCount = OvdbInterface->ReadMetaRegionCount(TCHAR_TO_UTF8(*gridID));
+	TArray<TArray<char*>> strs;
+	strs.SetNum(regionsCount);
+
+	for (int i = 0; i < regionsCount; ++i)
 	{
-		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to open vdb file!"));
+		strs[i].SetNum(maxStrLen);
+	}
+	
+	if (OvdbInterface->ReadMetaRegionIDs(strs.GetData()->GetData(), regionsCount, strs.GetAllocatedSize()/regionsCount) < 1)
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to read regions!"));
+	}
+
+	for (TArray<TArray<char*>>::TIterator i = strs.CreateIterator(); i; ++i)
+	{
+		FString temp = FString(UTF8_TO_TCHAR(i->GetData()));
+		RegionIDs.Add(FString::Printf(TEXT("%s"), *temp));
 	}
 }
 
-FString FOpenVDBModule::CreateRegion(const FString &gridID, const FIntVector &start, const FIntVector &end)
+void FOpenVDBModule::CreateRegion(const FString &gridID, const FString &regionID, const FIntVector &start, const FIntVector &end)
 {
 	//Set the region name as the region bounds coordinates
-	const static int maxNameLen = 256;
-	char nameCStr[maxNameLen];	
-	if (OvdbInterface->DefineRegion(start.X, start.Y, start.Z, end.X, end.Y, end.Z, nameCStr, maxNameLen))
+	if (OvdbInterface->DefineRegion(TCHAR_TO_UTF8(*gridID), TCHAR_TO_UTF8(*regionID), start.X, start.Y, start.Z, end.X, end.Y, end.Z, true))
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create region!"));
 	}
-	return FString::Printf(TEXT("%s"), UTF8_TO_TCHAR(nameCStr));
 }
 
 void FOpenVDBModule::LoadRegion(const FString &regionID)
