@@ -31,6 +31,7 @@ public:
 	int ReadMetaRegionIDs(char ** regionIDList, size_t regionCount, size_t strMaxLen);
 	int ReadRegion(const char * const regionID, int &x0, int &y0, int &z0, int &x1, int &y1, int &z1);
 	int LoadRegion(const char * const regionID);
+	int WriteChanges();
 	int MeshRegion(const char * const regionID, float surfaceValue);
 	bool YieldVertex(const char * const regionID, double &vx, double &vy, double &vz);
 	bool YieldPolygon(const char * const regionID, uint32_t &i1, uint32_t &i2, uint32_t &i3);

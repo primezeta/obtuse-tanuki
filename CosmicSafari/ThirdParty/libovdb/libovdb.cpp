@@ -37,6 +37,7 @@ std::vector<std::string> ParseRegionIDs(const std::string &regionNameMeta);
 std::string ConstructMetaRegionIDStr(const std::string &regionIDsStr, const std::string &additionalID);
 openvdb::BBoxd GetRegionBBoxd(const std::string &regionID);
 std::unordered_map<std::string, RegionMesh>::iterator GetRegionIter(const std::string &regionMetaName);
+openvdb::BBoxd ReadGridRegion(const std::string &regionID);
 
 Ovdb * IOvdb::GetIOvdbInstance(const char * vdbFilename, const char * const gridName)
 {
@@ -387,9 +388,8 @@ int Ovdb::ReadRegion(const char * const regionID, int &x0, int &y0, int &z0, int
 	return regionBBoxd.empty() ? 1 : 0;
 }
 
-int Ovdb::LoadRegion(const char * const regionID)
+openvdb::BBoxd ReadGridRegion(const std::string &regionID)
 {
-	GridInputInitializer();
 	const openvdb::BBoxd regionBBoxd = GetMetaRegionBBoxd(regionID);
 	auto regionIter = regionPtrMap.find(regionID);
 	if (!regionBBoxd.empty())
@@ -397,11 +397,30 @@ int Ovdb::LoadRegion(const char * const regionID)
 		if (regionIter == regionPtrMap.end())
 		{
 			openvdb::FloatGrid::Ptr grid = openvdb::gridPtrCast<openvdb::FloatGrid>(instance_file->readGrid(ParseRegionGridName(regionID), regionBBoxd));
+			grid->setName(regionID);
+			gridPtrVecPtr->push_back(grid);
 			regionPtrMap[regionID] = RegionMesh(grid);
 		}
-		regionPtrMap[regionID].mesher.initializeRegion();
 	}
-	return regionBBoxd.empty() ? 1 : 0;
+	return regionBBoxd;
+}
+
+int Ovdb::LoadRegion(const char * const regionID)
+{
+	GridInputInitializer();
+	ReadGridRegion(regionID);
+	return 0;
+}
+
+int Ovdb::WriteChanges()
+{
+	//TODO: Handle openvdb IO exceptions
+	GridInputInitializer();
+	openvdb::MetaMap::Ptr meta = instance_file->getMetadata();
+	assert(meta);
+	assert(gridPtrVecPtr);
+	WriteVDB(gridPtrVecPtr, meta);
+	return 0;
 }
 
 int Ovdb::MeshRegion(const char * const regionID, float surfaceValue)
@@ -413,6 +432,7 @@ int Ovdb::MeshRegion(const char * const regionID, float surfaceValue)
 	{
 		ExtractSurfaceOp extractSurfaceOp(regionIter->second.gridPtr, surfaceValue);
 		openvdb::tools::foreach(regionIter->second.maskPtr->cbeginValueOn(), extractSurfaceOp);
+		regionPtrMap[regionID].mesher.initializeRegion();
 		regionIter->second.mesher.doPrimitiveCubesMesh();
 	}
 	return 0;
@@ -461,39 +481,54 @@ int Ovdb::PopulateRegionDensityPerlin(const char * const regionID, double scaleX
 	BBoxdMetadata::Ptr regionMeta = meta->getMetadata<BBoxdMetadata>(regionID);
 	assert(regionMeta);
 	const openvdb::BBoxd &regionBBoxd = regionMeta->value();
-	regionPtrMap[regionID].gridPtr->setTransform(openvdb::math::Transform::Ptr(new openvdb::math::Transform(openvdb::math::MapBase::Ptr(new openvdb::math::ScaleMap(openvdb::Vec3d(scaleXYZ))))));
-	regionPtrMap[regionID].maskPtr = openvdb::tools::clip_internal::convertToBoolMaskGrid(*regionPtrMap[regionID].gridPtr);
 
-	//Initialize all mask voxels to on that are within the region
-	const openvdb::Vec3d &bboxMin = regionBBoxd.min();
-	const openvdb::Vec3d &bboxMax = regionBBoxd.max();
-	const int maxXWithPad = 1 + (int)bboxMax.x();
-	const int maxYWithPad = 1 + (int)bboxMax.y();
-	const int maxZWithPad = 1 + (int)bboxMax.z();
-	for (int x = (int)bboxMin.x(); x <= maxXWithPad; ++x)
+	openvdb::DoubleMetadata::Ptr scaleXYZMeta = meta->getMetadata<openvdb::DoubleMetadata>("scaleXYZ");
+	openvdb::DoubleMetadata::Ptr frequencyMeta = meta->getMetadata<openvdb::DoubleMetadata>("frequency");
+	openvdb::DoubleMetadata::Ptr lacunarityMeta = meta->getMetadata<openvdb::DoubleMetadata>("lacunarity");
+	openvdb::DoubleMetadata::Ptr persistenceMeta = meta->getMetadata<openvdb::DoubleMetadata>("persistence");
+	openvdb::Int32Metadata::Ptr octaveCountMeta = meta->getMetadata<openvdb::Int32Metadata>("octaves");
+	
+	//If no Perlin noise parameters changed then we're done! TODO: Provide parameter to set perlin noise seed
+	if (scaleXYZMeta == nullptr || !openvdb::math::isApproxEqual(scaleXYZ, scaleXYZMeta->value()) ||
+		frequencyMeta == nullptr || !openvdb::math::isApproxEqual(frequency, frequencyMeta->value()) ||
+		lacunarityMeta == nullptr || !openvdb::math::isApproxEqual(lacunarity, lacunarityMeta->value()) ||
+		persistenceMeta == nullptr || !openvdb::math::isApproxEqual(persistence, persistenceMeta->value()) ||
+		octaveCountMeta == nullptr || octaveCount != octaveCountMeta->value())
 	{
-		for (int y = (int)bboxMin.y(); y <= maxYWithPad; ++y)
+		regionPtrMap[regionID].gridPtr->setTransform(openvdb::math::Transform::Ptr(new openvdb::math::Transform(openvdb::math::MapBase::Ptr(new openvdb::math::ScaleMap(openvdb::Vec3d(scaleXYZ))))));
+		regionPtrMap[regionID].maskPtr = openvdb::tools::clip_internal::convertToBoolMaskGrid(*regionPtrMap[regionID].gridPtr);
+
+		//Initialize all mask voxels to on that are within the region
+		const openvdb::Vec3d &bboxMin = regionBBoxd.min();
+		const openvdb::Vec3d &bboxMax = regionBBoxd.max();
+		const int maxXWithPad = 1 + (int)bboxMax.x();
+		const int maxYWithPad = 1 + (int)bboxMax.y();
+		const int maxZWithPad = 1 + (int)bboxMax.z();
+		for (int x = (int)bboxMin.x(); x <= maxXWithPad; ++x)
 		{
-			for (int z = (int)bboxMin.z(); z <= maxZWithPad; ++z)
+			for (int y = (int)bboxMin.y(); y <= maxYWithPad; ++y)
 			{
-				//Setting active this way because according to comments in ValueTransformer.h, modifyValue functions are "typically significantly faster than calling getValue() followed by setValue()"
-				if (x == maxXWithPad || y == maxYWithPad || z == maxZWithPad)
+				for (int z = (int)bboxMin.z(); z <= maxZWithPad; ++z)
 				{
-					//The padding prevents the neighbor-value lookup from fetching a background value 0 and inadvertently meshing all the voxels along the far-boundary.
-					//i.e. this voxel will be on for purposes of iterating, but will have a false value such that it is always skipped for meshing.
-					regionPtrMap[regionID].maskPtr->tree().modifyValue(openvdb::Coord(x, y, z), SetValueOp<bool>(false));
-				}
-				else
-				{
-					//Set this voxel to on for purposes of iterating and set value to true to denote that it is meshable
-					regionPtrMap[regionID].maskPtr->tree().modifyValue(openvdb::Coord(x, y, z), SetValueOp<bool>(true));
+					//Setting active this way because according to comments in ValueTransformer.h, modifyValue functions are "typically significantly faster than calling getValue() followed by setValue()"
+					if (x == maxXWithPad || y == maxYWithPad || z == maxZWithPad)
+					{
+						//The padding prevents the neighbor-value lookup from fetching a background value 0 and inadvertently meshing all the voxels along the far-boundary.
+						//i.e. this voxel will be on for purposes of iterating, but will have a false value such that it is always skipped for meshing.
+						regionPtrMap[regionID].maskPtr->tree().modifyValue(openvdb::Coord(x, y, z), SetValueOp<bool>(false));
+					}
+					else
+					{
+						//Set this voxel to on for purposes of iterating and set value to true to denote that it is meshable
+						regionPtrMap[regionID].maskPtr->tree().modifyValue(openvdb::Coord(x, y, z), SetValueOp<bool>(true));
+					}
 				}
 			}
 		}
-	}
 
-	//Among all active mask voxels set the corresponding density grid value to the Perlin noise value (voxel states will be inactive)
-	PerlinNoiseFillOp perlinNoiseFillOp(regionPtrMap[regionID].gridPtr, frequency, lacunarity, persistence, octaveCount);
-	openvdb::tools::foreach(regionPtrMap[regionID].maskPtr->tree().cbeginValueOn(), perlinNoiseFillOp);
+		//Among all active mask voxels set the corresponding density grid value to the Perlin noise value (voxel states will be inactive)
+		PerlinNoiseFillOp perlinNoiseFillOp(regionPtrMap[regionID].gridPtr, frequency, lacunarity, persistence, octaveCount);
+		openvdb::tools::foreach(regionPtrMap[regionID].maskPtr->tree().cbeginValueOn(), perlinNoiseFillOp);
+	}
 	return 0;
 }

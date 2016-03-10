@@ -62,13 +62,17 @@ void FOpenVDBModule::FillRegionWithPerlinDensity(const FString &regionID, double
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to generate Perlin density grid!"));
 	}
+	if (OvdbInterface->WriteChanges())
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to write Perlin density to file!"));
+	}
 }
 
 void FOpenVDBModule::GenerateMesh(const FString &regionID, float surfaceValue)
 {
 	if (OvdbInterface->MeshRegion(TCHAR_TO_UTF8(*regionID), surfaceValue))
 	{
-		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create dynamic vdb!"));
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to generate mesh!"));
 	}
 }
 
