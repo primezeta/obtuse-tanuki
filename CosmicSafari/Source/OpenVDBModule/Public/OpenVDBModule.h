@@ -23,7 +23,7 @@ public:
 	void InitializeVDB(const FString &vdbFilename, const FString &gridID);
 
 	UFUNCTION(BlueprintCallable)
-	void CreateRegion(const FString &gridID, const FString &regionID, const FIntVector &start, const FIntVector &end);
+	void CreateRegion(const FString &gridName, const FString &regionName, const FIntVector &start, const FIntVector &end);
 
 	UFUNCTION(BlueprintCallable)
 	void LoadRegion(const FString &regionID);

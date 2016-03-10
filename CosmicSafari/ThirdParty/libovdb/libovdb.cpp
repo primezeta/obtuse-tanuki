@@ -157,17 +157,17 @@ void GridInitializer(const char * const gridName)
 			gridPtrVecPtr->clear();
 			gridPtrVecPtr.reset();
 		}
-		instance_file->write(openvdb::GridPtrVec());
 		instance_file->setGridStatsMetadataEnabled(true);
+		instance_file->write(openvdb::GridPtrVec());
 	}
 	//TODO: Error handling when unable to create file. For now assume the file exists
 	assert(boost::filesystem::exists(instance_file->filename()));
 	
 	GridInputInitializer();
+	gridPtrVecPtr = instance_file->getGrids();
 	bool isChanged = false;
 	if (!instance_file->hasGrid(gridName))
 	{
-		gridPtrVecPtr = instance_file->getGrids();
 		openvdb::FloatGrid::Ptr grid = openvdb::FloatGrid::create();
 		gridPtrVecPtr->push_back(grid);
 		grid->setName(gridName);
@@ -184,7 +184,7 @@ void GridInitializer(const char * const gridName)
 	if (isChanged)
 	{
 		//TODO: Handle openvdb IO exceptions
-		WriteVDB(instance_file->getGrids(), instance_file->getMetadata());
+		WriteVDB(gridPtrVecPtr, meta);
 	}
 }
 
@@ -232,14 +232,21 @@ std::string ParseRegionGridName(const std::string &regionID)
 
 std::string ConstructMetaRegionIDStr(const std::string &regionIDsStr, const std::string &additionalID)
 {
+	if (regionIDsStr.empty())
+	{
+		return additionalID;
+	}
 	return regionIDsStr + "][" + additionalID;
 }
 
 std::vector<std::string> ParseRegionIDs(const std::string &regionNamesMeta)
 {
 	std::vector<std::string> splitStrs;
-	boost::split(splitStrs, regionNamesMeta, boost::is_any_of("][")); //First item before the forward slash is the grid name'
-	assert(splitStrs.size() > 0);
+	if (!regionNamesMeta.empty())
+	{
+		boost::split(splitStrs, regionNamesMeta, boost::is_any_of("][")); //First item before the forward slash is the grid name'
+		assert(splitStrs.size() > 0);
+	}
 	return splitStrs;
 }
 
@@ -290,40 +297,44 @@ int Ovdb::DefineRegion(const char * const gridName, const char * const regionNam
 	//Add the ID to the region ID list if it doesn't yet exist
 	std::string &regionIDsStr = regionNamesMeta->value();
 	std::vector<std::string> regionIDs = ParseRegionIDs(regionIDsStr);
+	int regionCount = regionIDs.size();
 	if (std::find(regionIDs.begin(), regionIDs.end(), regionMetaID) == regionIDs.end())
 	{
+		//Add the new region ID and pack the region IDs back into a single string for saving to meta
 		regionNamesMeta->setValue(ConstructMetaRegionIDStr(regionIDsStr, regionMetaID));
+		regionCount++;
 	}
 
 	//Insert the region bbox (note that insert meta will replace an existing meta item of the same name)
 	meta->insertMeta(regionMetaID, BBoxdMetadata(openvdb::BBoxd(openvdb::Vec3d(x0, y0, z0), openvdb::Vec3d(x1, y1, z1))));
 	if (commitChanges)
 	{
-		WriteVDB(instance_file->getGrids(), instance_file->getMetadata());
+		WriteVDB(gridPtrVecPtr, meta);
 	}
-	return 0;
+	return regionCount;
 }
 
-size_t Ovdb::ReadMetaRegionCount(const char * const gridName)
+size_t Ovdb::ReadMetaGridRegionCount(const char * const gridName)
 {
-	//Return the count of all defined regions if no grid name supplied, or count of regions matching a supplied grid name
-	size_t count = 0;
 	GridInputInitializer();
 	openvdb::MetaMap::Ptr meta = instance_file->getMetadata();
 	assert(meta);
-	RegionNamesMetadata::Ptr regionIDsMeta = meta->getMetadata<RegionNamesMetadata>("RegionIDs");
-	assert(regionIDsMeta);
-	const std::vector<std::string> regionIDs = ParseRegionIDs(regionIDsMeta->value());
+	RegionNamesMetadata::Ptr regionNamesMeta = meta->getMetadata<RegionNamesMetadata>("RegionIDs");
+	assert(regionNamesMeta);
+
+	//Return the count of all defined regions if no grid name supplied, or count of regions under the specified grid
+	size_t count = 0;
+	std::vector<std::string> regionIDs = ParseRegionIDs(regionNamesMeta->value());
 	if (gridName == nullptr || std::string(gridName).empty())
 	{
 		count = regionIDs.size();
 	}
 	else
 	{
-		const std::string gname(gridName);
+		//Only count the region if it belongs to the specified grid
 		for (auto i = regionIDs.begin(); i != regionIDs.end(); ++i)
 		{
-			if (gname == ParseRegionGridName(*i))
+			if (gridName == ParseRegionGridName(*i))
 			{
 				count++;
 			}
@@ -402,7 +413,6 @@ int Ovdb::MeshRegion(const char * const regionID, float surfaceValue)
 	{
 		ExtractSurfaceOp extractSurfaceOp(regionIter->second.gridPtr, surfaceValue);
 		openvdb::tools::foreach(regionIter->second.maskPtr->cbeginValueOn(), extractSurfaceOp);
-		regionIter->second.mesher.initializeRegion();
 		regionIter->second.mesher.doPrimitiveCubesMesh();
 	}
 	return 0;

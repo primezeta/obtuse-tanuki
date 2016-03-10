@@ -27,7 +27,7 @@ public:
 	enum OvdbMeshMethod { PRIMITIVE_CUBES, MARCHING_CUBES };
 	friend Ovdb * IOvdb::GetIOvdbInstance(const char * vdbFilename, const char * const gridName);
 	int DefineRegion(const char * const gridName, const char * const regionName, int x0, int y0, int z0, int x1, int y1, int z1, bool commitChanges = false);
-	size_t ReadMetaRegionCount(const char * const gridName = nullptr);
+	size_t ReadMetaGridRegionCount(const char * const gridName = nullptr);
 	int ReadMetaRegionIDs(char ** regionIDList, size_t regionCount, size_t strMaxLen);
 	int ReadRegion(const char * const regionID, int &x0, int &y0, int &z0, int &x1, int &y1, int &z1);
 	int LoadRegion(const char * const regionID);

@@ -13,33 +13,38 @@ void FOpenVDBModule::InitializeVDB(const FString &vdbFilename, const FString &gr
 	
 	GridID = gridID;
 	static size_t maxStrLen = 256;
-	size_t regionsCount = OvdbInterface->ReadMetaRegionCount(TCHAR_TO_UTF8(*gridID));
-	TArray<TArray<char*>> strs;
-	strs.SetNum(regionsCount);
+	size_t regionsCount = OvdbInterface->ReadMetaGridRegionCount(TCHAR_TO_UTF8(*gridID));
+	if (regionsCount > 0)
+	{
+		//First reserve space for UTF8 c-style string names
+		TArray<TArray<char*>> strs;
+		strs.SetNum(regionsCount);
+		for (int i = 0; i < regionsCount; ++i)
+		{
+			strs[i].SetNum(maxStrLen);
+		}
 
-	for (int i = 0; i < regionsCount; ++i)
-	{
-		strs[i].SetNum(maxStrLen);
-	}
-	
-	if (OvdbInterface->ReadMetaRegionIDs(strs.GetData()->GetData(), regionsCount, strs.GetAllocatedSize()/regionsCount) < 1)
-	{
-		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to read regions!"));
-	}
+		//Read region IDs into the reserved string buffers
+		if (OvdbInterface->ReadMetaRegionIDs(strs.GetData()->GetData(), regionsCount, strs.GetAllocatedSize() / regionsCount) < 1)
+		{
+			UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to read regions!"));
+		}
 
-	for (TArray<TArray<char*>>::TIterator i = strs.CreateIterator(); i; ++i)
-	{
-		FString temp = FString(UTF8_TO_TCHAR(i->GetData()));
-		RegionIDs.Add(FString::Printf(TEXT("%s"), *temp));
+		//Finally convert region IDs to FString
+		for (TArray<TArray<char*>>::TIterator i = strs.CreateIterator(); i; ++i)
+		{
+			FString temp = FString(UTF8_TO_TCHAR(i->GetData()));
+			RegionIDs.Add(FString::Printf(TEXT("%s"), *temp));
+		}
 	}
 }
 
-void FOpenVDBModule::CreateRegion(const FString &gridID, const FString &regionID, const FIntVector &start, const FIntVector &end)
+void FOpenVDBModule::CreateRegion(const FString &gridName, const FString &regionName, const FIntVector &start, const FIntVector &end)
 {
-	//Set the region name as the region bounds coordinates
-	if (OvdbInterface->DefineRegion(TCHAR_TO_UTF8(*gridID), TCHAR_TO_UTF8(*regionID), start.X, start.Y, start.Z, end.X, end.Y, end.Z, true))
+	int32 regionCount = OvdbInterface->DefineRegion(TCHAR_TO_UTF8(*gridName), TCHAR_TO_UTF8(*regionName), start.X, start.Y, start.Z, end.X, end.Y, end.Z, true);
+	if(regionCount < 1)
 	{
-		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create region!"));
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to define any regions!"));
 	}
 }
 
