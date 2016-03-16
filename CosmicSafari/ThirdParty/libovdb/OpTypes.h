@@ -1,6 +1,7 @@
 #pragma once
 #include "OvdbTypes.h"
 #include "OvdbQuad.h"
+#include "tbb/mutex.h"
 
 using namespace ovdb; //TODO: Remove 'using' to match UE4 coding standards
 using namespace ovdb::meshing; //TODO: Remove 'using' to match UE4 coding standards
@@ -119,8 +120,8 @@ class MeshGeometryOp : public TransformOp<typename InTreeType::ValueOnCIter, Out
 {
 public:
 	typedef typename boost::shared_ptr<MeshGeometryOp<typename OutTreeType, typename InTreeType>> Ptr;
-	
-	MeshGeometryOp(const openvdb::math::Transform &sourceXform) : xform(sourceXform)
+
+	MeshGeometryOp(const openvdb::math::Transform &sourceXform, tbb::mutex &mutex) : xform(sourceXform), vertexMutex(mutex)
 	{
 	}
 	
@@ -134,15 +135,18 @@ public:
 		{
 			const CubeVertex &vtx = (CubeVertex)i;
 			const openvdb::Coord &idxCoord = primitiveIndices.getCoord(vtx);
-			OutValueType vertexIndex = acc.getValue(coord);
-			if (vertexIndex == (OutValueType)UNVISITED_VERTEX_INDEX)
 			{
-				vertexIndex = (OutValueType)(vertices.size()); //TODO: Error check index ranges
-				vertices.push_back(xform.indexToWorld(idxCoord));
-				//Since this is a new vertex save it to the global visited vertex grid for use by any other voxels in the same region that share it
-				acc.setValue(idxCoord, vertexIndex);
+				tbb::mutex::scoped_lock lock(vertexMutex); //Lock the mutex for the duration of this scope
+				OutValueType vertexIndex = acc.getValue(idxCoord);
+				if (vertexIndex == acc.getTree()->background())
+				{
+					vertexIndex = (OutValueType)(vertices.size()); //TODO: Error check index ranges
+					vertices.push_back(xform.indexToWorld(idxCoord));
+					//Since this is a new vertex save it to the global visited vertex grid for use by any other voxels in the same region that share it
+					acc.setValue(idxCoord, vertexIndex);
+				}
+				primitiveIndices[vtx] = vertexIndex;
 			}
-			primitiveIndices[vtx] = vertexIndex;
 		}
 		quads.push_back(OvdbQuad(primitiveIndices.getQuadXY0()));
 		quads.push_back(OvdbQuad(primitiveIndices.getQuadXY1()));
@@ -152,13 +156,17 @@ public:
 		quads.push_back(OvdbQuad(primitiveIndices.getQuadYZ1()));
 	}
 
-	void collectGeometry()
+	void initialize()
 	{
-		//Collect geometry into geometry containers
 		vertices.clear();
 		polygons.clear();
 		normals.clear();
+		quads.clear();
+	}
 
+	void collectGeometry()
+	{
+		//Collect geometry into geometry containers
 		//for (UniqueQuadsType::const_iterator i = quads.begin(); i != quads.end(); ++i)
 		for (tbb::concurrent_vector<OvdbQuad>::const_iterator i = quads.begin(); i != quads.end(); ++i)
 		{
@@ -238,10 +246,11 @@ public:
 
 private:
 	const openvdb::math::Transform &xform;
+	tbb::concurrent_vector<OvdbQuad> quads;
+	tbb::mutex &vertexMutex;
 	VolumeVerticesType vertices;
 	VolumePolygonsType polygons;
 	VolumeNormalsType normals;
-	tbb::concurrent_vector<OvdbQuad> quads;
 	VolumeVerticesType::const_iterator currentVertex;
 	VolumePolygonsType::const_iterator currentPolygon;
 	VolumeNormalsType::const_iterator currentNormal;
@@ -263,7 +272,7 @@ public:
 	const typename MeshOpType::Ptr meshOp;
 
 	BasicMesher(GridPtrType grid)
-		: gridPtr(grid), meshOp(new MeshOpType(grid->transform())), activateValuesOp(new ActivateValuesOpType()) {}
+		: gridPtr(grid), meshOp(new MeshOpType(grid->transform(), meshOpMutex)), activateValuesOp(new ActivateValuesOpType()) {}
 
 	void doActivateValuesOp(typename ActivateValuesOpType::InValueType isovalue)
 	{
@@ -274,10 +283,11 @@ public:
 	void doMeshOp(bool initialize = false)
 	{
 		if (initialize || visitedVertexIndices == nullptr)
-		{			
-			visitedVertexIndices = VertexIndexGridType::create(UNVISITED_VERTEX_INDEX);
+		{
+			visitedVertexIndices = VertexIndexGridType::create((MeshOpType::OutValueType)UNVISITED_VERTEX_INDEX);
 			visitedVertexIndices->setTransform(gridPtr->transformPtr()->copy());
 			visitedVertexIndices->topologyUnion(*gridPtr);
+			meshOp->initialize();
 		}
 		openvdb::tools::transformValues<MeshOpType::IterType, MeshOpType::OutGridType, MeshOpType>(gridPtr->cbeginValueOn(), *visitedVertexIndices, *meshOp);
 		meshOp->collectGeometry();
@@ -286,4 +296,5 @@ public:
 private:
 	typename ActivateValuesOpType::Ptr activateValuesOp;
 	typename VertexIndexGridType::Ptr visitedVertexIndices;
+	tbb::mutex meshOpMutex;
 };

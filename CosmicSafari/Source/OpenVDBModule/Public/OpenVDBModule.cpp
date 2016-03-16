@@ -89,8 +89,8 @@ void FOpenVDBModule::GenerateMesh(const FString &regionID, float surfaceValue)
 void FOpenVDBModule::GetMeshGeometry(const FString &regionID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
 {
 	Vertices.Reserve(OvdbInterface->VertexCount(TCHAR_TO_UTF8(*regionID)));
-	TriangleIndices.Reserve(3*OvdbInterface->VertexCount(TCHAR_TO_UTF8(*regionID)));
-	Normals.Reserve(OvdbInterface->VertexCount(TCHAR_TO_UTF8(*regionID)));
+	TriangleIndices.Reserve(3*OvdbInterface->PolygonCount(TCHAR_TO_UTF8(*regionID)));
+	Normals.Reserve(OvdbInterface->NormalCount(TCHAR_TO_UTF8(*regionID)));
 
 	double vx, vy, vz;
 	while (OvdbInterface->YieldVertex(TCHAR_TO_UTF8(*regionID), vx, vy, vz))
