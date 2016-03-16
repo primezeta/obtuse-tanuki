@@ -172,13 +172,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="libovdb.h" />
+    <ClInclude Include="OpTypes.h" />
     <ClInclude Include="OvdbQuad.h" />
     <ClInclude Include="OvdbTypes.h" />
-    <ClInclude Include="OvdbVolume.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="libovdb.cpp" />
-    <ClCompile Include="OvdbVolume.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

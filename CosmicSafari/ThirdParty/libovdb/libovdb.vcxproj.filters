@@ -21,18 +21,15 @@
     <ClInclude Include="OvdbQuad.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="OvdbVolume.h">
+    <ClInclude Include="OvdbTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="OvdbTypes.h">
+    <ClInclude Include="OpTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="libovdb.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="OvdbVolume.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

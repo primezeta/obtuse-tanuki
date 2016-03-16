@@ -1,6 +1,5 @@
 #include "OvdbTypes.h"
-#include "OvdbVolume.h"
-#include "OvdbNoise.h"
+#include "OpTypes.h"
 #include <unordered_map>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/replace.hpp>
@@ -29,10 +28,6 @@ Ovdb * IOvdb::GetIOvdbInstance(const char * vdbFilename)
 	return shared_instance.get();
 }
 
-using namespace ovdb; //TODO: Remove 'using' to match UE4 coding standards
-using namespace ovdb::meshing; //TODO: Remove 'using' to match UE4 coding standards
-using namespace ovdb::tools;
-
 typedef openvdb::FloatTree ValueTree;
 typedef openvdb::Grid<ValueTree> ValueGrid;
 typedef openvdb::TypedMetadata<openvdb::BBoxd> BBoxdMetadata;
@@ -44,140 +39,6 @@ std::vector<std::string> ParseMetaRecordStr(const std::string &metaRecordStr);
 std::string ConstructRegionID(const std::string &gridName, const std::string &regionName);
 openvdb::BBoxd ReadRegionBBoxd(const std::string &regionID);
 
-template<typename ValueType>
-struct BasicModifyOp
-{
-	const ValueType val;
-	BasicModifyOp(const ValueType& v) : val(v) {}
-	virtual inline void operator()(ValueType& v) const { v = val; }
-};
-
-template<typename ValueType>
-struct BasicModifyActiveOp
-{
-	const ValueType val;
-	const bool isActive;
-	BasicModifyActiveOp(const ValueType& v, const bool &active) : val(v), isActive(active) {}
-	virtual inline void operator()(ValueType& v, bool &activeState) const { v = val; activeState = isActive; }
-};
-
-template<typename InIterType, typename OutTreeType>
-class TransformOp
-{
-public:
-	typedef typename InIterType IterType;
-	typedef typename InIterType::ValueT InValueType;
-	typedef typename OutTreeType::ValueType OutValueType;
-	typedef typename openvdb::tree::ValueAccessor<OutTreeType> OutAccessorType;
-	virtual void operator()(const IterType &iter, OutAccessorType& acc) = 0;
-};
-
-//Operator to create a grid of vectors from a scalar
-template <typename OutTreeType, typename InTreeType = openvdb::BoolTree>
-class PerlinNoiseFillOp : public TransformOp<typename InTreeType::ValueOnCIter, OutTreeType>
-{
-public:
-	typedef typename BasicModifyActiveOp<OutValueType> ModifyOpType;
-	PerlinNoiseFillOp(openvdb::math::Transform &xform, double frequency, double lacunarity, double persistence, int octaveCount)
-		: inTreeXform(xform)
-	{
-		valueSource.SetFrequency(frequency);
-		valueSource.SetLacunarity(lacunarity);
-		valueSource.SetPersistence(persistence);
-		valueSource.SetOctaveCount(octaveCount);
-	}
-	void operator()(const IterType& iter, OutAccessorType& acc) override
-	{
-		const bool isInsideBoundary = iter.getValue();
-		if (iter.isVoxelValue())
-		{
-			const openvdb::Coord &coord = iter.getCoord();
-			//Set the density value from the noise source and set on if the voxel is in the active boundary
-			const openvdb::Vec3d vec = inTreeXform.indexToWorld(coord);
-			acc.modifyValueAndActiveState<ModifyOpType>(coord, ModifyOpType((OutValueType)(valueSource.GetValue(vec.x(), vec.y(), vec.z()) - vec.z()), isInsideBoundary));
-		}
-		else
-		{
-			openvdb::CoordBBox bbox;
-			iter.getBoundingBox(bbox);
-			openvdb::Coord coord;
-			for (auto x = bbox.min().x(); x <= bbox.max().x(); ++x)
-			{
-				coord.setX(x);
-				for (auto y = bbox.min().y(); y <= bbox.max().y(); ++y)
-				{
-					coord.setY(y);
-					for (auto z = bbox.min().z(); z <= bbox.max().z(); ++z)
-					{
-						coord.setZ(z);
-						const openvdb::Vec3d vec = inTreeXform.indexToWorld(coord);
-						acc.modifyValueAndActiveState<ModifyOpType>(coord, ModifyOpType((OutValueType)(valueSource.GetValue(vec.x(), vec.y(), vec.z()) - vec.z()), isInsideBoundary));
-					}
-				}
-			}
-		}
-	}
-private:
-	const openvdb::math::Transform &inTreeXform;
-	noise::module::Perlin valueSource;
-};
-
-//Operator to extract an isosurface from a grid
-template <typename OutTreeType, typename InTreeType = OutTreeType>
-class ExtractSurfaceOp : public TransformOp<typename InTreeType::ValueOnIter, OutTreeType>
-{
-public:
-	typedef typename boost::shared_ptr<ExtractSurfaceOp<OutTreeType>> Ptr;
-	void SetSurfaceValue(InValueType isovalue)
-	{
-		surfaceValue = isovalue;
-	}
-	void operator()(const IterType& iter, OutAccessorType& acc) override
-	{
-		const openvdb::Coord &coord = iter.getCoord();
-		uint8_t insideBits = 0;
-		//For each neighboring value set a bit if it is inside the surface (inside = positive value)
-		if (iter.getValue() > surfaceValue) { insideBits |= 1; }
-		if (acc.getValue(coord.offsetBy(1, 0, 0)) > surfaceValue) { insideBits |= 2; }
-		if (acc.getValue(coord.offsetBy(0, 1, 0)) > surfaceValue) { insideBits |= 4; }
-		if (acc.getValue(coord.offsetBy(0, 0, 1)) > surfaceValue) { insideBits |= 8; }
-		if (acc.getValue(coord.offsetBy(1, 1, 0)) > surfaceValue) { insideBits |= 16; }
-		if (acc.getValue(coord.offsetBy(1, 0, 1)) > surfaceValue) { insideBits |= 32; }
-		if (acc.getValue(coord.offsetBy(0, 1, 1)) > surfaceValue) { insideBits |= 64; }
-		if (acc.getValue(coord.offsetBy(1, 1, 1)) > surfaceValue) { insideBits |= 128; }
-		//If all vertices are inside the surface or all are outside the surface then set off in order to not mesh this voxel
-		iter.setActiveState(insideBits > 0 && insideBits < 255);
-	}
-private:
-	InValueType surfaceValue;
-};
-
-//Helper struct to hold the associated grid meshing info
-template <typename TreeType>
-class BasicMesher
-{
-public:
-	typedef typename boost::shared_ptr<BasicMesher<TreeType>> Ptr;
-	typedef typename ExtractSurfaceOp<TreeType> ActivateValuesOpType;
-	typedef typename OvdbVoxelVolume<TreeType> MeshOpType;
-	typedef typename openvdb::Grid<TreeType> GridType;
-	typedef typename GridType::Ptr GridPtrType;
-	const GridPtrType gridPtr;
-	const typename MeshOpType::Ptr meshOp;
-	BasicMesher(GridPtrType grid) : gridPtr(grid), meshOp(new MeshOpType(grid)), activateValuesOp(new ActivateValuesOpType()) {}
-	void doActivateValuesOp(typename ActivateValuesOpType::InValueType isovalue)
-	{
-		activateValuesOp->SetSurfaceValue(isovalue);
-		openvdb::tools::transformValues(gridPtr->beginValueOn(), *gridPtr, *activateValuesOp);
-	}
-	void doMeshOp()
-	{
-		meshOp->initializeRegion();
-		meshOp->doPrimitiveCubesMesh();
-	}
-private:
-	typename ActivateValuesOpType::Ptr activateValuesOp;
-};
 typedef BasicMesher<ValueTree> RegionMeshType;
 std::unordered_map<std::string, RegionMeshType::Ptr> regionPtrMap;
 
@@ -500,11 +361,7 @@ int Ovdb::MeshRegion(const char * const regionID, float surfaceValue)
 size_t Ovdb::VertexCount(const char * const regionID)
 {
 	size_t count = 0;
-	static auto regionIter = regionPtrMap.end();
-	if (regionIter == regionPtrMap.end() || regionIter->first != regionID)
-	{
-		regionIter = regionPtrMap.find(regionID);
-	}
+	auto regionIter = regionPtrMap.find(regionID);
 	if (regionIter != regionPtrMap.end())
 	{
 		count = regionIter->second->meshOp->vertexCount();
@@ -515,11 +372,7 @@ size_t Ovdb::VertexCount(const char * const regionID)
 size_t Ovdb::PolygonCount(const char * const regionID)
 {
 	size_t count = 0;
-	static auto regionIter = regionPtrMap.end();
-	if (regionIter == regionPtrMap.end() || regionIter->first != regionID)
-	{
-		regionIter = regionPtrMap.find(regionID);
-	}
+	auto regionIter = regionPtrMap.find(regionID);
 	if (regionIter != regionPtrMap.end())
 	{
 		count = regionIter->second->meshOp->polygonCount();
@@ -530,11 +383,7 @@ size_t Ovdb::PolygonCount(const char * const regionID)
 size_t Ovdb::NormalCount(const char * const regionID)
 {
 	size_t count = 0;
-	static auto regionIter = regionPtrMap.end();
-	if (regionIter == regionPtrMap.end() || regionIter->first != regionID)
-	{
-		regionIter = regionPtrMap.find(regionID);
-	}
+	auto regionIter = regionPtrMap.find(regionID);
 	if (regionIter != regionPtrMap.end())
 	{
 		count = regionIter->second->meshOp->normalCount();
@@ -590,40 +439,41 @@ bool Ovdb::YieldNormal(const char * const regionID, double &nx, double &ny, doub
 int Ovdb::PopulateRegionDensityPerlin(const char * const regionID, double frequency, double lacunarity, double persistence, int octaveCount)
 {
 	auto regionIter = regionPtrMap.find(regionID);
-	assert(regionIter != regionPtrMap.end());
-
-	ValueGrid &grid = *regionIter->second->gridPtr;
-	openvdb::DoubleMetadata::Ptr frequencyMeta = instance_meta->getMetadata<openvdb::DoubleMetadata>("frequency");
-	openvdb::DoubleMetadata::Ptr lacunarityMeta = instance_meta->getMetadata<openvdb::DoubleMetadata>("lacunarity");
-	openvdb::DoubleMetadata::Ptr persistenceMeta = instance_meta->getMetadata<openvdb::DoubleMetadata>("persistence");
-	openvdb::Int32Metadata::Ptr octaveCountMeta = instance_meta->getMetadata<openvdb::Int32Metadata>("octaveCount");
-	if (grid.empty() ||
-		frequencyMeta == nullptr || !openvdb::math::isApproxEqual(frequency, frequencyMeta->value()) ||
-		lacunarityMeta == nullptr || !openvdb::math::isApproxEqual(lacunarity, lacunarityMeta->value()) ||
-		persistenceMeta == nullptr || !openvdb::math::isApproxEqual(persistence, persistenceMeta->value()) ||
-		octaveCountMeta == nullptr || !openvdb::math::isExactlyEqual(octaveCount, octaveCountMeta->value()))
+	if (regionIter != regionPtrMap.end())
 	{
-		//Update the Perlin noise values
-		instance_meta->insertMeta("frequency", openvdb::DoubleMetadata(frequency));
-		instance_meta->insertMeta("lacunarity", openvdb::DoubleMetadata(lacunarity));
-		instance_meta->insertMeta("persistence", openvdb::DoubleMetadata(persistence));
-		instance_meta->insertMeta("octaveCount", openvdb::Int32Metadata(octaveCount));
+		ValueGrid &grid = *regionIter->second->gridPtr;
+		openvdb::DoubleMetadata::Ptr frequencyMeta = instance_meta->getMetadata<openvdb::DoubleMetadata>("frequency");
+		openvdb::DoubleMetadata::Ptr lacunarityMeta = instance_meta->getMetadata<openvdb::DoubleMetadata>("lacunarity");
+		openvdb::DoubleMetadata::Ptr persistenceMeta = instance_meta->getMetadata<openvdb::DoubleMetadata>("persistence");
+		openvdb::Int32Metadata::Ptr octaveCountMeta = instance_meta->getMetadata<openvdb::Int32Metadata>("octaveCount");
+		if (grid.empty() ||
+			frequencyMeta == nullptr || !openvdb::math::isApproxEqual(frequency, frequencyMeta->value()) ||
+			lacunarityMeta == nullptr || !openvdb::math::isApproxEqual(lacunarity, lacunarityMeta->value()) ||
+			persistenceMeta == nullptr || !openvdb::math::isApproxEqual(persistence, persistenceMeta->value()) ||
+			octaveCountMeta == nullptr || !openvdb::math::isExactlyEqual(octaveCount, octaveCountMeta->value()))
+		{
+			//Update the Perlin noise values
+			instance_meta->insertMeta("frequency", openvdb::DoubleMetadata(frequency));
+			instance_meta->insertMeta("lacunarity", openvdb::DoubleMetadata(lacunarity));
+			instance_meta->insertMeta("persistence", openvdb::DoubleMetadata(persistence));
+			instance_meta->insertMeta("octaveCount", openvdb::Int32Metadata(octaveCount));
 
-		//Activate mask values such that there is a single padded region along the outer edge with
-		//values on and false and all other values within the padded region have values on and true.
-		BBoxdMetadata::Ptr gridBBoxdMeta = instance_meta->getMetadata<BBoxdMetadata>(ConstructRegionID(grid.getName(), ""));
-		assert(gridBBoxdMeta);
-		const openvdb::BBoxd &gridBBoxd = gridBBoxdMeta->value();
-		openvdb::CoordBBox bbox = grid.transform().worldToIndexCellCentered(gridBBoxd);
-		assert(!bbox.empty());
-		openvdb::CoordBBox bboxPadded = bbox;
-		bboxPadded.expand(1);
+			//Activate mask values such that there is a single padded region along the outer edge with
+			//values on and false and all other values within the padded region have values on and true.
+			BBoxdMetadata::Ptr gridBBoxdMeta = instance_meta->getMetadata<BBoxdMetadata>(ConstructRegionID(grid.getName(), ""));
+			assert(gridBBoxdMeta);
+			const openvdb::BBoxd &gridBBoxd = gridBBoxdMeta->value();
+			openvdb::CoordBBox bbox = grid.transform().worldToIndexCellCentered(gridBBoxd);
+			assert(!bbox.empty());
+			openvdb::CoordBBox bboxPadded = bbox;
+			bboxPadded.expand(1);
 
-		//Create a mask enclosing the region such that the outer edge voxels have are on but false
-		openvdb::BoolGrid::Ptr mask = openvdb::BoolGrid::create(false);
-		mask->fill(bboxPadded, /*value*/false, /*state*/true);
-		mask->fill(bbox, /*value*/true, /*state*/true);
-		openvdb::tools::transformValues(mask->cbeginValueOn(), *regionIter->second->gridPtr, PerlinNoiseFillOp<openvdb::FloatTree>(grid.transform(), frequency, lacunarity, persistence, octaveCount));
+			//Create a mask enclosing the region such that the outer edge voxels have are on but false
+			openvdb::BoolGrid::Ptr mask = openvdb::BoolGrid::create(false);
+			mask->fill(bboxPadded, /*value*/false, /*state*/true);
+			mask->fill(bbox, /*value*/true, /*state*/true);
+			openvdb::tools::transformValues(mask->cbeginValueOn(), *regionIter->second->gridPtr, PerlinNoiseFillOp<openvdb::FloatTree>(grid.transform(), frequency, lacunarity, persistence, octaveCount));
+		}
 	}
-	return 0;
+	return regionIter == regionPtrMap.end();
 }
