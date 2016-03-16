@@ -3,17 +3,21 @@
 
 DEFINE_LOG_CATEGORY(LogOpenVDBModule)
 
-void FOpenVDBModule::InitializeVDB(const FString &vdbFilename, const FString &gridID)
+FString FOpenVDBModule::InitializeVDB(const FString &vdbFilename, const FString &gridID, const FVector &scale, const FIntVector &dimensions)
 {
-	OvdbInterface = IOvdb::GetIOvdbInstance(TCHAR_TO_UTF8(*vdbFilename), TCHAR_TO_UTF8(*gridID));
+	OvdbInterface = IOvdb::GetIOvdbInstance(TCHAR_TO_UTF8(*vdbFilename));
 	if (!OvdbInterface)
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create VDB interface!"));
+	}	
+	if (OvdbInterface->DefineGrid(TCHAR_TO_UTF8(*gridID), scale.X, scale.Y, scale.Z, 0, 0, 0, dimensions.X, dimensions.Y, dimensions.Z))
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to create define grid!"));
 	}
-	
 	GridID = gridID;
+
 	static size_t maxStrLen = 256;
-	size_t regionsCount = OvdbInterface->ReadMetaGridRegionCount(TCHAR_TO_UTF8(*gridID));
+	size_t regionsCount = OvdbInterface->ReadMetaRegionCount();
 	if (regionsCount > 0)
 	{
 		//First reserve space for UTF8 c-style string names
@@ -37,15 +41,21 @@ void FOpenVDBModule::InitializeVDB(const FString &vdbFilename, const FString &gr
 			RegionIDs.Add(FString::Printf(TEXT("%s"), *temp));
 		}
 	}
+	return GridID;
 }
 
-void FOpenVDBModule::CreateRegion(const FString &gridName, const FString &regionName, const FIntVector &start, const FIntVector &end)
+FString FOpenVDBModule::CreateRegion(const FString &gridName, const FString &regionName, const FIntVector &start, const FIntVector &end)
 {
-	int32 regionCount = OvdbInterface->DefineRegion(TCHAR_TO_UTF8(*gridName), TCHAR_TO_UTF8(*regionName), start.X, start.Y, start.Z, end.X, end.Y, end.Z, true);
-	if(regionCount < 1)
+	char regionIDStr[256];
+	if(OvdbInterface->DefineRegion(TCHAR_TO_UTF8(*gridName), TCHAR_TO_UTF8(*regionName), start.X, start.Y, start.Z, end.X, end.Y, end.Z, regionIDStr, 256))
 	{
-		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to define any regions!"));
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to define the region!"));
 	}
+	if (RegionIDs.Find(regionIDStr) == INDEX_NONE)
+	{
+		RegionIDs.Add(regionIDStr);
+	}
+	return regionIDStr;
 }
 
 void FOpenVDBModule::LoadRegion(const FString &regionID)
@@ -56,9 +66,9 @@ void FOpenVDBModule::LoadRegion(const FString &regionID)
 	}
 }
 
-void FOpenVDBModule::FillRegionWithPerlinDensity(const FString &regionID, double scaleXYZ, double frequency, double lacunarity, double persistence, int32 octaveCount)
+void FOpenVDBModule::FillRegionWithPerlinDensity(const FString &regionID, double frequency, double lacunarity, double persistence, int32 octaveCount)
 {
-	if (OvdbInterface->PopulateRegionDensityPerlin(TCHAR_TO_UTF8(*regionID), scaleXYZ, frequency, lacunarity, persistence, octaveCount))
+	if (OvdbInterface->PopulateRegionDensityPerlin(TCHAR_TO_UTF8(*regionID), frequency, lacunarity, persistence, octaveCount))
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to generate Perlin density grid!"));
 	}
@@ -78,6 +88,10 @@ void FOpenVDBModule::GenerateMesh(const FString &regionID, float surfaceValue)
 
 void FOpenVDBModule::GetMeshGeometry(const FString &regionID, TArray<FVector> &Vertices, TArray<int32> &TriangleIndices, TArray<FVector> &Normals)
 {
+	Vertices.Reserve(OvdbInterface->VertexCount(TCHAR_TO_UTF8(*regionID)));
+	TriangleIndices.Reserve(3*OvdbInterface->VertexCount(TCHAR_TO_UTF8(*regionID)));
+	Normals.Reserve(OvdbInterface->VertexCount(TCHAR_TO_UTF8(*regionID)));
+
 	double vx, vy, vz;
 	while (OvdbInterface->YieldVertex(TCHAR_TO_UTF8(*regionID), vx, vy, vz))
 	{

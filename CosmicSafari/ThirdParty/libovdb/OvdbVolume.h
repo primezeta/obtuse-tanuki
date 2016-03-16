@@ -42,6 +42,7 @@ namespace ovdb
 		class OvdbVoxelVolume
 		{
 		public:
+			typedef typename boost::shared_ptr<OvdbVoxelVolume<_TreeType>> Ptr;
 			typedef typename _TreeType TreeType;
 			typedef typename TreeType::Ptr TreeTypePtr;
 			typedef typename TreeType::ConstPtr TreeTypeCPtr;
@@ -55,7 +56,6 @@ namespace ovdb
 			typedef typename GridType::ValueOffCIter GridValueOffCIterType;
 			typedef typename GridType::ValueOffIter GridValueOffIterType;
 
-			OvdbVoxelVolume() : volumeGrid(nullptr) {}
 			OvdbVoxelVolume(GridTypeCPtr grid) : volumeGrid(grid)
 			{
 				volAccPtr = boost::shared_ptr<openvdb::FloatGrid::ConstAccessor>(new openvdb::FloatGrid::ConstAccessor(volumeGrid->tree()));
@@ -147,6 +147,11 @@ namespace ovdb
 				//TODO
 			}
 
+			size_t vertexCount()
+			{
+				return vertices.size();
+			}
+
 			bool nextVertex(double &v1, double &v2, double &v3)
 			{
 				if (currentVertex == vertices.end())
@@ -159,6 +164,11 @@ namespace ovdb
 				return ++currentVertex != vertices.end();
 			}
 
+			size_t polygonCount()
+			{
+				return polygons.size();
+			}
+
 			bool nextPolygon(uint32_t &p1, uint32_t &p2, uint32_t &p3)
 			{
 				if (currentPolygon == polygons.end())
@@ -169,6 +179,11 @@ namespace ovdb
 				p2 = (*currentPolygon)[1];
 				p3 = (*currentPolygon)[2];
 				return ++currentPolygon != polygons.end();
+			}
+			
+			size_t normalCount()
+			{
+				return normals.size();
 			}
 
 			bool nextNormal(double &n1, double &n2, double &n3)

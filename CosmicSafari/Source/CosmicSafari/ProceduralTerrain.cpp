@@ -54,16 +54,15 @@ AProceduralTerrain::AProceduralTerrain()
 void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	OpenVDBModule->InitializeVDB(VDBLocation, VolumeName);
-	
+	FIntVector dimensions = FIntVector(MapBoundsEnd.X, MapBoundsEnd.Y, HeightMapRange) - MapBoundsStart;
+	FString gridName = OpenVDBModule->InitializeVDB(VDBLocation, VolumeName, FVector(scaleXYZ), dimensions);
 	FString regionName = "all";
-	OpenVDBModule->CreateRegion(VolumeName, regionName, MapBoundsStart, FIntVector(MapBoundsEnd.X, MapBoundsEnd.Y, HeightMapRange));
-	
-	FString regionID = VolumeName + "/" + regionName;
+	FString regionID = OpenVDBModule->CreateRegion(gridName, regionName, MapBoundsStart, FIntVector(MapBoundsEnd.X, MapBoundsEnd.Y, HeightMapRange));	
+
 	MeshSectionIndices.Add(0);
 	MeshSectionIDs.Add(0, regionID);
 	OpenVDBModule->LoadRegion(regionID);
-	OpenVDBModule->FillRegionWithPerlinDensity(regionID, scaleXYZ, frequency, lacunarity, persistence, octaveCount);
+	OpenVDBModule->FillRegionWithPerlinDensity(regionID, frequency, lacunarity, persistence, octaveCount);
 	OpenVDBModule->GenerateMesh(regionID, MeshSurfaceValue);
 
 	for (auto i = MeshSectionIndices.CreateConstIterator(); i; ++i)

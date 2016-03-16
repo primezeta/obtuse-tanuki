@@ -20,16 +20,16 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable)
-	void InitializeVDB(const FString &vdbFilename, const FString &gridID);
+	FString InitializeVDB(const FString &vdbFilename, const FString &gridID, const FVector &scale, const FIntVector &dimensions);
 
 	UFUNCTION(BlueprintCallable)
-	void CreateRegion(const FString &gridName, const FString &regionName, const FIntVector &start, const FIntVector &end);
+	FString CreateRegion(const FString &gridName, const FString &regionName, const FIntVector &start, const FIntVector &end);
 
 	UFUNCTION(BlueprintCallable)
 	void LoadRegion(const FString &regionID);
 
 	UFUNCTION(BlueprintCallable)
-	void FillRegionWithPerlinDensity(const FString &regionID, double scaleXYZ, double frequency, double lacunarity, double persistence, int32 octaveCount);
+	void FillRegionWithPerlinDensity(const FString &regionID, double frequency, double lacunarity, double persistence, int32 octaveCount);
 
 	UFUNCTION(BlueprintCallable)
 	void GenerateMesh(const FString &regionID, float surfaceValue);
