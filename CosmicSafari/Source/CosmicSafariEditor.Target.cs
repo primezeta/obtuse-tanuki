@@ -15,11 +15,11 @@ public class CosmicSafariEditorTarget : TargetRules
         //DynamicallyLoadedModuleNames.AddRange(new string[] { "OpenVDBModule" });
     }
 
-	//
-	// TargetRules interface.
-	//
+    //
+    // TargetRules interface.
+    //
 
-	public override void SetupBinaries(
+    public override void SetupBinaries(
 		TargetInfo Target,
 		ref List<UEBuildBinaryConfiguration> OutBuildBinaryConfigurations,
 		ref List<string> OutExtraModuleNames

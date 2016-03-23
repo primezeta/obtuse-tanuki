@@ -173,7 +173,6 @@
   <ItemGroup>
     <ClInclude Include="libovdb.h" />
     <ClInclude Include="OpTypes.h" />
-    <ClInclude Include="OvdbQuad.h" />
     <ClInclude Include="OvdbTypes.h" />
   </ItemGroup>
   <ItemGroup>

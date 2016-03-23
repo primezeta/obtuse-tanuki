@@ -76,6 +76,7 @@ private:
 	static void InitializeOpenVDBModule();
 
 	TArray<int32> MeshSectionIndices;
+	TMap<int32, Vdb::HandleType> VDBHandles;
 	TMap<int32, FString> MeshSectionIDs;
 	TMap<int32, bool> IsGridSectionMeshed;
 	TMap<int32, TArray<FVector>> MeshSectionVertices;

@@ -9,22 +9,27 @@ public class OpenVDBModule : ModuleRules
 	public OpenVDBModule(TargetInfo Target)
 	{
         Platform = Target.Platform;
-        Config = Target.Configuration;
-
+        Configuration = Target.Configuration;
         Type = ModuleType.CPlusPlus;
+        OpenVDBOpenEXRAreShared = true;
+
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
         PublicIncludePaths.AddRange(PublicIncludes);
         PrivateIncludePaths.AddRange(PrivateIncludes);
         PublicLibraryPaths.AddRange(LibPaths);
         PublicAdditionalLibraries.AddRange(LibNames);
-        Definitions.AddRange(new string[] { "LIB_OVDB_DLL" });
-
+        Definitions.AddRange(new string[] { "OPENVDB_DLL", "OPENEXR_DLL", "ZLIB_STATIC" });
+        //AddThirdPartyPrivateDynamicDependencies
         MinFilesUsingPrecompiledHeaderOverride = 1;
         bFasterWithoutUnity = true;
-	}
+        bUseRTTI = true;
+        //UEBuildConfiguration.bForceEnableExceptions = true;
+        bEnableExceptions = true;
+    }
 
     private UnrealTargetPlatform Platform;
-    private UnrealTargetConfiguration Config;
+    private UnrealTargetConfiguration Configuration;
+    private bool OpenVDBOpenEXRAreShared;
 
     private string ModulePath
     {
@@ -59,17 +64,11 @@ public class OpenVDBModule : ModuleRules
     {
         get
         {
-            //UnrealTargetConfiguration doesn't have a field for Release, so I guess default to Release
             string path = "Release";
-            if (Config == UnrealTargetConfiguration.Debug ||
-                Config == UnrealTargetConfiguration.DebugGame ||
-                Config == UnrealTargetConfiguration.Development)
+            if(Configuration == UnrealTargetConfiguration.Debug ||
+               Configuration == UnrealTargetConfiguration.Development)
             {
-                //Note that we will still link to Release directories because the UE4 build system
-                //is made to mainly build release builds. The OpenVDB stuff can still be built with
-                //the debug database to allow debugging.
                 path = "Debug";
-                //path = "Release";
             }
             return path;
         }
@@ -82,7 +81,6 @@ public class OpenVDBModule : ModuleRules
             return new string[]
             {
                 Path.Combine(ModulePath, "Public"),
-                Path.Combine(ThirdPartyPath, "libovdb"),
             };
         }
     }
@@ -94,6 +92,10 @@ public class OpenVDBModule : ModuleRules
             return new string[]
             {
                 Path.Combine(ModulePath, "Private"),
+                Path.Combine(ThirdPartyPath, "OpenVDB", "src"),
+                Path.Combine(ThirdPartyPath, "OpenVDB", "dependencies", "include"),
+                Path.Combine(ThirdPartyPath, "LibNoise"),
+                Path.Combine(Path.GetPathRoot(Environment.SystemDirectory), "boost", "boost_1_59_0"),
             };
         }
     }
@@ -102,9 +104,16 @@ public class OpenVDBModule : ModuleRules
     {
         get
         {
+            string libType = "static";
+            if (OpenVDBOpenEXRAreShared)
+            {
+                libType = "shared";
+            }
             return new string[]
             {
                 Path.Combine(ModulePath, "..", "..", "Build", PlatformPath, ConfigurationPath),
+                Path.Combine(ThirdPartyPath, "OpenVDB", "dependencies", "lib", PlatformPath, ConfigurationPath, libType),
+                Path.Combine(Path.GetPathRoot(Environment.SystemDirectory), "boost", "boost_1_59_0", "lib64-msvc-14.0"),
             };
         }
     }
@@ -115,7 +124,16 @@ public class OpenVDBModule : ModuleRules
         {
             return new string[]
             {
-                "libovdb.lib",
+                "openvdb.lib",
+                "libnoise.lib",
+                "Half.lib",
+                //"Iex-2_2.lib",
+                //"IexMath-2_2.lib",
+                //"IlmThread-2_2.lib",
+                //"Imath-2_2.lib",
+                //"zlibstat.lib",
+                "tbb.lib",
+                "tbbmalloc.lib",
             };
         }
     }

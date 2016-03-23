@@ -54,28 +54,28 @@ AProceduralTerrain::AProceduralTerrain()
 void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	FIntVector dimensions = FIntVector(MapBoundsEnd.X, MapBoundsEnd.Y, HeightMapRange) - MapBoundsStart;
-	FString gridName = OpenVDBModule->InitializeVDB(VDBLocation, VolumeName, FVector(scaleXYZ), dimensions);
-	FString regionName = "all";
-	FString regionID = OpenVDBModule->CreateRegion(gridName, regionName, MapBoundsStart, FIntVector(MapBoundsEnd.X, MapBoundsEnd.Y, HeightMapRange));	
-
+	
 	MeshSectionIndices.Add(0);
-	MeshSectionIDs.Add(0, regionID);
-	OpenVDBModule->LoadRegion(regionID);
-	OpenVDBModule->FillRegionWithPerlinDensity(regionID, frequency, lacunarity, persistence, octaveCount);
-	OpenVDBModule->GenerateMesh(regionID, MeshSurfaceValue);
+	IsGridSectionMeshed.Add(0, false);
+	MeshSectionVertices.Add(0, TArray<FVector>());
+	MeshSectionPolygons.Add(0, TArray<int32>());
+	MeshSectionUVMap.Add(0, TArray<FVector2D>());
+	MeshSectionNormals.Add(0, TArray<FVector>());
+	MeshSectionVertexColors.Add(0, TArray<FColor>());
+	MeshSectionTangents.Add(0, TArray<FProcMeshTangent>());
 
-	for (auto i = MeshSectionIndices.CreateConstIterator(); i; ++i)
-	{
-		int32 sectionIndex = *i;
-		IsGridSectionMeshed.Add(sectionIndex, false);
-		MeshSectionVertices.Add(sectionIndex, TArray<FVector>());
-		MeshSectionPolygons.Add(sectionIndex, TArray<int32>());
-		MeshSectionUVMap.Add(sectionIndex, TArray<FVector2D>());
-		MeshSectionNormals.Add(sectionIndex, TArray<FVector>());
-		MeshSectionVertexColors.Add(sectionIndex, TArray<FColor>());
-		MeshSectionTangents.Add(sectionIndex, TArray<FProcMeshTangent>());
-	}
+	Vdb::HandleType handle = OpenVDBModule->CreateVDB(VDBLocation, true);
+	VDBHandles.Add(0, handle);
+
+	Vdb::UniformScaleTransformType scaleXform;
+	scaleXform.Scale = scaleXYZ;
+	OpenVDBModule->InitializeGrid(handle, VolumeName, scaleXform);
+
+	FString regionName = "all";
+	FString regionID = OpenVDBModule->AddRegionDefinition(handle, VolumeName, regionName, MapBoundsStart, FIntVector(MapBoundsEnd.X, MapBoundsEnd.Y, HeightMapRange));
+	MeshSectionIDs[0] = regionID;
+	OpenVDBModule->PopulateRegionDensity_Perlin(handle, regionID, frequency, lacunarity, persistence, octaveCount);
+	OpenVDBModule->LoadRegion(handle, regionID, MeshSectionVertices[0], MeshSectionPolygons[0], MeshSectionNormals[0]);
 }
 
 // Called when the game starts or when spawned
@@ -88,7 +88,7 @@ void AProceduralTerrain::BeginPlay()
 		const int32 &sectionIndex = *i;
 		if (!IsGridSectionMeshed[sectionIndex])
 		{
-			OpenVDBModule->GetMeshGeometry(MeshSectionIDs[sectionIndex], MeshSectionVertices[sectionIndex], MeshSectionPolygons[sectionIndex], MeshSectionNormals[sectionIndex]);
+			OpenVDBModule->MeshRegion(VDBHandles[sectionIndex], MeshSectionIDs[sectionIndex], MeshSurfaceValue);
 			TerrainMeshComponent->CreateTerrainMeshSection(*i, bCreateCollision,
 				MeshSectionVertices[sectionIndex],
 				MeshSectionPolygons[sectionIndex],

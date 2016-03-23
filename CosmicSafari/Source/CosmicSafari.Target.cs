@@ -13,13 +13,13 @@ public class CosmicSafariTarget : TargetRules
         //PrivateIncludePathModuleNames.AddRange(new string[] { "ProceduralMeshComponent" });
         //Does this need to be called instead of having OpenVDBModule in OutExtraModuleNames?
         //DynamicallyLoadedModuleNames.AddRange(new string[] { "OpenVDBModule" });
-	}
+    }
 
-	//
-	// TargetRules interface.
-	//
+    //
+    // TargetRules interface.
+    //
 
-	public override void SetupBinaries(
+    public override void SetupBinaries(
 		TargetInfo Target,
 		ref List<UEBuildBinaryConfiguration> OutBuildBinaryConfigurations,
 		ref List<string> OutExtraModuleNames
@@ -27,4 +27,12 @@ public class CosmicSafariTarget : TargetRules
 	{
 		OutExtraModuleNames.AddRange(new string[] { "CosmicSafari", "OpenVDBModule" });
 	}
+
+    public virtual void SetupGlobalEnvironment(
+        TargetInfo Target,
+        ref LinkEnvironmentConfiguration OutLinkEnvironmentConfiguration,
+        ref CPPEnvironmentConfiguration OutCPPEnvironmentConfiguration
+        )
+    {
+    }
 }

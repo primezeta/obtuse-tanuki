@@ -18,9 +18,6 @@
     <ClInclude Include="libovdb.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="OvdbQuad.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="OvdbTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
