@@ -1,23 +1,21 @@
 #include "OpenVDBModule.h"
 #include "GridMetadata.h"
-#pragma warning(push)
-#pragma warning(1:4211 4800 4503 4146)
 
 Vdb::Metadata::RegionMetadata::RegionMetadata()
 {
-	ParentGridName = TEXT("");
+	WorldName = TEXT("");
 	RegionName = TEXT("");
 	RegionBBox = openvdb::CoordBBox();
 }
 
-Vdb::Metadata::RegionMetadata::RegionMetadata(const FString &parentName, const FString &name, const openvdb::CoordBBox &bbox)
-	: ParentGridName(parentName), RegionName(name), RegionBBox(bbox)
+Vdb::Metadata::RegionMetadata::RegionMetadata(const FString &worldName, const FString &regionName, const openvdb::CoordBBox &bbox)
+	: WorldName(worldName), RegionName(name), RegionBBox(bbox)
 {
 }
 
-FString Vdb::Metadata::RegionMetadata::GetParentGridName() const
+FString Vdb::Metadata::RegionMetadata::GetParentWorldName() const
 {
-	return ParentGridName;
+	return WorldName;
 }
 
 FString Vdb::Metadata::RegionMetadata::GetRegionName() const
@@ -32,7 +30,7 @@ openvdb::CoordBBox Vdb::Metadata::RegionMetadata::GetRegionBBox() const
 
 Vdb::Metadata::RegionMetadata& Vdb::Metadata::RegionMetadata::operator=(const Vdb::Metadata::RegionMetadata &rhs)
 {
-	ParentGridName = rhs.ParentGridName;
+	WorldName = rhs.WorldName;
 	RegionName = rhs.RegionName;
 	RegionBBox = rhs.RegionBBox;
 	return *this;
@@ -41,7 +39,7 @@ Vdb::Metadata::RegionMetadata& Vdb::Metadata::RegionMetadata::operator=(const Vd
 FString Vdb::Metadata::RegionMetadata::ID() const
 {
 	TArray<FString> metaNameStrs;
-	metaNameStrs.Add(ParentGridName);
+	metaNameStrs.Add(WorldName);
 	metaNameStrs.Add(TEXT("region"));
 	metaNameStrs.Add(RegionName);
 	return ConstructRecordStr(metaNameStrs);
@@ -63,7 +61,7 @@ FString Vdb::Metadata::RegionMetadata::ConstructRecordStr(const TArray<FString> 
 template<> inline std::string openvdb::TypedMetadata<Vdb::Metadata::RegionMetadata>::str() const
 {
 	TArray<FString> strs;
-	strs.Add(mValue.GetParentGridName());
+	strs.Add(mValue.GetWorldName());
 	strs.Add(mValue.GetRegionName());
 	openvdb::CoordBBox regionBBox = mValue.GetRegionBBox();
 	strs.Add(FString::Printf(TEXT("%s"), UTF8_TO_TCHAR(std::string(regionBBox.min().asVec3d().str() + regionBBox.max().asVec3d().str()).c_str())));
@@ -78,5 +76,5 @@ template<> inline Vdb::Metadata::RegionMetadata openvdb::zeroVal<Vdb::Metadata::
 
 bool openvdb::math::operator==(const Vdb::Metadata::RegionMetadata &lhs, const Vdb::Metadata::RegionMetadata &rhs)
 {
-	return lhs.GetParentGridName() == rhs.GetParentGridName() && lhs.GetRegionName() == rhs.GetRegionName() && lhs.GetRegionBBox() == rhs.GetRegionBBox();
+	return lhs.GetWorldName() == rhs.GetWorldName() && lhs.GetRegionName() == rhs.GetRegionName() && lhs.GetRegionBBox() == rhs.GetRegionBBox();
 }

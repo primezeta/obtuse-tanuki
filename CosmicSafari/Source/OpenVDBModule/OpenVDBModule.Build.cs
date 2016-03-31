@@ -16,36 +16,20 @@ public class OpenVDBModule : ModuleRules
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
         PublicIncludePaths.AddRange(PublicIncludes);
         PrivateIncludePaths.AddRange(PrivateIncludes);
-        PublicLibraryPaths.AddRange(LibPaths);
-        PublicAdditionalLibraries.AddRange(LibNames);
+        PublicSystemIncludePaths.AddRange(ThirdPartyIncludes);
+        PublicLibraryPaths.AddRange(ThirdPartyLibPaths);
+        PublicAdditionalLibraries.AddRange(ThirdPartyLibNames);
         Definitions.AddRange(new string[] { "OPENVDB_DLL", "OPENEXR_DLL", "ZLIB_STATIC" });
-        //AddThirdPartyPrivateDynamicDependencies
         MinFilesUsingPrecompiledHeaderOverride = 1;
         bFasterWithoutUnity = true;
         bUseRTTI = true;
-        //UEBuildConfiguration.bForceEnableExceptions = true;
         bEnableExceptions = true;
+        //UEBuildConfiguration.bForceEnableExceptions = true;
     }
 
     private UnrealTargetPlatform Platform;
     private UnrealTargetConfiguration Configuration;
     private bool OpenVDBOpenEXRAreShared;
-
-    private string ModulePath
-    {
-        get
-        {
-            return Path.Combine(Path.GetDirectoryName(RulesCompiler.GetModuleFilename(this.GetType().Name)));
-        }
-    }
-
-    private string ThirdPartyPath
-    {
-        get
-        {
-            return Path.Combine(ModulePath, "..", "..", "ThirdParty");
-        }
-    }
 
     private string PlatformPath
     {
@@ -78,9 +62,9 @@ public class OpenVDBModule : ModuleRules
     {
         get
         {
+            //Nothing right now
             return new string[]
             {
-                Path.Combine(ModulePath, "Public"),
             };
         }
     }
@@ -91,7 +75,25 @@ public class OpenVDBModule : ModuleRules
         {
             return new string[]
             {
-                Path.Combine(ModulePath, "Private"),
+                Path.Combine(ModuleDirectory, "Private"),
+            };
+        }
+    }
+
+    private string ThirdPartyPath
+    {
+        get
+        {
+            return Path.Combine(ModuleDirectory, "..", "..", "ThirdParty");
+        }
+    }
+
+    private string[] ThirdPartyIncludes
+    {
+        get
+        {
+            return new string[]
+            {
                 Path.Combine(ThirdPartyPath, "OpenVDB", "src"),
                 Path.Combine(ThirdPartyPath, "OpenVDB", "dependencies", "include"),
                 Path.Combine(ThirdPartyPath, "LibNoise"),
@@ -100,7 +102,7 @@ public class OpenVDBModule : ModuleRules
         }
     }
 
-    private string[] LibPaths
+    private string[] ThirdPartyLibPaths
     {
         get
         {
@@ -111,14 +113,14 @@ public class OpenVDBModule : ModuleRules
             }
             return new string[]
             {
-                Path.Combine(ModulePath, "..", "..", "Build", PlatformPath, ConfigurationPath),
+                Path.Combine(ModuleDirectory, "..", "..", "Build", PlatformPath, ConfigurationPath),
                 Path.Combine(ThirdPartyPath, "OpenVDB", "dependencies", "lib", PlatformPath, ConfigurationPath, libType),
                 Path.Combine(Path.GetPathRoot(Environment.SystemDirectory), "boost", "boost_1_59_0", "lib64-msvc-14.0"),
             };
         }
     }
 
-    private string[] LibNames
+    private string[] ThirdPartyLibNames
     {
         get
         {

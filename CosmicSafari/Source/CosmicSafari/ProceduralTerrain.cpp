@@ -64,7 +64,7 @@ void AProceduralTerrain::PostInitializeComponents()
 	MeshSectionVertexColors.Add(0, TArray<FColor>());
 	MeshSectionTangents.Add(0, TArray<FProcMeshTangent>());
 
-	Vdb::HandleType handle = OpenVDBModule->CreateVDB(VDBLocation, true);
+	Vdb::HandleType handle = OpenVDBModule->CreateVDB(VDBLocation, true, true);
 	VDBHandles.Add(0, handle);
 
 	Vdb::UniformScaleTransformType scaleXform;

@@ -8,11 +8,6 @@ public class CosmicSafariEditorTarget : TargetRules
 	public CosmicSafariEditorTarget(TargetInfo Target)
 	{
 		Type = TargetType.Editor;
-        //The following does not seem to be working...
-        //PrivateDependencyModuleNames.AddRange(new string[] { "ProceduralMeshComponent" });
-        //PrivateIncludePathModuleNames.AddRange(new string[] { "ProceduralMeshComponent" });
-        //Does this need to be called instead of having OpenVDBModule in OutExtraModuleNames?
-        //DynamicallyLoadedModuleNames.AddRange(new string[] { "OpenVDBModule" });
     }
 
     //

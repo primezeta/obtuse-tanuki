@@ -132,6 +132,10 @@
       </AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)ThirdParty\OpenVDB\dependencies\lib\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
     </Lib>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -187,6 +191,10 @@
       </AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)ThirdParty\OpenVDB\dependencies\lib\$(Platform)\$(Configuration)</AdditionalLibraryDirectories>
     </Lib>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\openvdb\Grid.cc" />

@@ -1,26 +1,24 @@
 #pragma once
-#include "OpenVDBModule.h"
-#pragma warning(push)
-#pragma warning(1:4211 4800 4503 4146)
+#include "EngineMinimal.h"
 #include <openvdb/openvdb.h>
 
-namespace Vdb 
+namespace Vdb
 {
-	namespace Metadata 
+	namespace Metadata
 	{
 		class RegionMetadata
 		{
 		public:
 			RegionMetadata();
-			RegionMetadata(const FString &parentName, const FString &name, const openvdb::CoordBBox &bbox);
-			FString GetParentGridName() const;
+			RegionMetadata(const FString &regionName, const openvdb::CoordBBox &bbox);
+			FString GetWorldName() const;
 			FString GetRegionName() const;
 			openvdb::CoordBBox GetRegionBBox() const;
 			RegionMetadata& operator=(const RegionMetadata &rhs);
 			FString ID() const;
 			static FString ConstructRecordStr(const TArray<FString> &strs);
 		private:
-			FString ParentGridName;
+			FString WorldName;
 			FString RegionName;
 			openvdb::CoordBBox RegionBBox;
 		};

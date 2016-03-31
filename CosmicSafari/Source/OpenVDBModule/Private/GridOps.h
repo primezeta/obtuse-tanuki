@@ -1,7 +1,5 @@
 #pragma once
-#include "OpenVDBModule.h"
-#pragma warning(push)
-#pragma warning(1:4211 4800 4503 4146)
+#include "EngineMinimal.h"
 #include <openvdb/openvdb.h>
 #include <openvdb/tools/ValueTransformer.h>
 #include <noise.h>

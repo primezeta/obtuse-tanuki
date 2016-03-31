@@ -3,7 +3,7 @@
 #pragma once
 
 #include "GameFramework/Actor.h"
-#include "OpenVDBModule/Public/OpenVDBModule.h"
+#include "OpenVDBModule.h"
 #include "ProceduralTerrainMeshComponent.h"
 #include "ProceduralTerrain.generated.h"
 
