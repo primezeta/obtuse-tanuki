@@ -3,7 +3,7 @@
   <ItemGroup>
     <None Include="..\..\CosmicSafari.uproject" />
     <Filter Include="Source">
-      <UniqueIdentifier>{B8B3D782-1AF7-4258-8B7C-9BCD3EB8BD16}</UniqueIdentifier>
+      <UniqueIdentifier>{82285C80-E68D-4795-B34B-617DEC5E9613}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Source\CosmicSafari.Target.cs">
       <Filter>Source</Filter>
@@ -12,7 +12,7 @@
       <Filter>Source</Filter>
     </None>
     <Filter Include="Config">
-      <UniqueIdentifier>{B2787A6D-205C-481D-8F17-177239C95935}</UniqueIdentifier>
+      <UniqueIdentifier>{23CA6F09-B0EE-4B94-82C5-5463E431ED7C}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Config\DefaultEditor.ini">
       <Filter>Config</Filter>
@@ -30,7 +30,7 @@
       <Filter>Config</Filter>
     </None>
     <Filter Include="Source\CosmicSafari">
-      <UniqueIdentifier>{3A317B62-EB73-4BF6-B631-C8ABB6FC4BB8}</UniqueIdentifier>
+      <UniqueIdentifier>{85780918-E55A-4B79-9AC1-31B8BD0F67D6}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Source\CosmicSafari\CosmicSafari.Build.cs">
       <Filter>Source\CosmicSafari</Filter>
@@ -72,13 +72,13 @@
       <Filter>Source\CosmicSafari</Filter>
     </ClInclude>
     <Filter Include="Source\OpenVDBModule">
-      <UniqueIdentifier>{779630FE-8D67-497F-9196-720B2B6EC39C}</UniqueIdentifier>
+      <UniqueIdentifier>{D2CE5E35-5553-4268-8743-C7AB39B29F79}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Source\OpenVDBModule\OpenVDBModule.Build.cs">
       <Filter>Source\OpenVDBModule</Filter>
     </None>
     <Filter Include="Source\OpenVDBModule\Private">
-      <UniqueIdentifier>{FCC49E6B-DED9-4A93-A5C0-A4F6FBE39459}</UniqueIdentifier>
+      <UniqueIdentifier>{FD02CD48-8230-4B8B-AFC2-0A6489D6C0C7}</UniqueIdentifier>
     </Filter>
     <ClCompile Include="..\..\Source\OpenVDBModule\Private\GridMetadata.cpp">
       <Filter>Source\OpenVDBModule\Private</Filter>
@@ -89,34 +89,26 @@
     <ClInclude Include="..\..\Source\OpenVDBModule\Private\GridOps.h">
       <Filter>Source\OpenVDBModule\Private</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Source\OpenVDBModule\Private\IVdb.h">
-      <Filter>Source\OpenVDBModule\Private</Filter>
-    </ClInclude>
     <ClCompile Include="..\..\Source\OpenVDBModule\Private\OpenVDBModule.cpp">
-      <Filter>Source\OpenVDBModule\Private</Filter>
-    </ClCompile>
-    <Filter Include="Source\OpenVDBModule\Public">
-      <UniqueIdentifier>{4ABBB100-4AA4-41D3-A99E-D265DDE0C279}</UniqueIdentifier>
-    </Filter>
-    <ClInclude Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.h">
-      <Filter>Source\OpenVDBModule\Public</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\..\Source\OpenVDBModule\Public\IVdbInterface.h" />
-    <ClInclude Include="..\..\Source\OpenVDBModule\Public\VDBInterface.h">
-      <Filter>Source\OpenVDBModule\Public</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Source\OpenVDBModule\Public\VDBHandle.h">
-      <Filter>Source\OpenVDBModule\Public</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\..\Source\OpenVDBModule\Private\VDBInterface.cpp">
       <Filter>Source\OpenVDBModule\Private</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Source\OpenVDBModule\Private\VDBHandle.cpp">
       <Filter>Source\OpenVDBModule\Private</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Source\OpenVDBModule\Private\VDBInterface.cpp">
+      <Filter>Source\OpenVDBModule\Private</Filter>
+    </ClCompile>
+    <Filter Include="Source\OpenVDBModule\Public">
+      <UniqueIdentifier>{F0BB71A6-ADA5-4BD5-83E9-A8C423596287}</UniqueIdentifier>
+    </Filter>
+    <ClInclude Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.h">
+      <Filter>Source\OpenVDBModule\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\OpenVDBModule\Public\VDBHandle.h">
+      <Filter>Source\OpenVDBModule\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\OpenVDBModule\Public\VDBInterface.h">
+      <Filter>Source\OpenVDBModule\Public</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

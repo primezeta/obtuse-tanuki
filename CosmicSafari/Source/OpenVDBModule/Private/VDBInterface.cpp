@@ -1,3 +1,4 @@
+#include "OpenVDBModule.h"
 #include "VDBInterface.h"
 
 UVDBInterface::UVDBInterface(const FObjectInitializer& ObjectInitializer)

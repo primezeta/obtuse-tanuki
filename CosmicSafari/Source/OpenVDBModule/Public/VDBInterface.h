@@ -1,5 +1,6 @@
 #pragma once
 #include "EngineMinimal.h"
+#include "VDBInterface.generated.h"
 
 UINTERFACE(Blueprintable)
 class UVDBInterface : public UInterface
@@ -11,27 +12,28 @@ class IVDBInterface
 {
 	GENERATED_IINTERFACE_BODY()
 
+public:
 	UFUNCTION(BlueprintCallable, Category = "VDB Interface")
-	void Initialize(const FString &path, bool enableDelayLoad, bool enableGridStats);
+	virtual void Initialize(const FString &path, bool enableDelayLoad, bool enableGridStats) = 0;
 
 	UFUNCTION(BlueprintCallable, Category = "VDB Interface")
-	FString AddGrid(const FString &gridName, const FIntVector &indexStart, const FIntVector &indexEnd);
+	virtual FString AddGrid(const FString &gridName, const FIntVector &indexStart, const FIntVector &indexEnd) = 0;
 
 	UFUNCTION(BlueprintCallable, Category = "VDB Interface")
-	void RemoveGrid(const FString &gridID);
+	virtual void RemoveGrid(const FString &gridID) = 0;
 
 	UFUNCTION(BlueprintCallable, Category = "VDB Interface")
-	void ReadGridTree(const FString &gridID, const FIntVector &indexStart, const FIntVector &indexEnd, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer);
+	virtual void ReadGridTree(const FString &gridID, FIntVector &indexStart, FIntVector &indexEnd) = 0;
 
 	UFUNCTION(BlueprintCallable, Category = "VDB Interface")
-	void MeshGrid(const FString &gridID, float surfaceValue);
+	virtual void MeshGrid(const FString &gridID, float surfaceValue, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer) = 0;
 
 	UFUNCTION(BlueprintCallable, Category = "VDB Interface")
-	void ReadGridIndexBounds(const FString &gridID, FIntVector &indexStart, FIntVector &indexEnd);
+	virtual void ReadGridIndexBounds(const FString &gridID, FIntVector &indexStart, FIntVector &indexEnd) = 0;
 
 	UFUNCTION(BlueprintCallable, Category = "VDB Interface")
-	SIZE_T ReadGridCount();
+	virtual SIZE_T ReadGridCount() = 0;
 
 	UFUNCTION(BlueprintCallable, Category = "VDB Interface")
-	void PopulateGridDensity_Perlin(const FString &gridID, double frequency, double lacunarity, double persistence, int octaveCount);
+	virtual void PopulateGridDensity_Perlin(const FString &gridID, double frequency, double lacunarity, double persistence, int octaveCount) = 0;
 };

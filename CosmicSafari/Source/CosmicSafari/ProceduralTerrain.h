@@ -75,15 +75,15 @@ private:
 	static FOpenVDBModule * OpenVDBModule;
 	static void InitializeOpenVDBModule();
 
-	TArray<int32> MeshSectionIndices;
-	TMap<int32, Vdb::HandleType> VDBHandles;
-	TMap<int32, FString> MeshSectionIDs;
-	TMap<int32, bool> IsGridSectionMeshed;
-	TMap<int32, TArray<FVector>> MeshSectionVertices;
-	TMap<int32, TArray<int32>> MeshSectionPolygons;
-	TMap<int32, TArray<FVector2D>> MeshSectionUVMap;
-	TMap<int32, TArray<FVector>> MeshSectionNormals;
-	TMap<int32, TArray<FColor>> MeshSectionVertexColors;
-	TMap<int32, TArray<FProcMeshTangent>> MeshSectionTangents;
-	UMaterialInstanceDynamic * TerrainDynamicMaterial;
+	//TArray<int32> MeshSectionIndices;
+	//TMap<int32, Vdb::HandleType> VDBHandles;
+	//TMap<int32, FString> MeshSectionIDs;
+	//TMap<int32, bool> IsGridSectionMeshed;
+	//TMap<int32, TArray<FVector>> MeshSectionVertices;
+	//TMap<int32, TArray<int32>> MeshSectionPolygons;
+	//TMap<int32, TArray<FVector2D>> MeshSectionUVMap;
+	//TMap<int32, TArray<FVector>> MeshSectionNormals;
+	//TMap<int32, TArray<FColor>> MeshSectionVertexColors;
+	//TMap<int32, TArray<FProcMeshTangent>> MeshSectionTangents;
+	//UMaterialInstanceDynamic * TerrainDynamicMaterial;
 };

@@ -55,27 +55,27 @@ void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 	
-	MeshSectionIndices.Add(0);
-	IsGridSectionMeshed.Add(0, false);
-	MeshSectionVertices.Add(0, TArray<FVector>());
-	MeshSectionPolygons.Add(0, TArray<int32>());
-	MeshSectionUVMap.Add(0, TArray<FVector2D>());
-	MeshSectionNormals.Add(0, TArray<FVector>());
-	MeshSectionVertexColors.Add(0, TArray<FColor>());
-	MeshSectionTangents.Add(0, TArray<FProcMeshTangent>());
+	//MeshSectionIndices.Add(0);
+	//IsGridSectionMeshed.Add(0, false);
+	//MeshSectionVertices.Add(0, TArray<FVector>());
+	//MeshSectionPolygons.Add(0, TArray<int32>());
+	//MeshSectionUVMap.Add(0, TArray<FVector2D>());
+	//MeshSectionNormals.Add(0, TArray<FVector>());
+	//MeshSectionVertexColors.Add(0, TArray<FColor>());
+	//MeshSectionTangents.Add(0, TArray<FProcMeshTangent>());
 
-	Vdb::HandleType handle = OpenVDBModule->CreateVDB(VDBLocation, true, true);
-	VDBHandles.Add(0, handle);
+	//Vdb::HandleType handle = OpenVDBModule->CreateVDB(VDBLocation, true, true);
+	//VDBHandles.Add(0, handle);
 
-	Vdb::UniformScaleTransformType scaleXform;
-	scaleXform.Scale = scaleXYZ;
-	OpenVDBModule->InitializeGrid(handle, VolumeName, scaleXform);
+	//Vdb::UniformScaleTransformType scaleXform;
+	//scaleXform.Scale = scaleXYZ;
+	//OpenVDBModule->InitializeGrid(handle, VolumeName, scaleXform);
 
-	FString regionName = "all";
-	FString regionID = OpenVDBModule->AddRegionDefinition(handle, VolumeName, regionName, MapBoundsStart, FIntVector(MapBoundsEnd.X, MapBoundsEnd.Y, HeightMapRange));
-	MeshSectionIDs[0] = regionID;
-	OpenVDBModule->PopulateRegionDensity_Perlin(handle, regionID, frequency, lacunarity, persistence, octaveCount);
-	OpenVDBModule->LoadRegion(handle, regionID, MeshSectionVertices[0], MeshSectionPolygons[0], MeshSectionNormals[0]);
+	//FString regionName = "all";
+	//FString regionID = OpenVDBModule->AddRegionDefinition(handle, VolumeName, regionName, MapBoundsStart, FIntVector(MapBoundsEnd.X, MapBoundsEnd.Y, HeightMapRange));
+	//MeshSectionIDs[0] = regionID;
+	//OpenVDBModule->PopulateRegionDensity_Perlin(handle, regionID, frequency, lacunarity, persistence, octaveCount);
+	//OpenVDBModule->LoadRegion(handle, regionID, MeshSectionVertices[0], MeshSectionPolygons[0], MeshSectionNormals[0]);
 }
 
 // Called when the game starts or when spawned
@@ -83,23 +83,23 @@ void AProceduralTerrain::BeginPlay()
 {
 	Super::BeginPlay();
 
-	for (auto i = MeshSectionIndices.CreateConstIterator(); i; ++i)
-	{
-		const int32 &sectionIndex = *i;
-		if (!IsGridSectionMeshed[sectionIndex])
-		{
-			OpenVDBModule->MeshRegion(VDBHandles[sectionIndex], MeshSectionIDs[sectionIndex], MeshSurfaceValue);
-			TerrainMeshComponent->CreateTerrainMeshSection(*i, bCreateCollision,
-				MeshSectionVertices[sectionIndex],
-				MeshSectionPolygons[sectionIndex],
-				MeshSectionUVMap[sectionIndex],
-				MeshSectionNormals[sectionIndex],
-				MeshSectionVertexColors[sectionIndex],
-				MeshSectionTangents[sectionIndex]);
-			TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
-			IsGridSectionMeshed[sectionIndex] = true;
-		}
-	}
+	//for (auto i = MeshSectionIndices.CreateConstIterator(); i; ++i)
+	//{
+	//	const int32 &sectionIndex = *i;
+	//	if (!IsGridSectionMeshed[sectionIndex])
+	//	{
+	//		OpenVDBModule->MeshRegion(VDBHandles[sectionIndex], MeshSectionIDs[sectionIndex], MeshSurfaceValue);
+	//		TerrainMeshComponent->CreateTerrainMeshSection(*i, bCreateCollision,
+	//			MeshSectionVertices[sectionIndex],
+	//			MeshSectionPolygons[sectionIndex],
+	//			MeshSectionUVMap[sectionIndex],
+	//			MeshSectionNormals[sectionIndex],
+	//			MeshSectionVertexColors[sectionIndex],
+	//			MeshSectionTangents[sectionIndex]);
+	//		TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
+	//		IsGridSectionMeshed[sectionIndex] = true;
+	//	}
+	//}
 }
 
 // Called every frame

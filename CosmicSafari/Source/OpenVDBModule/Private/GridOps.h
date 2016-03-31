@@ -1,5 +1,7 @@
 #pragma once
 #include "EngineMinimal.h"
+#pragma warning(push)
+#pragma warning(1:4211 4800 4503 4146)
 #include <openvdb/openvdb.h>
 #include <openvdb/tools/ValueTransformer.h>
 #include <noise.h>
@@ -308,8 +310,7 @@ namespace Vdb
 			typedef typename MeshOpType::OutValueType OutValueType;
 			typedef typename openvdb::Grid<TreeType> GridType;
 			typedef typename openvdb::Grid<IndexTreeType> VertexIndexGridType;
-			typedef typename GridType::Ptr GridPtrType;
-			BasicMesher(GridPtrType grid, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer)
+			BasicMesher(TSharedPtr<GridType> grid, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer)
 				: gridPtr(grid), meshOp(new MeshOpType(grid->transform(), vertexBuffer, polygonBuffer, normalBuffer)), activateValuesOp(new ActivateValuesOpType()) {}
 			inline void doActivateValuesOp(InValueType isovalue)
 			{
@@ -328,7 +329,7 @@ namespace Vdb
 				openvdb::tools::transformValues<MeshOpType::IterType, MeshOpType::OutGridType, MeshOpType>(gridPtr->cbeginValueOn(), *visitedVertexIndices, *meshOp);
 				meshOp->collectPolygons();
 			}
-			const GridPtrType gridPtr;
+			const TSharedPtr<GridType> gridPtr;
 			const typename MeshOpType::Ptr meshOp;
 		private:
 			typename ActivateValuesOpType::Ptr activateValuesOp;

@@ -1,5 +1,7 @@
 #pragma once
 #include "EngineMinimal.h"
+#pragma warning(push)
+#pragma warning(1:4211 4800 4503 4146)
 #include <openvdb/openvdb.h>
 
 namespace Vdb
@@ -10,7 +12,7 @@ namespace Vdb
 		{
 		public:
 			RegionMetadata();
-			RegionMetadata(const FString &regionName, const openvdb::CoordBBox &bbox);
+			RegionMetadata(const FString &worldName, const FString &regionName, const openvdb::CoordBBox &bbox);
 			FString GetWorldName() const;
 			FString GetRegionName() const;
 			openvdb::CoordBBox GetRegionBBox() const;

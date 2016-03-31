@@ -2,7 +2,9 @@
 #define __OPENVDBMODULE_H__
 
 #include "EngineMinimal.h"
-#include "VdbHandle.h"
+//#include "VdbHandle.h"
+
+DECLARE_LOG_CATEGORY_EXTERN(LogOpenVDBModule, Log, All)
 
 class OPENVDBMODULE_API FOpenVDBModule : public IModuleInterface
 {

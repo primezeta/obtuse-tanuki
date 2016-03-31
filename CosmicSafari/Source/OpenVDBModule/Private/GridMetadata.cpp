@@ -9,11 +9,11 @@ Vdb::Metadata::RegionMetadata::RegionMetadata()
 }
 
 Vdb::Metadata::RegionMetadata::RegionMetadata(const FString &worldName, const FString &regionName, const openvdb::CoordBBox &bbox)
-	: WorldName(worldName), RegionName(name), RegionBBox(bbox)
+	: WorldName(worldName), RegionName(regionName), RegionBBox(bbox)
 {
 }
 
-FString Vdb::Metadata::RegionMetadata::GetParentWorldName() const
+FString Vdb::Metadata::RegionMetadata::GetWorldName() const
 {
 	return WorldName;
 }
