@@ -3,8 +3,6 @@
 #include "VDBInterface.h"
 #include "VDBHandle.generated.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogVDBHandle, Log, All)
-
 //USTRUCT()
 //struct FScaleTransformStruct
 //{
@@ -93,13 +91,13 @@ DECLARE_LOG_CATEGORY_EXTERN(LogVDBHandle, Log, All)
 //	double Depth;
 //};
 
-UCLASS()
+UCLASS(MinimalAPI)
 class UVDBHandle : public UObject, public IVDBInterface
 {
 	GENERATED_BODY()
 
 public:
-	UVDBHandle(const FObjectInitializer& ObjectInitializer);
+	static UVDBHandle const * RegisterVDB(const FString &path, const FString &worldName, bool enableDelayLoad, bool enableGridStats);
 
 	UPROPERTY(EditAnywhere)
 	FString FilePath;
@@ -113,12 +111,26 @@ public:
 	UPROPERTY(EditAnywhere)
 	FString WorldName;
 
-	virtual void Initialize(const FString &path, bool enableDelayLoad, bool enableGridStats) override;
+	UVDBHandle(const FObjectInitializer& ObjectInitializer);
+	virtual void PostInitProperties() override;
+	virtual void BeginDestroy() override;
+
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+
+	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 	virtual FString AddGrid(const FString &gridName, const FIntVector &indexStart, const FIntVector &indexEnd) override;
+	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 	virtual void RemoveGrid(const FString &gridID) override;
+	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 	virtual void ReadGridTree(const FString &gridID, FIntVector &indexStart, FIntVector &indexEnd) override;
+	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 	virtual void MeshGrid(const FString &gridID, float surfaceValue, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer) override;
+	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 	virtual void ReadGridIndexBounds(const FString &gridID, FIntVector &indexStart, FIntVector &indexEnd) override;
-	virtual SIZE_T ReadGridCount() override;
-	virtual void PopulateGridDensity_Perlin(const FString &gridID, double frequency, double lacunarity, double persistence, int octaveCount) override;
+	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
+	virtual int32 ReadGridCount() override;
+	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
+	virtual void PopulateGridDensity_Perlin(const FString &gridID, float frequency, float lacunarity, float persistence, int32 octaveCount) override;
 };

@@ -12,7 +12,7 @@ namespace Vdb
 	namespace GridOps
 	{
 		enum CubeVertex { VX0, VX1, VX2, VX3, VX4, VX5, VX6, VX7, VX8 };
-		const static size_t CUBE_VERTEX_COUNT = VX8 + 1;
+		const static SIZE_T CUBE_VERTEX_COUNT = VX8 + 1;
 		const static openvdb::Index32 UNVISITED_VERTEX_INDEX = UINT32_MAX;
 
 		//Helper class that holds coordinates of a cube
@@ -126,12 +126,12 @@ namespace Vdb
 		{
 		public:
 			typedef typename BasicModifyActiveOp<OutValueType> ModifyOpType;
-			PerlinNoiseFillOp(const openvdb::math::Transform &xform, double frequency, double lacunarity, double persistence, int octaveCount) : ITransformOp(xform)
+			PerlinNoiseFillOp(const openvdb::math::Transform &xform, float frequency, float lacunarity, float persistence, int32 octaveCount) : ITransformOp(xform)
 			{
-				valueSource.SetFrequency(frequency);
-				valueSource.SetLacunarity(lacunarity);
-				valueSource.SetPersistence(persistence);
-				valueSource.SetOctaveCount(octaveCount);
+				valueSource.SetFrequency((double)frequency);
+				valueSource.SetLacunarity((double)lacunarity);
+				valueSource.SetPersistence((double)persistence);
+				valueSource.SetOctaveCount((double)octaveCount);
 			}
 			inline void operator()(const IterType& iter, OutAccessorType& acc) override
 			{
@@ -167,7 +167,7 @@ namespace Vdb
 			inline OutValueType GetDensityValue(const openvdb::Vec3d &vec)
 			{
 				double prevLacunarity = valueSource.GetLacunarity();
-				int prevOctaveCount = valueSource.GetOctaveCount();
+				int32 prevOctaveCount = valueSource.GetOctaveCount();
 				valueSource.SetLacunarity(prevLacunarity*0.004);
 				valueSource.SetOctaveCount(2);
 				double warp = valueSource.GetValue(vec.x(), vec.y(), vec.z()) * 8;
@@ -223,7 +223,7 @@ namespace Vdb
 				const InValueType &density = iter.getValue();
 				//Mesh the voxel as a simple cube with 6 equal sized quads
 				PrimitiveCube primitiveIndices(coord);
-				for (uint32_t i = 0; i < CUBE_VERTEX_COUNT; ++i)
+				for (uint32 i = 0; i < CUBE_VERTEX_COUNT; ++i)
 				{
 					const CubeVertex &vtx = (CubeVertex)i;
 					const openvdb::Coord &idxCoord = primitiveIndices.getCoord(vtx);
@@ -269,9 +269,9 @@ namespace Vdb
 					const openvdb::Vec4I &q = *i;
 					const openvdb::Vec3I poly1 = openvdb::Vec3I(q[0], q[1], q[2]);
 					const openvdb::Vec3I poly2 = openvdb::Vec3I(q[0], q[2], q[3]);
-					const int32_t signedPoly1[3] = { (int32_t)poly1[0], (int32_t)poly1[1], (int32_t)poly1[2] };
-					const int32_t signedPoly2[3] = { (int32_t)poly2[0], (int32_t)poly2[1], (int32_t)poly2[2] };
-					for (int j = 0; j < 3; ++j)
+					const int32 signedPoly1[3] = { (int32)poly1[0], (int32)poly1[1], (int32)poly1[2] };
+					const int32 signedPoly2[3] = { (int32)poly2[0], (int32)poly2[1], (int32)poly2[2] };
+					for (int32 j = 0; j < 3; ++j)
 					{
 						if (signedPoly1[j] < 0)
 						{

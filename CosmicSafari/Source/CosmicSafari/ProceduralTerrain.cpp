@@ -26,10 +26,12 @@ AProceduralTerrain::AProceduralTerrain()
 {
 	AProceduralTerrain::InitializeOpenVDBModule();
 
+	VDBHandle = CreateDefaultSubobject<UVDBHandle>(TEXT("VDB"));
+	TerrainMeshComponent = CreateDefaultSubobject<UProceduralTerrainMeshComponent>(TEXT("GeneratedTerrain"));
+
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	SetActorEnableCollision(true);
-	TerrainMeshComponent = CreateDefaultSubobject<UProceduralTerrainMeshComponent>(TEXT("GeneratedTerrain"));
 	//RootComponent = TerrainMeshComponent;
 	TerrainMeshComponent->AttachTo(RootComponent);
 	TerrainMeshComponent->SetWorldScale3D(FVector(100.0f, 100.0f, 100.0f));
