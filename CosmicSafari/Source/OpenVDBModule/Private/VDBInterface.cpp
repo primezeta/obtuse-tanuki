@@ -1,7 +1,9 @@
-#include "OpenVDBModule.h"
-#include "VDBInterface.h"
+// Fill out your copyright notice in the Description page of Project Settings.
 
-UVDBInterface::UVDBInterface(const FObjectInitializer& ObjectInitializer)
+#include "OpenVDBModule.h"
+#include "VdbInterface.h"
+
+UVdbInterface::UVdbInterface(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 }

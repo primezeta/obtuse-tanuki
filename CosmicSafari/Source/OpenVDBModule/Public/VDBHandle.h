@@ -1,7 +1,10 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
 #pragma once
-#include "EngineMinimal.h"
-#include "VDBInterface.h"
-#include "VDBHandle.generated.h"
+
+#include "Components/ActorComponent.h"
+#include "VdbInterface.h"
+#include "VdbHandle.generated.h"
 
 //USTRUCT()
 //struct FScaleTransformStruct
@@ -91,46 +94,69 @@
 //	double Depth;
 //};
 
-UCLASS(MinimalAPI)
-class UVDBHandle : public UObject, public IVDBInterface
+UCLASS()
+class OPENVDBMODULE_API UVdbHandle : public UActorComponent, public IVdbInterface
 {
 	GENERATED_BODY()
 
 public:
-	static UVDBHandle const * RegisterVDB(const FString &path, const FString &worldName, bool enableDelayLoad, bool enableGridStats);
+	static UVdbHandle const * RegisterNewVdb(const FObjectInitializer& ObjectInitializer, UObject * parent, const FString &path, const FString &worldName, bool enableDelayLoad, bool enableGridStats);
+	static void RegisterVdb(UVdbHandle const * VdbHandle);
 
-	UPROPERTY(EditAnywhere)
-	FString FilePath;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Path to voxel database"))
+		FString FilePath;
 
-	UPROPERTY(EditAnywhere)
-	bool EnableDelayLoad;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Enable delayed loading of grids"))
+		bool EnableDelayLoad;
 
-	UPROPERTY(EditAnywhere)
-	bool EnableGridStats;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Enable grid stats metadata"))
+		bool EnableGridStats;
 
-	UPROPERTY(EditAnywhere)
-	FString WorldName;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Name of volume"))
+		FString WorldName;
 
-	UVDBHandle(const FObjectInitializer& ObjectInitializer);
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Perlin noise source frequency"))
+		float PerlinFrequency;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Perlin noise source lacunarity"))
+		float PerlinLacunarity;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Perlin noise source persistence"))
+		float PerlinPersistence;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Perlin noise source number of octaves"))
+		int32 PerlinOctaveCount;
+
+	UVdbHandle(const FObjectInitializer& ObjectInitializer);
+
 	virtual void PostInitProperties() override;
 	virtual void BeginDestroy() override;
-
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 
+	UFUNCTION(BlueprintCallable, Category="VDB Handle")
+		virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, FIntVector &indexStart, FIntVector &indexEnd) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-	virtual FString AddGrid(const FString &gridName, const FIntVector &indexStart, const FIntVector &indexEnd) override;
+		virtual void RemoveGrid(const FString &gridID) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-	virtual void RemoveGrid(const FString &gridID) override;
+		virtual void SetRegionSize(const FIntVector &regionSize) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-	virtual void ReadGridTree(const FString &gridID, FIntVector &indexStart, FIntVector &indexEnd) override;
+		virtual void ReadGridTreeIndex(const FString &gridID, FIntVector &activeStart, FIntVector &activeEnd) override;
+	//TODO
+	//UFUNCTION(BlueprintCallable, Category = "VDB Handle")
+	//	virtual void ReadGridTreeWorld(const FString &gridID, FVector &activeStart, FVector &activeEnd) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-	virtual void MeshGrid(const FString &gridID, float surfaceValue, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer) override;
+		virtual void MeshGrid(const FString &gridID, float surfaceValue, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-	virtual void ReadGridIndexBounds(const FString &gridID, FIntVector &indexStart, FIntVector &indexEnd) override;
+		virtual void ReadGridIndexBounds(const FString &gridID, FIntVector &indexStart, FIntVector &indexEnd) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-	virtual int32 ReadGridCount() override;
-	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-	virtual void PopulateGridDensity_Perlin(const FString &gridID, float frequency, float lacunarity, float persistence, int32 octaveCount) override;
+		virtual int32 ReadGridCount() override;
+
+	TArray<FString> GetAllGridIDs();
+	FIntVector GetRegionIndex(const FVector &worldLocation);
+
+private:
+	void InitVdb();
+	void FinishVdb();
 };

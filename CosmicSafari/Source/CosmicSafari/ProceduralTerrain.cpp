@@ -22,12 +22,14 @@ void AProceduralTerrain::InitializeOpenVDBModule()
 }
 
 // Sets default values
-AProceduralTerrain::AProceduralTerrain()
+AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializer)
 {
 	AProceduralTerrain::InitializeOpenVDBModule();
 
-	VDBHandle = CreateDefaultSubobject<UVDBHandle>(TEXT("VDB"));
-	TerrainMeshComponent = CreateDefaultSubobject<UProceduralTerrainMeshComponent>(TEXT("GeneratedTerrain"));
+	VdbHandle = ObjectInitializer.CreateDefaultSubobject<UVdbHandle>(this, TEXT("VDB Handle"));
+	TerrainMeshComponent = ObjectInitializer.CreateDefaultSubobject<UProceduralTerrainMeshComponent>(this, TEXT("GeneratedTerrain"));
+	check(VdbHandle != nullptr);
+	check(TerrainMeshComponent != nullptr);
 
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -57,27 +59,23 @@ void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 	
-	//MeshSectionIndices.Add(0);
-	//IsGridSectionMeshed.Add(0, false);
-	//MeshSectionVertices.Add(0, TArray<FVector>());
-	//MeshSectionPolygons.Add(0, TArray<int32>());
-	//MeshSectionUVMap.Add(0, TArray<FVector2D>());
-	//MeshSectionNormals.Add(0, TArray<FVector>());
-	//MeshSectionVertexColors.Add(0, TArray<FColor>());
-	//MeshSectionTangents.Add(0, TArray<FProcMeshTangent>());
+	UVdbHandle::RegisterVdb(VdbHandle);
+	ACharacter* FirstPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+	FIntVector RegionIndexCoords = VdbHandle->GetRegionIndex(FirstPlayerCharacter->GetActorLocation());
+	FIntVector IndexStart;
+	FIntVector IndexEnd;
+	FString GridID = VdbHandle->AddGrid(TEXT("StartRegion"), RegionIndexCoords, IndexStart, IndexEnd);
+	VdbHandle->ReadGridTreeIndex(GridID, IndexStart, IndexEnd);
 
-	//Vdb::HandleType handle = OpenVDBModule->CreateVDB(VDBLocation, true, true);
-	//VDBHandles.Add(0, handle);
-
-	//Vdb::UniformScaleTransformType scaleXform;
-	//scaleXform.Scale = scaleXYZ;
-	//OpenVDBModule->InitializeGrid(handle, VolumeName, scaleXform);
-
-	//FString regionName = "all";
-	//FString regionID = OpenVDBModule->AddRegionDefinition(handle, VolumeName, regionName, MapBoundsStart, FIntVector(MapBoundsEnd.X, MapBoundsEnd.Y, HeightMapRange));
-	//MeshSectionIDs[0] = regionID;
-	//OpenVDBModule->PopulateRegionDensity_Perlin(handle, regionID, frequency, lacunarity, persistence, octaveCount);
-	//OpenVDBModule->LoadRegion(handle, regionID, MeshSectionVertices[0], MeshSectionPolygons[0], MeshSectionNormals[0]);
+	MeshSectionIndices.Add(0);
+	MeshSectionIDs.Add(0, GridID);
+	IsGridSectionMeshed.Add(0, false);
+	MeshSectionVertices.Add(0, TArray<FVector>());
+	MeshSectionPolygons.Add(0, TArray<int32>());
+	MeshSectionUVMap.Add(0, TArray<FVector2D>());
+	MeshSectionNormals.Add(0, TArray<FVector>());
+	MeshSectionVertexColors.Add(0, TArray<FColor>());
+	MeshSectionTangents.Add(0, TArray<FProcMeshTangent>());
 }
 
 // Called when the game starts or when spawned
@@ -85,48 +83,27 @@ void AProceduralTerrain::BeginPlay()
 {
 	Super::BeginPlay();
 
-	//for (auto i = MeshSectionIndices.CreateConstIterator(); i; ++i)
-	//{
-	//	const int32 &sectionIndex = *i;
-	//	if (!IsGridSectionMeshed[sectionIndex])
-	//	{
-	//		OpenVDBModule->MeshRegion(VDBHandles[sectionIndex], MeshSectionIDs[sectionIndex], MeshSurfaceValue);
-	//		TerrainMeshComponent->CreateTerrainMeshSection(*i, bCreateCollision,
-	//			MeshSectionVertices[sectionIndex],
-	//			MeshSectionPolygons[sectionIndex],
-	//			MeshSectionUVMap[sectionIndex],
-	//			MeshSectionNormals[sectionIndex],
-	//			MeshSectionVertexColors[sectionIndex],
-	//			MeshSectionTangents[sectionIndex]);
-	//		TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
-	//		IsGridSectionMeshed[sectionIndex] = true;
-	//	}
-	//}
+	for (auto i = MeshSectionIndices.CreateConstIterator(); i; ++i)
+	{
+		const int32 &sectionIndex = *i;
+		if (!IsGridSectionMeshed[sectionIndex])
+		{
+			VdbHandle->MeshGrid(MeshSectionIDs[sectionIndex], MeshSurfaceValue, MeshSectionVertices[sectionIndex], MeshSectionPolygons[sectionIndex], MeshSectionNormals[sectionIndex]);
+			TerrainMeshComponent->CreateTerrainMeshSection(*i, bCreateCollision,
+				MeshSectionVertices[sectionIndex],
+				MeshSectionPolygons[sectionIndex],
+				MeshSectionUVMap[sectionIndex],
+				MeshSectionNormals[sectionIndex],
+				MeshSectionVertexColors[sectionIndex],
+				MeshSectionTangents[sectionIndex]);
+			TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
+			IsGridSectionMeshed[sectionIndex] = true;
+		}
+	}
 }
 
 // Called every frame
 void AProceduralTerrain::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-}
-
-void AProceduralTerrain::PostEditChangeProperty(struct FPropertyChangedEvent& e)
-{
-	FName PropertyName = (e.Property != NULL) ? e.Property->GetFName() : NAME_None;
-	if (PropertyName == GET_MEMBER_NAME_CHECKED(AProceduralTerrain, RegionCount))
-	{
-		if (RegionCount.X < 1)
-		{
-			RegionCount.X = 1;
-		}
-		if (RegionCount.Y < 1)
-		{
-			RegionCount.Y = 1;
-		}
-		if (RegionCount.Z < 1)
-		{
-			RegionCount.Z = 1;
-		}
-	}
-	Super::PostEditChangeProperty(e);
 }

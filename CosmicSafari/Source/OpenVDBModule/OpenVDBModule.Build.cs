@@ -62,9 +62,9 @@ public class OpenVDBModule : ModuleRules
     {
         get
         {
-            //Nothing right now
             return new string[]
             {
+                Path.Combine(ModuleDirectory, "Public"),
             };
         }
     }

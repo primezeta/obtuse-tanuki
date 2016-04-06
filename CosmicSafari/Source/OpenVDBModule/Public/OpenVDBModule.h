@@ -2,7 +2,7 @@
 #define __OPENVDBMODULE_H__
 
 #include "EngineMinimal.h"
-#include "VDBHandle.h"
+#include "VdbHandle.h"
 
 class OPENVDBMODULE_API FOpenVDBModule : public IModuleInterface
 {

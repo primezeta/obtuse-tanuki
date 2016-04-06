@@ -1,12 +1,15 @@
 #pragma once
 #include "OpenVDBModule.h"
-#include "VDBHandlePrivate.h"
+#include "VdbHandlePrivate.h"
 
-extern VDBRegistryType VDBRegistry;
+extern VdbRegistryType VdbRegistry;
 
-void UVDBHandle::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+void UVdbHandle::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
-	TSharedPtr<VDBHandlePrivateType> VDBPrivatePtr = VDBRegistry.FindChecked(FilePath);
-	VDBPrivatePtr->WriteChangesAsync();
+	FName PropertyName = (PropertyChangedEvent.Property != nullptr) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UVdbHandle, FilePath) && !FilePath.IsEmpty())
+	{
+		UVdbHandle::RegisterVdb(this);
+	}
 }

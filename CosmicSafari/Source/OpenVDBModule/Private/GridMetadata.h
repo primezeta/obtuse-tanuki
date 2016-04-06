@@ -29,6 +29,9 @@ namespace Vdb
 
 template<> OPENVDBMODULE_API inline std::string openvdb::TypedMetadata<Vdb::Metadata::RegionMetadata>::str() const;
 template<> OPENVDBMODULE_API inline Vdb::Metadata::RegionMetadata openvdb::zeroVal<Vdb::Metadata::RegionMetadata>();
+template<> OPENVDBMODULE_API inline std::string openvdb::TypedMetadata<openvdb::math::ScaleMap>::str() const;
+template<> OPENVDBMODULE_API inline openvdb::math::ScaleMap openvdb::zeroVal<openvdb::math::ScaleMap>();
+template<> OPENVDBMODULE_API inline openvdb::CoordBBox openvdb::zeroVal<openvdb::math::CoordBBox>();
 
 namespace openvdb
 {

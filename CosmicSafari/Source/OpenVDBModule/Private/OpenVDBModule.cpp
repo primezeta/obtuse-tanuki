@@ -1,7 +1,7 @@
 #include "OpenVDBModule.h"
-#include "VDBHandlePrivate.h"
+#include "VdbHandlePrivate.h"
 
-VDBRegistryType VDBRegistry;
+VdbRegistryType VdbRegistry;
 
 DEFINE_LOG_CATEGORY(LogOpenVDBModule)
 IMPLEMENT_GAME_MODULE(FOpenVDBModule, OpenVDBModule);

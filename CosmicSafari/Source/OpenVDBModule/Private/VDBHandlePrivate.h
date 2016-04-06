@@ -1,14 +1,11 @@
 #pragma once
-#include "EngineMinimal.h"
-#include "VDBHandle.h"
+#include "OpenVDBModule.h"
 #pragma warning(push)
 #pragma warning(1:4211 4800 4503 4146)
 #include "openvdb/openvdb.h"
 #include "openvdb/io/Queue.h"
 #include "GridOps.h"
 #include "GridMetadata.h"
-
-DECLARE_LOG_CATEGORY_EXTERN(LogVDBHandle, Log, All)
 
 struct AsyncIONotifier
 {
@@ -24,11 +21,11 @@ struct AsyncIONotifier
 		{
 			if (succeeded)
 			{
-				UE_LOG(LogVDBHandle, Verbose, TEXT("IONotifier: Wrote %s"), UTF8_TO_TCHAR(acc->second.c_str()));
+				UE_LOG(LogOpenVDBModule, Verbose, TEXT("IONotifier: Wrote %s"), UTF8_TO_TCHAR(acc->second.c_str()));
 			}
 			else
 			{
-				UE_LOG(LogVDBHandle, Verbose, TEXT("IONotifier: Failed to write %s"), UTF8_TO_TCHAR(acc->second.c_str()));
+				UE_LOG(LogOpenVDBModule, Verbose, TEXT("IONotifier: Failed to write %s"), UTF8_TO_TCHAR(acc->second.c_str()));
 			}
 			filenames.erase(acc);
 		}
@@ -36,109 +33,125 @@ struct AsyncIONotifier
 };
 
 template<typename TreeType, typename... MetadataTypes>
-class VDBHandlePrivate
+class VdbHandlePrivate
 {
 public:
 	typedef Vdb::GridOps::BasicMesher<TreeType> MesherOpType;
 	typedef openvdb::Grid<TreeType> GridType;
+	typedef typename GridType::Ptr GridTypePtr;
 
-	UVDBHandle const * VDBHandle;
-	TSharedPtr<openvdb::io::File> FilePtr;
-	TSharedPtr<openvdb::GridPtrVec> GridsPtr;
-	TSharedPtr<openvdb::MetaMap> FileMetaPtr;
+	UVdbHandle const * VdbHandle;
+	boost::shared_ptr<openvdb::io::File> FilePtr;
+	openvdb::GridPtrVecPtr GridsPtr;
+	openvdb::MetaMap::Ptr FileMetaPtr;
+	
+	static FString MetaName_WorldName() { return TEXT("WorldName"); }
+	static FString MetaName_RegionSize() { return TEXT("RegionSize"); }
 
-	VDBHandlePrivate(UVDBHandle const * vdbHandle)
-		: VDBHandle(vdbHandle)
+	VdbHandlePrivate(UVdbHandle const * vdbHandle)
+		: VdbHandle(vdbHandle)
 	{
 		//Initialize OpenVDB, our metadata types, and the vdb file
 		openvdb::initialize();
 		InitializeMetadataTypes<MetadataTypes...>();
-		FilePtr = TSharedPtr<openvdb::io::File>(new openvdb::io::File(TCHAR_TO_UTF8(*(VDBHandle->FilePath))));
-		check(FilePtr.IsValid());
-		FilePtr->setGridStatsMetadataEnabled(VDBHandle->EnableGridStats);
+		FilePtr = boost::shared_ptr<openvdb::io::File>(new openvdb::io::File(TCHAR_TO_UTF8(*(VdbHandle->FilePath))));
+		check(FilePtr != nullptr);
+		FilePtr->setGridStatsMetadataEnabled(VdbHandle->EnableGridStats);
 
 		//Create the vdb file if it does not exist
-		if (!FPaths::FileExists(VDBHandle->FilePath))
+		if (!FPaths::FileExists(VdbHandle->FilePath))
 		{
 			FilePtr->write(openvdb::GridPtrVec());
-			UE_LOG(LogVDBHandle, Verbose, TEXT("IVdb: Created %s"), *(VDBHandle->FilePath));
+			UE_LOG(LogOpenVDBModule, Verbose, TEXT("IVdb: Created %s"), *(VdbHandle->FilePath));
 		}
-		check(FPaths::FileExists(VDBHandle->FilePath)); //TODO: Error handling when unable to create file. For now assume the file exists
+		check(FPaths::FileExists(VdbHandle->FilePath)); //TODO: Error handling when unable to create file. For now assume the file exists
 
 		OpenFileGuard();
-		GridsPtr = TSharedPtr<openvdb::GridPtrVec>(FilePtr->readAllGridMetadata().get());
-		FileMetaPtr = TSharedPtr<openvdb::MetaMap>(FilePtr->getMetadata().get());
-		check(GridsPtr.IsValid());
-		check(FileMetaPtr.IsValid());
+		GridsPtr = FilePtr->readAllGridMetadata();
+		FileMetaPtr = FilePtr->getMetadata();
+		check(GridsPtr != nullptr);
+		check(FileMetaPtr != nullptr);
 	}
 
-	~VDBHandlePrivate()
+	~VdbHandlePrivate()
 	{
 		//TODO: Write changes if they exist?
 		openvdb::uninitialize();
 	}
 
 	template<typename TreeType, typename... MetadataTypes>
-	TSharedPtr<openvdb::MetaMap> GetGridMeta(const FString &gridName)
+	openvdb::MetaMap::Ptr GetGridMeta(const FString &gridName)
 	{
-		TSharedPtr<openvdb::MetaMap> gridMetaPtr;
-		TSharedPtr<GridType> gridPtr = GetGridPtr<TreeType>(gridName);
-		if (gridPtr.isValid())
+		openvdb::MetaMap::Ptr gridMetaPtr;
+		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
+		if (gridPtr != nullptr)
 		{
-			gridMetaPtr = TSharedPtr<openvdb::MetaMap>(gridPtr->copyMeta().get());
+			gridMetaPtr = gridPtr->copyMeta();
 		}
 		return gridMetaPtr;
 	}
 
 	template<typename TreeType, typename... MetadataTypes>
-	TSharedPtr<GridType> ReadGridTree(const FString &gridName, FIntVector &indexStart, FIntVector &indexEnd)
+	GridTypePtr ReadGridTree(const FString &gridName, FIntVector &activeStart, FIntVector &activeEnd)
 	{
+		GridTypePtr gridPtr = nullptr;
 		OpenFileGuard();
 		for (openvdb::GridPtrVec::iterator i = GridsPtr->begin(); i != GridsPtr->end(); ++i)
 		{
 			if (*i != nullptr && gridName == UTF8_TO_TCHAR((*i)->getName().c_str()))
 			{
-				TSharedPtr<GridType> gridPtr = TSharedPtr<GridType>(openvdb::gridPtrCast<GridType>(*i).get());
-				openvdb::BBoxd bboxd = gridPtr->transform().indexToWorld(openvdb::CoordBBox(openvdb::Coord(indexStart.X, indexStart.Y, indexStart.Z), openvdb::Coord(indexEnd.X, indexEnd.Y, indexEnd.Z)));
-				if (gridPtr->tree().empty())
+				if ((*i)->activeVoxelCount() == 0)
 				{
-					GridType::Ptr ptr = openvdb::gridPtrCast<GridType>(FilePtr->readGrid(TCHAR_TO_UTF8(*gridName), bboxd));
-					gridPtr = TSharedPtr<GridType>(ptr.get());
-					*i = ptr;
+					*i = FilePtr->readGrid(TCHAR_TO_UTF8(*gridName));
 				}
-				return gridPtr;
+				gridPtr = openvdb::gridPtrCast<GridType>(*i);
+				check(gridPtr != nullptr);
+				openvdb::CoordBBox activeBBox = gridPtr->evalActiveVoxelBoundingBox();
+				activeStart.X = activeBBox.min().x();
+				activeStart.Y = activeBBox.min().y();
+				activeStart.Z = activeBBox.min().z();
+				activeEnd.X = activeBBox.max().x();
+				activeEnd.Y = activeBBox.max().y();
+				activeEnd.Z = activeBBox.max().z();
+				break;
 			}
 		}
-		return TSharedPtr<GridType>();
+		return gridPtr;
 	}
 
 	template<typename TreeType, typename... MetadataTypes>
-	TSharedPtr<GridType> ReadGridTree(const FString &gridName, FVector &start, FVector &end)
+	GridTypePtr ReadGridTree(const FString &gridName, FVector &activeStart, FVector &activeEnd)
 	{
+		GridTypePtr gridPtr = nullptr;
 		OpenFileGuard();
 		for (openvdb::GridPtrVec::iterator i = GridsPtr->begin(); i != GridsPtr->end(); ++i)
 		{
 			if (*i != nullptr && gridName == UTF8_TO_TCHAR((*i)->getName().c_str()))
 			{
-				openvdb::BBoxd bboxd(openvdb::Coord(start.X, start.Y, start.Z), openvdb::Coord(end.X, end.Y, end.Z));
-				TSharedPtr<GridType> gridPtr = TSharedPtr<GridType>(openvdb::gridPtrCast<GridType>(*i).get());
-				if (gridPtr->tree().empty())
+				if ((*i)->activeVoxelCount() == 0)
 				{
-					GridType::Ptr ptr = openvdb::gridPtrCast<GridType>(FilePtr->readGrid(TCHAR_TO_UTF8(*gridName), bboxd));
-					gridPtr = TSharedPtr<GridType>(ptr.get());
-					*i = ptr;
+					*i = FilePtr->readGrid(TCHAR_TO_UTF8(*gridName));
 				}
-				return gridPtr;
+				gridPtr = openvdb::gridPtrCast<GridType>(*i);
+				check(gridPtr != nullptr);
+				openvdb::BBoxd activeBBoxd = gridPtr->indexToWorld(gridPtr->evalActiveVoxelBoundingBox());
+				activeStart.X = activeBBoxd.min().x();
+				activeStart.Y = activeBBoxd.min().y();
+				activeStart.Z = activeBBoxd.min().z();
+				activeEnd.X = activeBBoxd.max().x();
+				activeEnd.Y = activeBBoxd.max().y();
+				activeEnd.Z = activeBBoxd.max().z();
+				break;
 			}
 		}
-		return TSharedPtr<GridType>();
+		return gridPtr;
 	}
 
 	template<typename FileMetaType>
-	TSharedPtr<openvdb::TypedMetadata<FileMetaType>> GetFileMetaValue(const FString &metaName, const FileMetaType &metaValue)
+	typename openvdb::TypedMetadata<FileMetaType>::Ptr GetFileMetaValue(const FString &metaName)
 	{
 		OpenFileGuard();
-		return TSharedPtr<openvdb::TypedMetadata<FileMetaType>>(FileMetaPtr->getMetadata<FileMetaType>(TCHAR_TO_UTF8(*metaName).get()));
+		return FileMetaPtr->getMetadata<openvdb::TypedMetadata<FileMetaType>>(TCHAR_TO_UTF8(*metaName));
 	}
 
 	template<typename FileMetaType>
@@ -166,27 +179,41 @@ public:
 		}
 	}
 
-	template<typename TreeType>
-	TSharedPtr<GridType> GetGridPtr(const FString &gridName)
+	openvdb::GridBase::Ptr GetGridBasePtr(const FString &gridName)
 	{
 		for (openvdb::GridPtrVec::iterator i = GridsPtr->begin(); i != GridsPtr->end(); ++i)
 		{
 			if (gridName == UTF8_TO_TCHAR((*i)->getName().c_str()))
 			{
-				return TSharedPtr<GridType>(openvdb::gridPtrCast<GridType>(*i).get());
+				return *i;
 			}
 		}
-		return TSharedPtr<GridType>();
+		return nullptr;
 	}
 
-	template<typename TreeType, typename MetadataType>
-	TSharedPtr<openvdb::TypedMetadata<MetadataType>> GetGridMetaValue(const FString &gridName, const FString &metaName)
+	template<typename TreeType>
+	GridTypePtr GetGridPtr(const FString &gridName)
 	{
-		TSharedPtr<openvdb::TypedMetadata<MetadataType>> metaValuePtr;
-		TSharedPtr<GridType> gridPtr = GetGridPtr<TreeType>(gridName);
-		if (gridPtr.IsValid())
+		for (openvdb::GridPtrVec::iterator i = GridsPtr->begin(); i != GridsPtr->end(); ++i)
 		{
-			metaValuePtr = TSharedPtr<openvdb::TypedMetadata<MetadataType>>(gridPtr->getMetadata<openvdb::TypedMetadata<MetadataType>>(TCHAR_TO_UTF8(*gridName)).get());
+			if (gridName == UTF8_TO_TCHAR((*i)->getName().c_str()))
+			{
+				GridTypePtr gridPtr = openvdb::gridPtrCast<GridType>(*i);
+				check(gridPtr != nullptr);
+				return gridPtr;
+			}
+		}
+		return nullptr;
+	}
+
+	template<typename MetadataType>
+	typename openvdb::TypedMetadata<MetadataType>::Ptr GetGridMetaValue(const FString &gridName, const FString &metaName)
+	{
+		openvdb::TypedMetadata<MetadataType>::Ptr metaValuePtr;
+		openvdb::GridBase::Ptr gridBasePtr = GetGridBasePtr(gridName);
+		if (gridBasePtr != nullptr)
+		{
+			metaValuePtr = gridBasePtr->getMetadata<openvdb::TypedMetadata<MetadataType>>(TCHAR_TO_UTF8(*gridName));
 		}
 		return metaValuePtr;
 	}
@@ -194,8 +221,8 @@ public:
 	template<typename TreeType, typename MetadataType>
 	void InsertGridMeta(const FString &gridName, const FString &metaName, const MetadataType &metaValue)
 	{
-		TSharedPtr<GridType> gridPtr = GetGridPtr<TreeType>(gridName);
-		if (gridPtr.IsValid())
+		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
+		if (gridPtr != nullptr)
 		{
 			gridPtr->insertMeta<openvdb::TypedMetadata<MetadataType>>(TCHAR_TO_UTF8(*metaName), openvdb::TypedMetadata<MetadataType>(metaValue));
 		}
@@ -204,8 +231,8 @@ public:
 	template<typename TreeType, typename MetadataType>
 	void RemoveGridMeta(const FString &gridName, const FString &metaName)
 	{
-		TSharedPtr<GridType> gridPtr = GetGridPtr<TreeType>(gridName);
-		if (gridPtr.IsValid())
+		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
+		if (gridPtr != nullptr)
 		{
 			gridPtr->removeMeta(TCHAR_TO_UTF8(*metaName));
 		}
@@ -229,8 +256,8 @@ public:
 	template<typename TreeType, typename... MetadataTypes>
 	void MeshRegion(const FString &gridName, float surfaceValue, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer)
 	{
-		TSharedPtr<GridType> gridPtr = GetGridPtr<TreeType>(gridName);
-		if (gridPtr.IsValid())
+		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
+		if (gridPtr != nullptr)
 		{
 			TSharedPtr<MesherOpType> mesherOpPtr = TSharedPtr<MesherOpType>(new MesherOpType(gridPtr, vertexBuffer, polygonBuffer, normalBuffer));
 			mesherOpPtr->doActivateValuesOp(surfaceValue);
@@ -241,8 +268,8 @@ public:
 	template<typename TreeType, typename... MetadataTypes>
 	void ReadGridIndexBounds(const FString &gridName, FIntVector &indexStart, FIntVector &indexEnd)
 	{
-		TSharedPtr<GridType> gridPtr = GetGridPtr<TreeType>(gridName);
-		if (gridPtr.IsValid())
+		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
+		if (gridPtr != nullptr)
 		{
 			const openvdb::CoordBBox bbox = gridPtr->evalActiveVoxelBoundingBox();
 			indexStart.X = bbox.min().x();
@@ -255,42 +282,52 @@ public:
 	}
 
 	template<typename TreeType, typename... MetadataTypes>
-	void FillGrid_PerlinDensity(const FString &gridName, float frequency, float lacunarity, float persistence, int32 octaveCount)
+	void FillGrid_PerlinDensity(const FString &gridName, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, float frequency, float lacunarity, float persistence, int32 octaveCount, FIntVector &activeStart, FIntVector &activeEnd)
 	{
-		TSharedPtr<GridType> gridPtr = GetGridPtr<TreeType>(gridName);
-		if (gridPtr.IsValid())
+		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
+		openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
+		if (gridPtr == nullptr)
 		{
-			//Noise module parameters are at the grid-level metadata
-			openvdb::FloatMetadata::Ptr frequencyMeta = gridPtr->getMetadata<openvdb::FloatMetadata>("frequency");
-			openvdb::FloatMetadata::Ptr lacunarityMeta = gridPtr->getMetadata<openvdb::FloatMetadata>("lacunarity");
-			openvdb::FloatMetadata::Ptr persistenceMeta = gridPtr->getMetadata<openvdb::FloatMetadata>("persistence");
-			openvdb::Int32Metadata::Ptr octaveCountMeta = gridPtr->getMetadata<openvdb::Int32Metadata>("octaveCount");
-			if (frequencyMeta == nullptr || !openvdb::math::isApproxEqual(frequency, frequencyMeta->value()) ||
-				lacunarityMeta == nullptr || !openvdb::math::isApproxEqual(lacunarity, lacunarityMeta->value()) ||
-				persistenceMeta == nullptr || !openvdb::math::isApproxEqual(persistence, persistenceMeta->value()) ||
-				octaveCountMeta == nullptr || !openvdb::math::isExactlyEqual(octaveCount, octaveCountMeta->value()))
-			{
-				//Update the Perlin noise parameters
-				gridPtr->insertMeta("frequency", openvdb::FloatMetadata(frequency));
-				gridPtr->insertMeta("lacunarity", openvdb::FloatMetadata(lacunarity));
-				gridPtr->insertMeta("persistence", openvdb::FloatMetadata(persistence));
-				gridPtr->insertMeta("octaveCount", openvdb::Int32Metadata(octaveCount));
-
-				//Activate mask values such that there is a single padded region along the outer edge with
-				//values on and false and all other values within the padded region have values on and true.
-				const openvdb::CoordBBox gridBBox = gridPtr->evalActiveVoxelBoundingBox();
-				check(!gridBBox.empty());
-				openvdb::CoordBBox bboxPadded = gridBBox;
-				bboxPadded.expand(1);
-
-				//Create a mask enclosing the region such that the outer edge voxels are on but false
-				openvdb::BoolGrid::Ptr mask = openvdb::BoolGrid::create(false);
-				mask->fill(bboxPadded, /*value*/false, /*state*/true);
-				mask->fill(gridBBox, /*value*/true, /*state*/true);
-				Vdb::GridOps::PerlinNoiseFillOp<TreeType> noiseFillOp(gridPtr->transform(), frequency, lacunarity, persistence, octaveCount);
-				openvdb::tools::transformValues(mask->cbeginValueOn(), *gridPtr, noiseFillOp);
-			}
+			gridPtr = GridType::create();
+			gridPtr->fill(fillBBox, 0.0f);
 		}
+
+		//Noise module parameters are at the grid-level metadata
+		openvdb::FloatMetadata::Ptr frequencyMeta = gridPtr->getMetadata<openvdb::FloatMetadata>("frequency");
+		openvdb::FloatMetadata::Ptr lacunarityMeta = gridPtr->getMetadata<openvdb::FloatMetadata>("lacunarity");
+		openvdb::FloatMetadata::Ptr persistenceMeta = gridPtr->getMetadata<openvdb::FloatMetadata>("persistence");
+		openvdb::Int32Metadata::Ptr octaveCountMeta = gridPtr->getMetadata<openvdb::Int32Metadata>("octaveCount");
+		if (frequencyMeta == nullptr || !openvdb::math::isApproxEqual(frequency, frequencyMeta->value()) ||
+			lacunarityMeta == nullptr || !openvdb::math::isApproxEqual(lacunarity, lacunarityMeta->value()) ||
+			persistenceMeta == nullptr || !openvdb::math::isApproxEqual(persistence, persistenceMeta->value()) ||
+			octaveCountMeta == nullptr || !openvdb::math::isExactlyEqual(octaveCount, octaveCountMeta->value()))
+		{
+			//Update the Perlin noise parameters
+			gridPtr->insertMeta("frequency", openvdb::FloatMetadata(frequency));
+			gridPtr->insertMeta("lacunarity", openvdb::FloatMetadata(lacunarity));
+			gridPtr->insertMeta("persistence", openvdb::FloatMetadata(persistence));
+			gridPtr->insertMeta("octaveCount", openvdb::Int32Metadata(octaveCount));
+
+			//Activate mask values such that there is a single padded region along the outer edge with
+			//values on and false and all other values within the padded region have values on and true.
+			check(!fillBBox.empty());
+			openvdb::CoordBBox bboxPadded = fillBBox;
+			bboxPadded.expand(1);
+
+			//Create a mask enclosing the region such that the outer edge voxels are on but false
+			openvdb::BoolGrid::Ptr mask = openvdb::BoolGrid::create(false);
+			mask->fill(bboxPadded, /*value*/false, /*state*/true);
+			mask->fill(fillBBox, /*value*/true, /*state*/true);
+			Vdb::GridOps::PerlinNoiseFillOp<TreeType> noiseFillOp(gridPtr->transform(), frequency, lacunarity, persistence, octaveCount);
+			openvdb::tools::transformValues(mask->cbeginValueOn(), *gridPtr, noiseFillOp);
+		}
+		openvdb::CoordBBox activeBBox = gridPtr->evalActiveVoxelBoundingBox();
+		activeStart.X = activeBBox.min().x();
+		activeStart.Y = activeBBox.min().y();
+		activeStart.Z = activeBBox.min().z();
+		activeEnd.X = activeBBox.max().x();
+		activeEnd.Y = activeBBox.max().y();
+		activeEnd.Z = activeBBox.max().z();
 	}
 
 private:
@@ -311,21 +348,39 @@ private:
 
 	void OpenFileGuard()
 	{
-		if (FilePtr.IsValid() && !FilePtr->isOpen())
+		if (FilePtr != nullptr && !FilePtr->isOpen())
 		{
-			FilePtr->open(VDBHandle->EnableDelayLoad);
+			FilePtr->open(VdbHandle->EnableDelayLoad);
 		}
 	}
 
 	void CloseFileGuard()
 	{
-		if (FilePtr.IsValid() && FilePtr->isOpen())
+		if (FilePtr != nullptr && FilePtr->isOpen())
 		{
 			FilePtr->close();
 		}
 	}
+	
+	void ClipGridTree(GridTypePtr gridPtr, const openvdb::CoordBBox &indexBBox, openvdb::CoordBBox &activeBBox)
+	{
+		if (gridPtr->tree().empty())
+		{
+			gridPtr = openvdb::gridPtrCast<GridType>(FilePtr->readGrid(TCHAR_TO_UTF8(*gridName), gridPtr->tree().indexToWorld(indexBBox)));
+		}
+		activeBBox = gridPtr->evalActiveVoxelBoundingBox();
+	}
+
+	void ClipGridTree(GridTypePtr gridPtr, const openvdb::BBoxd &worldBBox, openvdb::BBoxd &activeBBoxd)
+	{
+		if (gridPtr->tree().empty())
+		{
+			gridPtr = openvdb::gridPtrCast<GridType>(FilePtr->readGrid(TCHAR_TO_UTF8(*gridName), worldBBox));
+		}
+		activeBBoxd = gridPtr->tree().indexToWorld(gridPtr->evalActiveVoxelBoundingBox());
+	}
 };
 
 typedef openvdb::FloatTree TreeType;
-typedef VDBHandlePrivate<TreeType, Vdb::Metadata::RegionMetadata> VDBHandlePrivateType;
-typedef TMap<FString, TSharedPtr<VDBHandlePrivateType>> VDBRegistryType;
+typedef VdbHandlePrivate<TreeType, Vdb::Metadata::RegionMetadata, openvdb::math::ScaleMap> VdbHandlePrivateType;
+typedef TMap<FString, TSharedPtr<VdbHandlePrivateType>> VdbRegistryType;
