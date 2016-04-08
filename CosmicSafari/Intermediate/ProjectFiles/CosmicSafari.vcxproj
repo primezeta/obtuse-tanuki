@@ -43,7 +43,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{F82AD669-1DC7-4C24-82B7-5D83E922D8B8}</ProjectGuid>
+    <ProjectGuid>{5544245A-368C-4D6D-9152-8D6CAAEC17F3}</ProjectGuid>
     <Keyword>MakeFileProj</Keyword>
     <RootNamespace>CosmicSafari</RootNamespace>
   </PropertyGroup>
