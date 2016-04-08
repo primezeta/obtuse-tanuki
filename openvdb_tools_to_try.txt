@@ -1,0 +1,17 @@
+LevelSetUtil.h
+  sdfInteriorMask - generate mask grid of interior region (use when building cave system?)
+  
+LevelSetRebuild.h
+  levelSetRebuild - creates grid with narrow-band representation of input level set
+  
+LevelSetFracture.h
+  Divide a level-set volume into multiple pieces - use to help mesh subregions of a grid?
+  
+Diagnostics.h
+  Check that final level-set is valid
+  
+Operators.h
+  struct CPT - closest point transform from a level-set surface
+  
+Ray.h
+  Check intersections of spheres and bounding boxes (to use with marching cubes, etc?)  
