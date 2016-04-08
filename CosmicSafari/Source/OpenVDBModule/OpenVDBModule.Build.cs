@@ -11,7 +11,7 @@ public class OpenVDBModule : ModuleRules
         Platform = Target.Platform;
         Configuration = Target.Configuration;
         Type = ModuleType.CPlusPlus;
-        OpenVDBOpenEXRAreShared = true;
+        OpenEXRIsShared = true;
 
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
         PublicIncludePaths.AddRange(PublicIncludes);
@@ -19,7 +19,7 @@ public class OpenVDBModule : ModuleRules
         PublicSystemIncludePaths.AddRange(ThirdPartyIncludes);
         PublicLibraryPaths.AddRange(ThirdPartyLibPaths);
         PublicAdditionalLibraries.AddRange(ThirdPartyLibNames);
-        Definitions.AddRange(new string[] { "OPENVDB_DLL", "OPENEXR_DLL", "ZLIB_STATIC" });
+        Definitions.AddRange(new string[] { "OPENEXR_DLL", "ZLIB_STATIC", "OPENVDB_STATICLIB" });
         MinFilesUsingPrecompiledHeaderOverride = 1;
         bFasterWithoutUnity = true;
         bUseRTTI = true;
@@ -29,7 +29,7 @@ public class OpenVDBModule : ModuleRules
 
     private UnrealTargetPlatform Platform;
     private UnrealTargetConfiguration Configuration;
-    private bool OpenVDBOpenEXRAreShared;
+    private bool OpenEXRIsShared;
 
     private string PlatformPath
     {
@@ -107,7 +107,7 @@ public class OpenVDBModule : ModuleRules
         get
         {
             string libType = "static";
-            if (OpenVDBOpenEXRAreShared)
+            if (OpenEXRIsShared)
             {
                 libType = "shared";
             }
@@ -133,7 +133,7 @@ public class OpenVDBModule : ModuleRules
                 //"IexMath-2_2.lib",
                 //"IlmThread-2_2.lib",
                 //"Imath-2_2.lib",
-                //"zlibstat.lib",
+                "zlibstat.lib",
                 "tbb.lib",
                 "tbbmalloc.lib",
             };

@@ -3,29 +3,9 @@
 #include "CosmicSafari.h"
 #include "ProceduralTerrain.h"
 
-FOpenVDBModule * AProceduralTerrain::OpenVDBModule = nullptr;
-
-void AProceduralTerrain::InitializeOpenVDBModule()
-{
-	if (OpenVDBModule == nullptr)
-	{
-		OpenVDBModule = &FOpenVDBModule::Get();
-		if (!OpenVDBModule->IsAvailable())
-		{
-			UE_LOG(LogFlying, Warning, TEXT("Failed to start OpenVDBModule!"));
-		}
-		else
-		{
-			OpenVDBModule->StartupModule();
-		}
-	}
-}
-
 // Sets default values
 AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializer)
 {
-	AProceduralTerrain::InitializeOpenVDBModule();
-
 	VdbHandle = ObjectInitializer.CreateDefaultSubobject<UVdbHandle>(this, TEXT("VDB Handle"));
 	TerrainMeshComponent = ObjectInitializer.CreateDefaultSubobject<UProceduralTerrainMeshComponent>(this, TEXT("GeneratedTerrain"));
 	check(VdbHandle != nullptr);
@@ -58,9 +38,16 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	
-	UVdbHandle::RegisterVdb(VdbHandle);
+	VdbHandle->InitVdb();
+}
+
+// Called when the game starts or when spawned
+void AProceduralTerrain::BeginPlay()
+{
+	Super::BeginPlay();
+
 	ACharacter* FirstPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+	check(FirstPlayerCharacter != nullptr);
 	FIntVector RegionIndexCoords = VdbHandle->GetRegionIndex(FirstPlayerCharacter->GetActorLocation());
 	FIntVector IndexStart;
 	FIntVector IndexEnd;
@@ -76,12 +63,6 @@ void AProceduralTerrain::PostInitializeComponents()
 	MeshSectionNormals.Add(0, TArray<FVector>());
 	MeshSectionVertexColors.Add(0, TArray<FColor>());
 	MeshSectionTangents.Add(0, TArray<FProcMeshTangent>());
-}
-
-// Called when the game starts or when spawned
-void AProceduralTerrain::BeginPlay()
-{
-	Super::BeginPlay();
 
 	for (auto i = MeshSectionIndices.CreateConstIterator(); i; ++i)
 	{

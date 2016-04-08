@@ -3,6 +3,7 @@
 
 #include "EngineMinimal.h"
 #include "VdbHandle.h"
+#include "VDBHandlePrivate.h"
 
 class OPENVDBMODULE_API FOpenVDBModule : public IModuleInterface
 {
@@ -16,8 +17,8 @@ public:
 	{
 		return FModuleManager::Get().IsModuleLoaded("OpenVDBModule");
 	}
-};
 
-DECLARE_LOG_CATEGORY_EXTERN(LogOpenVDBModule, Log, All)
+	static VdbRegistryType VdbRegistry;
+};
 
 #endif

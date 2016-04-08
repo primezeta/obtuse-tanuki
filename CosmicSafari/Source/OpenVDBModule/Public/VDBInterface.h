@@ -16,7 +16,7 @@ class IVdbInterface
 	GENERATED_IINTERFACE_BODY()
 
 public:
-	virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, FIntVector &indexStart, FIntVector &indexEnd) = 0;
+	virtual FString AddGrid(const FString &gridName, const FIntVector &worldIndex, FIntVector &indexStart, FIntVector &indexEnd) = 0;
 	virtual void RemoveGrid(const FString &gridID) = 0;
 	virtual void SetRegionSize(const FIntVector &regionSize) = 0;
 	virtual void ReadGridTreeIndex(const FString &gridID, FIntVector &activeStart, FIntVector &activeEnd) = 0;

@@ -1,8 +1,5 @@
 #pragma once
 #include "OpenVDBModule.h"
-#include "VdbHandlePrivate.h"
-
-extern VdbRegistryType VdbRegistry;
 
 void UVdbHandle::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
 {

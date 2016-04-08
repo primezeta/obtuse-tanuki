@@ -3,7 +3,7 @@
 #pragma once
 
 #include "GameFramework/Actor.h"
-#include "OpenVDBModule.h"
+#include "VdbHandle.h"
 #include "ProceduralTerrainMeshComponent.h"
 #include "ProceduralTerrain.generated.h"
 
@@ -40,8 +40,6 @@ public:
 		bool bCreateCollision;
 
 private:
-	static FOpenVDBModule * OpenVDBModule;
-	static void InitializeOpenVDBModule();
 
 	TArray<int32> MeshSectionIndices;
 	TMap<int32, FString> MeshSectionIDs;

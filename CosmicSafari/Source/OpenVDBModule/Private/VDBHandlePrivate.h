@@ -7,6 +7,8 @@
 #include "GridOps.h"
 #include "GridMetadata.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogOpenVDBModule, Log, All)
+
 struct AsyncIONotifier
 {
 	typedef tbb::concurrent_hash_map<openvdb::io::Queue::Id, std::string> FilenameMap;
@@ -39,6 +41,7 @@ public:
 	typedef Vdb::GridOps::BasicMesher<TreeType> MesherOpType;
 	typedef openvdb::Grid<TreeType> GridType;
 	typedef typename GridType::Ptr GridTypePtr;
+	typedef typename GridType::ConstPtr GridTypeCPtr;
 
 	UVdbHandle const * VdbHandle;
 	boost::shared_ptr<openvdb::io::File> FilePtr;
@@ -61,7 +64,7 @@ public:
 		//Create the vdb file if it does not exist
 		if (!FPaths::FileExists(VdbHandle->FilePath))
 		{
-			FilePtr->write(openvdb::GridPtrVec());
+			FilePtr->write(openvdb::GridCPtrVec(), openvdb::MetaMap());
 			UE_LOG(LogOpenVDBModule, Verbose, TEXT("IVdb: Created %s"), *(VdbHandle->FilePath));
 		}
 		check(FPaths::FileExists(VdbHandle->FilePath)); //TODO: Error handling when unable to create file. For now assume the file exists
@@ -240,7 +243,7 @@ public:
 
 	void WriteChanges()
 	{
-		OpenFileGuard();
+		CloseFileGuard();
 		FilePtr->write(*GridsPtr, *FileMetaPtr);
 	}
 
@@ -250,7 +253,7 @@ public:
 		AsyncIONotifier notifier;
 		openvdb::io::Queue queue;
 		queue.addNotifier(boost::bind(&AsyncIONotifier::callback, &notifier, _1, _2));
-		queue.write<openvdb::GridPtrVec>(*GridsPtr, *FilePtr, *FileMetaPtr);
+		queue.write(*GridsPtr, *FilePtr, *FileMetaPtr);
 	}
 
 	template<typename TreeType, typename... MetadataTypes>
@@ -288,7 +291,9 @@ public:
 		openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
 		if (gridPtr == nullptr)
 		{
-			gridPtr = GridType::create();
+			GridsPtr->push_back(GridType::create());
+			gridPtr = openvdb::gridPtrCast<GridType>(GridsPtr->back());
+			gridPtr->setName(TCHAR_TO_UTF8(*gridName));
 			gridPtr->fill(fillBBox, 0.0f);
 		}
 
