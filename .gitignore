@@ -37,6 +37,7 @@
 *.exp
 
 # Unreal Engine 4
+CosmicSafari/Build/*
 CosmicSafari/Binaries/*
 CosmicSafari/Build/Receipts/*
 CosmicSafari/Intermediate/Build/*
@@ -50,10 +51,11 @@ CosmicSafari/Content/Geometry/*
 CosmicSafari/Content/Flying/*
 CosmicSafari/Content/FlyingCPP/*
 CosmicSafari/ThirdParty/Build/*
-CosmicSafari/ThirdParty/OpenVDB/src/openvdb/viewer/glfw-legacy-master/examples/*
 CosmicSafari/DerivedDataCache
 CosmicSafari/Intermediate/ReimportCache
 CosmicSafari/Intermediate/CachedAssetRegistry.bin
+CosmicSafari/Content/GTFreeMaterials/*
+CosmicSafari/Content/StarterContent/*
 
 # Build logs
 *.tlog

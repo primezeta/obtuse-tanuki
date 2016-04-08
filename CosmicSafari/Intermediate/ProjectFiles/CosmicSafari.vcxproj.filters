@@ -3,7 +3,7 @@
   <ItemGroup>
     <None Include="..\..\CosmicSafari.uproject" />
     <Filter Include="Source">
-      <UniqueIdentifier>{79AF3A01-26E9-4605-9E40-0C370EB0C079}</UniqueIdentifier>
+      <UniqueIdentifier>{A28E6CCA-7FEC-415C-9233-3A4AC72F80B5}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Source\CosmicSafari.Target.cs">
       <Filter>Source</Filter>
@@ -12,7 +12,7 @@
       <Filter>Source</Filter>
     </None>
     <Filter Include="Config">
-      <UniqueIdentifier>{E8055614-A0A0-4F44-91A1-0F027592EB1E}</UniqueIdentifier>
+      <UniqueIdentifier>{EEDE6670-B85D-4C96-B386-AA0B771897F4}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Config\DefaultEditor.ini">
       <Filter>Config</Filter>
@@ -30,7 +30,7 @@
       <Filter>Config</Filter>
     </None>
     <Filter Include="Source\CosmicSafari">
-      <UniqueIdentifier>{246D3E08-BBD0-4514-94B9-74DC4E7E251A}</UniqueIdentifier>
+      <UniqueIdentifier>{36CAECE9-FB27-4B5A-9F6E-95CAFBDD4F8D}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Source\CosmicSafari\CosmicSafari.Build.cs">
       <Filter>Source\CosmicSafari</Filter>
@@ -53,6 +53,30 @@
     <ClInclude Include="..\..\Source\CosmicSafari\CosmicSafariPawn.h">
       <Filter>Source\CosmicSafari</Filter>
     </ClInclude>
+    <ClCompile Include="..\..\Source\CosmicSafari\FirstPersonCPPCharacter.cpp">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\CosmicSafari\FirstPersonCPPCharacter.h">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\CosmicSafari\FirstPersonCPPGameMode.cpp">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\CosmicSafari\FirstPersonCPPGameMode.h">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\CosmicSafari\FirstPersonCPPHUD.cpp">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\CosmicSafari\FirstPersonCPPHUD.h">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\CosmicSafari\FirstPersonCPPProjectile.cpp">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\CosmicSafari\FirstPersonCPPProjectile.h">
+      <Filter>Source\CosmicSafari</Filter>
+    </ClInclude>
     <ClCompile Include="..\..\Source\CosmicSafari\ProceduralTerrain.cpp">
       <Filter>Source\CosmicSafari</Filter>
     </ClCompile>
@@ -66,13 +90,13 @@
       <Filter>Source\CosmicSafari</Filter>
     </ClInclude>
     <Filter Include="Source\OpenVDBModule">
-      <UniqueIdentifier>{431EA716-5D1E-4E9F-B754-7E0F8776A52C}</UniqueIdentifier>
+      <UniqueIdentifier>{D8138494-B21B-42E0-ABF9-721F5D90050B}</UniqueIdentifier>
     </Filter>
     <None Include="..\..\Source\OpenVDBModule\OpenVDBModule.Build.cs">
       <Filter>Source\OpenVDBModule</Filter>
     </None>
     <Filter Include="Source\OpenVDBModule\Private">
-      <UniqueIdentifier>{6577A6D7-EEAD-419C-9F3B-489CC908139D}</UniqueIdentifier>
+      <UniqueIdentifier>{59E25D5C-6D0B-413A-84D0-7BF60B64D6B8}</UniqueIdentifier>
     </Filter>
     <ClCompile Include="..\..\Source\OpenVDBModule\Private\GridMetadata.cpp">
       <Filter>Source\OpenVDBModule\Private</Filter>
@@ -86,33 +110,29 @@
     <ClCompile Include="..\..\Source\OpenVDBModule\Private\OpenVDBModule.cpp">
       <Filter>Source\OpenVDBModule\Private</Filter>
     </ClCompile>
-    <Filter Include="Source\OpenVDBModule\Public">
-      <UniqueIdentifier>{AC23AE0E-2A43-44B8-BD49-EDEAE83D7E7D}</UniqueIdentifier>
-    </Filter>
-    <ClInclude Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.h">
-      <Filter>Source\OpenVDBModule\Public</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\..\Source\OpenVDBModule\Public\VdbHandle.h">
-      <Filter>Source\OpenVDBModule\Public</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Source\OpenVDBModule\Private\VdbHandlePrivate.h">
-      <Filter>Source\OpenVDBModule\Private</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Source\OpenVDBModule\Public\VdbInterface.h">
-      <Filter>Source\OpenVDBModule\Public</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="..\..\Source\OpenVDBModule\Private\VdbHandle.cpp">
-      <Filter>Source\OpenVDBModule\Private</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Source\OpenVDBModule\Private\VdbInterface.cpp">
       <Filter>Source\OpenVDBModule\Private</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Source\OpenVDBModule\Private\VdbHandleEditor.cpp">
       <Filter>Source\OpenVDBModule\Private</Filter>
     </ClCompile>
+    <ClInclude Include="..\..\Source\OpenVDBModule\Private\VdbHandlePrivate.h">
+      <Filter>Source\OpenVDBModule\Private</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\OpenVDBModule\Private\VdbInterface.cpp">
+      <Filter>Source\OpenVDBModule\Private</Filter>
+    </ClCompile>
+    <Filter Include="Source\OpenVDBModule\Public">
+      <UniqueIdentifier>{0BBF61FE-C085-442E-B928-327923F626D7}</UniqueIdentifier>
+    </Filter>
+    <ClInclude Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.h">
+      <Filter>Source\OpenVDBModule\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\OpenVDBModule\Public\VdbHandle.h">
+      <Filter>Source\OpenVDBModule\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\OpenVDBModule\Public\VdbInterface.h">
+      <Filter>Source\OpenVDBModule\Public</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
