@@ -61,9 +61,9 @@ public:
 		check(FilePtr != nullptr);
 		FilePtr->setGridStatsMetadataEnabled(VdbHandle->EnableGridStats);
 
-		//Create the vdb file if it does not exist
 		if (!FPaths::FileExists(VdbHandle->FilePath))
 		{
+			//Create an empty vdb file
 			FilePtr->write(openvdb::GridCPtrVec(), openvdb::MetaMap());
 			UE_LOG(LogOpenVDBModule, Verbose, TEXT("IVdb: Created %s"), *(VdbHandle->FilePath));
 		}
@@ -288,13 +288,13 @@ public:
 	void FillGrid_PerlinDensity(const FString &gridName, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, float frequency, float lacunarity, float persistence, int32 octaveCount, FIntVector &activeStart, FIntVector &activeEnd)
 	{
 		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
-		openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
+		const openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
 		if (gridPtr == nullptr)
 		{
 			GridsPtr->push_back(GridType::create());
 			gridPtr = openvdb::gridPtrCast<GridType>(GridsPtr->back());
 			gridPtr->setName(TCHAR_TO_UTF8(*gridName));
-			gridPtr->fill(fillBBox, 0.0f);
+			gridPtr->setTransform(openvdb::math::Transform::Ptr(new openvdb::math::Transform(openvdb::math::UniformScaleMap::Ptr(new openvdb::math::UniformScaleMap(1.0)))));
 		}
 
 		//Noise module parameters are at the grid-level metadata

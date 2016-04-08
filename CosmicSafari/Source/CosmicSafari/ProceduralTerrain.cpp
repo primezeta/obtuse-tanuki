@@ -47,8 +47,11 @@ void AProceduralTerrain::BeginPlay()
 	Super::BeginPlay();
 
 	ACharacter* FirstPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-	check(FirstPlayerCharacter != nullptr);
-	FIntVector RegionIndexCoords = VdbHandle->GetRegionIndex(FirstPlayerCharacter->GetActorLocation());
+	FIntVector RegionIndexCoords(0, 0, 0);
+	if (FirstPlayerCharacter != nullptr)
+	{
+		VdbHandle->GetRegionIndex(FirstPlayerCharacter->GetActorLocation());
+	}
 	FIntVector IndexStart;
 	FIntVector IndexEnd;
 	FString GridID = VdbHandle->AddGrid(TEXT("StartRegion"), RegionIndexCoords, IndexStart, IndexEnd);

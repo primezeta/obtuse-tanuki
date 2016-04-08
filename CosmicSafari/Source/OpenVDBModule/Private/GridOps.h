@@ -13,7 +13,7 @@ namespace Vdb
 	{
 		enum CubeVertex { VX0, VX1, VX2, VX3, VX4, VX5, VX6, VX7, VX8 };
 		const static SIZE_T CUBE_VERTEX_COUNT = VX8 + 1;
-		const static openvdb::Index32 UNVISITED_VERTEX_INDEX = UINT32_MAX;
+		const static int32 UNVISITED_VERTEX_INDEX = -1;
 
 		//Helper class that holds coordinates of a cube
 		class PrimitiveCube
@@ -32,18 +32,18 @@ namespace Vdb
 				primitiveVertices[7] = bbox.getEnd();
 			}
 
-			openvdb::Index32& operator[](CubeVertex v) { return primitiveIndices[v]; }
+			int32& operator[](CubeVertex v) { return primitiveIndices[v]; }
 			openvdb::Coord& getCoord(CubeVertex v) { return primitiveVertices[v]; }
 			//Add the vertex indices in counterclockwise order on each quad face
-			openvdb::Vec4I getQuadXY0() { return openvdb::Vec4I(primitiveIndices[3], primitiveIndices[4], primitiveIndices[7], primitiveIndices[5]); }
-			openvdb::Vec4I getQuadXY1() { return openvdb::Vec4I(primitiveIndices[6], primitiveIndices[2], primitiveIndices[0], primitiveIndices[1]); }
-			openvdb::Vec4I getQuadXZ0() { return openvdb::Vec4I(primitiveIndices[7], primitiveIndices[4], primitiveIndices[2], primitiveIndices[6]); }
-			openvdb::Vec4I getQuadXZ1() { return openvdb::Vec4I(primitiveIndices[5], primitiveIndices[1], primitiveIndices[0], primitiveIndices[3]); }
-			openvdb::Vec4I getQuadYZ0() { return openvdb::Vec4I(primitiveIndices[7], primitiveIndices[6], primitiveIndices[1], primitiveIndices[5]); }
-			openvdb::Vec4I getQuadYZ1() { return openvdb::Vec4I(primitiveIndices[0], primitiveIndices[2], primitiveIndices[4], primitiveIndices[3]); }
+			openvdb::Vec4i getQuadXY0() { return openvdb::Vec4i(primitiveIndices[3], primitiveIndices[4], primitiveIndices[7], primitiveIndices[5]); }
+			openvdb::Vec4i getQuadXY1() { return openvdb::Vec4i(primitiveIndices[6], primitiveIndices[2], primitiveIndices[0], primitiveIndices[1]); }
+			openvdb::Vec4i getQuadXZ0() { return openvdb::Vec4i(primitiveIndices[7], primitiveIndices[4], primitiveIndices[2], primitiveIndices[6]); }
+			openvdb::Vec4i getQuadXZ1() { return openvdb::Vec4i(primitiveIndices[5], primitiveIndices[1], primitiveIndices[0], primitiveIndices[3]); }
+			openvdb::Vec4i getQuadYZ0() { return openvdb::Vec4i(primitiveIndices[7], primitiveIndices[6], primitiveIndices[1], primitiveIndices[5]); }
+			openvdb::Vec4i getQuadYZ1() { return openvdb::Vec4i(primitiveIndices[0], primitiveIndices[2], primitiveIndices[4], primitiveIndices[3]); }
 		private:
 			openvdb::Coord primitiveVertices[CUBE_VERTEX_COUNT];
-			openvdb::Index32 primitiveIndices[CUBE_VERTEX_COUNT];
+			int32 primitiveIndices[CUBE_VERTEX_COUNT];
 		};
 
 		//Helper class that holds vertex indices of the quad-face of a cube
@@ -51,7 +51,7 @@ namespace Vdb
 		{
 		public:
 			OvdbQuad() {}
-			OvdbQuad(openvdb::Vec4I idxs) : indices(idxs), isMerged(false) {}
+			OvdbQuad(openvdb::Vec4i idxs) : indices(idxs), isMerged(false) {}
 			OvdbQuad(const OvdbQuad &rhs) : indices(rhs.indices), isMerged(rhs.isMerged) {}
 			OvdbQuad& operator=(const OvdbQuad &rhs)
 			{
@@ -59,11 +59,11 @@ namespace Vdb
 				isMerged = rhs.isMerged;
 				return *this;
 			}
-			const openvdb::Vec4I& quad() const { return indices; }
-			openvdb::Vec2I quadU() const { return openvdb::Vec2I(indices[0], indices[1]); }
-			openvdb::Vec2I quadV() const { return openvdb::Vec2I(indices[0], indices[3]); }
-			openvdb::Vec3I quadPoly1() const { return openvdb::Vec3I(indices[0], indices[1], indices[2]); }
-			openvdb::Vec3I quadPoly2() const { return openvdb::Vec3I(indices[0], indices[2], indices[3]); }
+			const openvdb::Vec4i& quad() const { return indices; }
+			openvdb::Vec2i quadU() const { return openvdb::Vec2i(indices[0], indices[1]); }
+			openvdb::Vec2i quadV() const { return openvdb::Vec2i(indices[0], indices[3]); }
+			openvdb::Vec3i quadPoly1() const { return openvdb::Vec3i(indices[0], indices[1], indices[2]); }
+			openvdb::Vec3i quadPoly2() const { return openvdb::Vec3i(indices[0], indices[2], indices[3]); }
 			bool quadIsMerged() const { return isMerged; }
 			void setIsMerged() { isMerged = true; }
 			void mergeU(OvdbQuad &rhs)
@@ -71,7 +71,7 @@ namespace Vdb
 				if (!rhs.quadIsMerged())
 				{
 					rhs.setIsMerged();
-					indices = openvdb::Vec4I(indices[0], rhs.indices[1], rhs.indices[2], indices[3]);
+					indices = openvdb::Vec4i(indices[0], rhs.indices[1], rhs.indices[2], indices[3]);
 				}
 			}
 			void mergeV(OvdbQuad &rhs)
@@ -79,11 +79,11 @@ namespace Vdb
 				if (!rhs.quadIsMerged())
 				{
 					rhs.setIsMerged();
-					indices = openvdb::Vec4I(indices[0], indices[1], rhs.indices[2], rhs.indices[3]);
+					indices = openvdb::Vec4i(indices[0], indices[1], rhs.indices[2], rhs.indices[3]);
 				}
 			}
 		private:
-			openvdb::Vec4I indices;
+			openvdb::Vec4i indices;
 			bool isMerged;
 		};
 
@@ -131,7 +131,7 @@ namespace Vdb
 				valueSource.SetFrequency((double)frequency);
 				valueSource.SetLacunarity((double)lacunarity);
 				valueSource.SetPersistence((double)persistence);
-				valueSource.SetOctaveCount((double)octaveCount);
+				valueSource.SetOctaveCount(octaveCount);
 			}
 			inline void operator()(const IterType& iter, OutAccessorType& acc) override
 			{
@@ -193,7 +193,7 @@ namespace Vdb
 			inline void operator()(const IterType &iter, OutAccessorType &acc) override
 			{
 				const openvdb::Coord &coord = iter.getCoord();
-				uint8_t insideBits = 0;
+				uint8 insideBits = 0;
 				//For each neighboring value set a bit if it is inside the surface (inside = positive value)
 				if (iter.getValue() > surfaceValue) { insideBits |= 1; }
 				if (acc.getValue(coord.offsetBy(1, 0, 0)) > surfaceValue) { insideBits |= 2; }
@@ -266,24 +266,13 @@ namespace Vdb
 			{
 				for (auto i = quads.CreateConstIterator(); i; ++i)
 				{
-					const openvdb::Vec4I &q = *i;
-					const openvdb::Vec3I poly1 = openvdb::Vec3I(q[0], q[1], q[2]);
-					const openvdb::Vec3I poly2 = openvdb::Vec3I(q[0], q[2], q[3]);
-					const int32 signedPoly1[3] = { (int32)poly1[0], (int32)poly1[1], (int32)poly1[2] };
-					const int32 signedPoly2[3] = { (int32)poly2[0], (int32)poly2[1], (int32)poly2[2] };
-					for (int32 j = 0; j < 3; ++j)
-					{
-						if (signedPoly1[j] < 0)
-						{
-							UE_LOG(LogOpenVDBModule, Fatal, TEXT("Vertex index %d too large!"), signedPoly1[j]);
-						}
-						if (signedPoly2[j] < 0)
-						{
-							UE_LOG(LogOpenVDBModule, Fatal, TEXT("Vertex index %d too large!"), signedPoly2[j]);
-						}
-						polygons.Add(signedPoly1[j]);
-						polygons.Add(signedPoly2[j]);
-					}
+					const openvdb::Vec4i &q = *i;
+					polygons.Add(q[0]);
+					polygons.Add(q[1]);
+					polygons.Add(q[2]);
+					polygons.Add(q[0]);
+					polygons.Add(q[2]);
+					polygons.Add(q[3]);
 					//normals.Add()
 					//normals.Add()
 					//normals.Add()
@@ -292,14 +281,14 @@ namespace Vdb
 			}
 		private:
 			FCriticalSection vertexMutex;
-			TArray<openvdb::Vec4I> quads;
+			TArray<openvdb::Vec4i> quads;
 			TArray<FVector> &vertices;
 			TArray<int32> &polygons;
 			TArray<FVector> &normals;
 		};
 
 		//Helper struct to hold the associated grid meshing info
-		template <typename TreeType, typename IndexTreeType = openvdb::UInt32Tree>
+		template <typename TreeType, typename IndexTreeType = openvdb::Int32Tree> //TODO: Use UE4 platform int32
 		class BasicMesher
 		{
 		public:
