@@ -152,11 +152,11 @@ namespace Vdb
 					//acc.modifyValueAndActiveState<ModifyOpType>(coord, ModifyOpType(GetDensityValue(vec), isInsideBoundary));
 					if (isInsideBoundary)
 					{
-						acc.setValueOn(coord, GetDensityValue(vec));
+						acc.setValueOn(coord, (OutValueType)GetDensityValue(vec));
 					}
 					else
 					{
-						acc.setValueOnly(coord, GetDensityValue(vec));
+						acc.setValueOff(coord, (OutValueType)GetDensityValue(vec));
 					}
 				}
 				else
@@ -177,18 +177,18 @@ namespace Vdb
 								//acc.modifyValueAndActiveState<ModifyOpType>(coord, ModifyOpType(GetDensityValue(vec), isInsideBoundary));
 								if (isInsideBoundary)
 								{
-									acc.setValueOn(coord, GetDensityValue(vec));
+									acc.setValueOn(coord, (OutValueType)GetDensityValue(vec));
 								}
 								else
 								{
-									acc.setValueOnly(coord, GetDensityValue(vec));
+									acc.setValueOff(coord, (OutValueType)GetDensityValue(vec));
 								}
 							}
 						}
 					}
 				}
 			}
-			inline OutValueType GetDensityValue(const openvdb::Vec3d &vec)
+			inline double GetDensityValue(const openvdb::Vec3d &vec)
 			{
 				//double prevLacunarity = valueSource.GetLacunarity();
 				//int32 prevOctaveCount = valueSource.GetOctaveCount();
@@ -217,41 +217,17 @@ namespace Vdb
 			}
 			inline void operator()(const IterType &iter, OutAccessorType &acc) override
 			{
-				openvdb::Coord coord = iter.getCoord();
-				uint8 insideBits = 0;
+				const openvdb::Coord &coord = iter.getCoord();
+				uint8_t insideBits = 0;
 				//For each neighboring value set a bit if it is inside the surface (inside = positive value)
-				if (acc.getValue(coord) > surfaceValue)
-				{
-					insideBits |= 1;
-				}
-				if (acc.getValue(coord.offsetBy(1, 0, 0)) > surfaceValue)
-				{
-					insideBits |= 2;
-				}
-				if (acc.getValue(coord.offsetBy(0, 1, 0)) > surfaceValue)
-				{
-					insideBits |= 4;
-				}
-				if (acc.getValue(coord.offsetBy(0, 0, 1)) > surfaceValue)
-				{
-					insideBits |= 8;
-				}
-				if (acc.getValue(coord.offsetBy(1, 1, 0)) > surfaceValue)
-				{
-					insideBits |= 16;
-				}
-				if (acc.getValue(coord.offsetBy(1, 0, 1)) > surfaceValue)
-				{
-					insideBits |= 32;
-				}
-				if (acc.getValue(coord.offsetBy(0, 1, 1)) > surfaceValue)
-				{
-					insideBits |= 64;
-				}
-				if (acc.getValue(coord.offsetBy(1, 1, 1)) > surfaceValue)
-				{
-					insideBits |= 128;
-				}
+				if (iter.getValue() > surfaceValue) { insideBits |= 1; }
+				if (acc.getValue(coord.offsetBy(1, 0, 0)) > surfaceValue) { insideBits |= 2; }
+				if (acc.getValue(coord.offsetBy(0, 1, 0)) > surfaceValue) { insideBits |= 4; }
+				if (acc.getValue(coord.offsetBy(0, 0, 1)) > surfaceValue) { insideBits |= 8; }
+				if (acc.getValue(coord.offsetBy(1, 1, 0)) > surfaceValue) { insideBits |= 16; }
+				if (acc.getValue(coord.offsetBy(1, 0, 1)) > surfaceValue) { insideBits |= 32; }
+				if (acc.getValue(coord.offsetBy(0, 1, 1)) > surfaceValue) { insideBits |= 64; }
+				if (acc.getValue(coord.offsetBy(1, 1, 1)) > surfaceValue) { insideBits |= 128; }
 				//If all vertices are inside the surface or all are outside the surface then set off in order to not mesh this voxel
 				if (insideBits == 0 || insideBits == 255)
 				{
@@ -272,7 +248,6 @@ namespace Vdb
 			inline void operator()(const IterType &iter, OutAccessorType &acc) override
 			{
 				openvdb::Coord coord = iter.getCoord();
-				InValueType density = iter.getValue();
 				//Mesh the voxel as a simple cube with 6 equal sized quads
 				PrimitiveCube primitiveIndices(coord);
 				for (uint32 i = 0; i < CUBE_VERTEX_COUNT; ++i)
@@ -286,7 +261,7 @@ namespace Vdb
 						{
 							vertexIndex = vertices.Num(); //TODO: Error check index ranges
 							openvdb::Vec3d vtx = inTreeXform.indexToWorld(idxCoord);
-							vertices.Push(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z()));
+							vertices.Add(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z()));
 							//Since this is a new vertex save it to the global visited vertex grid for use by any other voxels in the same region that share it
 							acc.setValue(idxCoord, vertexIndex);
 						}
