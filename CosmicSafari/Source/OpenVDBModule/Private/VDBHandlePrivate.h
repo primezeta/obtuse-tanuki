@@ -34,14 +34,17 @@ struct AsyncIONotifier
 	}
 };
 
-template<typename TreeType, typename... MetadataTypes>
+template<typename TreeType, typename IndexTreeType, typename... MetadataTypes>
 class VdbHandlePrivate
 {
 public:
-	typedef Vdb::GridOps::BasicMesher<TreeType> MesherOpType;
+	typedef Vdb::GridOps::BasicMesher<TreeType, IndexTreeType> MesherOpType;
 	typedef openvdb::Grid<TreeType> GridType;
 	typedef typename GridType::Ptr GridTypePtr;
 	typedef typename GridType::ConstPtr GridTypeCPtr;
+	typedef openvdb::Grid<IndexTreeType> IndexGridType;
+	typedef typename IndexGridType::Ptr IndexGridTypePtr;
+	typedef typename IndexGridType::ConstPtr IndexGridTypeCPtr;
 
 	UVdbHandle const * VdbHandle;
 	boost::shared_ptr<openvdb::io::File> FilePtr;
@@ -56,6 +59,10 @@ public:
 	{
 		//Initialize OpenVDB, our metadata types, and the vdb file
 		openvdb::initialize();
+		if (!IndexGridType::isRegistered())
+		{
+			IndexGridType::registerGrid();
+		}
 		InitializeMetadataTypes<MetadataTypes...>();
 		FilePtr = boost::shared_ptr<openvdb::io::File>(new openvdb::io::File(TCHAR_TO_UTF8(*(VdbHandle->FilePath))));
 		check(FilePtr != nullptr);
@@ -80,6 +87,10 @@ public:
 	{
 		//TODO: Write changes if they exist?
 		openvdb::uninitialize();
+		if (IndexGridType::isRegistered())
+		{
+			IndexGridType::unregisterGrid();
+		}
 	}
 
 	template<typename TreeType, typename... MetadataTypes>
@@ -94,7 +105,7 @@ public:
 		return gridMetaPtr;
 	}
 
-	template<typename TreeType, typename... MetadataTypes>
+	template<typename TreeType>
 	GridTypePtr ReadGridTree(const FString &gridName, FIntVector &activeStart, FIntVector &activeEnd)
 	{
 		GridTypePtr gridPtr = nullptr;
@@ -122,7 +133,7 @@ public:
 		return gridPtr;
 	}
 
-	template<typename TreeType, typename... MetadataTypes>
+	template<typename TreeType>
 	GridTypePtr ReadGridTree(const FString &gridName, FVector &activeStart, FVector &activeEnd)
 	{
 		GridTypePtr gridPtr = nullptr;
@@ -182,7 +193,7 @@ public:
 		}
 	}
 
-	openvdb::GridBase::Ptr GetGridBasePtr(const FString &gridName)
+	openvdb::GridBase::Ptr GetGridBasePtr(const FString &gridName) const
 	{
 		for (openvdb::GridPtrVec::iterator i = GridsPtr->begin(); i != GridsPtr->end(); ++i)
 		{
@@ -195,7 +206,7 @@ public:
 	}
 
 	template<typename TreeType>
-	GridTypePtr GetGridPtr(const FString &gridName)
+	GridTypePtr GetGridPtr(const FString &gridName) const
 	{
 		for (openvdb::GridPtrVec::iterator i = GridsPtr->begin(); i != GridsPtr->end(); ++i)
 		{
@@ -210,7 +221,7 @@ public:
 	}
 
 	template<typename MetadataType>
-	typename openvdb::TypedMetadata<MetadataType>::Ptr GetGridMetaValue(const FString &gridName, const FString &metaName)
+	typename openvdb::TypedMetadata<MetadataType>::Ptr GetGridMetaValue(const FString &gridName, const FString &metaName) const
 	{
 		openvdb::TypedMetadata<MetadataType>::Ptr metaValuePtr;
 		openvdb::GridBase::Ptr gridBasePtr = GetGridBasePtr(gridName);
@@ -256,7 +267,7 @@ public:
 		queue.write(*GridsPtr, *FilePtr, *FileMetaPtr);
 	}
 
-	template<typename TreeType, typename... MetadataTypes>
+	template<typename TreeType, typename IndexTreeType>
 	void MeshRegion(const FString &gridName, float surfaceValue, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer)
 	{
 		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
@@ -264,12 +275,14 @@ public:
 		{
 			TSharedPtr<MesherOpType> mesherOpPtr = TSharedPtr<MesherOpType>(new MesherOpType(gridPtr, vertexBuffer, polygonBuffer, normalBuffer));
 			mesherOpPtr->doActivateValuesOp(surfaceValue);
+			check(gridPtr->activeVoxelCount() <= INT32_MAX);
+			vertexBuffer.Reserve(gridPtr->activeVoxelCount());
 			mesherOpPtr->doMeshOp(true);
 		}
 	}
 
-	template<typename TreeType, typename... MetadataTypes>
-	void ReadGridIndexBounds(const FString &gridName, FIntVector &indexStart, FIntVector &indexEnd)
+	template<typename TreeType>
+	void ReadGridIndexBounds(const FString &gridName, FIntVector &indexStart, FIntVector &indexEnd) const
 	{
 		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
 		if (gridPtr != nullptr)
@@ -284,7 +297,7 @@ public:
 		}
 	}
 
-	template<typename TreeType, typename... MetadataTypes>
+	template<typename TreeType>
 	void FillGrid_PerlinDensity(const FString &gridName, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, float frequency, float lacunarity, float persistence, int32 octaveCount, FIntVector &activeStart, FIntVector &activeEnd)
 	{
 		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
@@ -387,5 +400,5 @@ private:
 };
 
 typedef openvdb::FloatTree TreeType;
-typedef VdbHandlePrivate<TreeType, Vdb::Metadata::RegionMetadata, openvdb::math::ScaleMap> VdbHandlePrivateType;
+typedef VdbHandlePrivate<TreeType, Vdb::GridOps::IndexTreeType, Vdb::Metadata::RegionMetadata, openvdb::math::ScaleMap> VdbHandlePrivateType;
 typedef TMap<FString, TSharedPtr<VdbHandlePrivateType>> VdbRegistryType;

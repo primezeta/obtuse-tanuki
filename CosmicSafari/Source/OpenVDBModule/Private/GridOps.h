@@ -11,9 +11,10 @@ namespace Vdb
 {
 	namespace GridOps
 	{
-		enum CubeVertex { VX0, VX1, VX2, VX3, VX4, VX5, VX6, VX7, VX8 };
-		const static SIZE_T CUBE_VERTEX_COUNT = VX8 + 1;
-		const static int32 UNVISITED_VERTEX_INDEX = -1;
+		typedef int32 IndexType;
+		typedef openvdb::tree::Tree4<IndexType, 5, 4, 3>::Type IndexTreeType; //Same tree configuration (5,4,3) as openvdb::FloatTree (see openvdb.h)
+		const static IndexType UNVISITED_VERTEX_INDEX = -1;
+		const static uint32 CUBE_VERTEX_COUNT = 8;
 
 		//Helper class that holds coordinates of a cube
 		class PrimitiveCube
@@ -32,8 +33,8 @@ namespace Vdb
 				primitiveVertices[7] = bbox.getEnd();
 			}
 
-			int32& operator[](CubeVertex v) { return primitiveIndices[v]; }
-			openvdb::Coord& getCoord(CubeVertex v) { return primitiveVertices[v]; }
+			IndexType& operator[](uint32 v) { return primitiveIndices[v]; }
+			openvdb::Coord& getCoord(uint32 v) { return primitiveVertices[v]; }
 			//Add the vertex indices in counterclockwise order on each quad face
 			openvdb::Vec4i getQuadXY0() { return openvdb::Vec4i(primitiveIndices[3], primitiveIndices[4], primitiveIndices[7], primitiveIndices[5]); }
 			openvdb::Vec4i getQuadXY1() { return openvdb::Vec4i(primitiveIndices[6], primitiveIndices[2], primitiveIndices[0], primitiveIndices[1]); }
@@ -43,7 +44,7 @@ namespace Vdb
 			openvdb::Vec4i getQuadYZ1() { return openvdb::Vec4i(primitiveIndices[0], primitiveIndices[2], primitiveIndices[4], primitiveIndices[3]); }
 		private:
 			openvdb::Coord primitiveVertices[CUBE_VERTEX_COUNT];
-			int32 primitiveIndices[CUBE_VERTEX_COUNT];
+			IndexType primitiveIndices[CUBE_VERTEX_COUNT];
 		};
 
 		//Helper class that holds vertex indices of the quad-face of a cube
@@ -92,7 +93,10 @@ namespace Vdb
 		{
 			const ValueType val;
 			BasicModifyOp(const ValueType &v) : val(v) {}
-			inline void BasicModifyOp<ValueType>::operator()(ValueType &v) const { v = val; }
+			inline void BasicModifyOp<ValueType>::operator()(ValueType &v) const
+			{
+				v = val;
+			}
 		};
 
 		template<typename ValueType>
@@ -101,7 +105,11 @@ namespace Vdb
 			const ValueType val;
 			const bool isActive;
 			BasicModifyActiveOp(const ValueType& v, const bool &active) : val(v), isActive(active) {}
-			inline void operator()(ValueType& v, bool &activeState) const { v = val; activeState = isActive; }
+			inline void operator()(ValueType& v, bool &activeState) const
+			{
+				v = val;
+				activeState = isActive;
+			}
 		};
 
 		//Virtual interface specification for a grid transformer operator
@@ -135,13 +143,21 @@ namespace Vdb
 			}
 			inline void operator()(const IterType& iter, OutAccessorType& acc) override
 			{
-				const bool isInsideBoundary = iter.getValue();
+				bool isInsideBoundary = iter.getValue();
 				if (iter.isVoxelValue())
 				{
-					const openvdb::Coord &coord = iter.getCoord();
+					openvdb::Coord coord = iter.getCoord();
 					//Set the density value from the noise source and set on if the voxel is in the active boundary
-					const openvdb::Vec3d vec = inTreeXform.indexToWorld(coord);
-					acc.modifyValueAndActiveState<ModifyOpType>(coord, ModifyOpType(GetDensityValue(vec), isInsideBoundary));
+					openvdb::Vec3d vec = inTreeXform.indexToWorld(coord);
+					//acc.modifyValueAndActiveState<ModifyOpType>(coord, ModifyOpType(GetDensityValue(vec), isInsideBoundary));
+					if (isInsideBoundary)
+					{
+						acc.setValueOn(coord, GetDensityValue(vec));
+					}
+					else
+					{
+						acc.setValueOnly(coord, GetDensityValue(vec));
+					}
 				}
 				else
 				{
@@ -157,8 +173,16 @@ namespace Vdb
 							for (auto z = bbox.min().z(); z <= bbox.max().z(); ++z)
 							{
 								coord.setZ(z);
-								const openvdb::Vec3d vec = inTreeXform.indexToWorld(coord);
-								acc.modifyValueAndActiveState<ModifyOpType>(coord, ModifyOpType(GetDensityValue(vec), isInsideBoundary));
+								openvdb::Vec3d vec = inTreeXform.indexToWorld(coord);
+								//acc.modifyValueAndActiveState<ModifyOpType>(coord, ModifyOpType(GetDensityValue(vec), isInsideBoundary));
+								if (isInsideBoundary)
+								{
+									acc.setValueOn(coord, GetDensityValue(vec));
+								}
+								else
+								{
+									acc.setValueOnly(coord, GetDensityValue(vec));
+								}
 							}
 						}
 					}
@@ -166,14 +190,15 @@ namespace Vdb
 			}
 			inline OutValueType GetDensityValue(const openvdb::Vec3d &vec)
 			{
-				double prevLacunarity = valueSource.GetLacunarity();
-				int32 prevOctaveCount = valueSource.GetOctaveCount();
-				valueSource.SetLacunarity(prevLacunarity*0.004);
-				valueSource.SetOctaveCount(2);
-				double warp = valueSource.GetValue(vec.x(), vec.y(), vec.z()) * 8;
-				valueSource.SetLacunarity(prevLacunarity);
-				valueSource.SetOctaveCount(prevOctaveCount);
-				return (OutValueType)(warp + valueSource.GetValue(vec.x(), vec.y(), vec.z()) - vec.z());
+				//double prevLacunarity = valueSource.GetLacunarity();
+				//int32 prevOctaveCount = valueSource.GetOctaveCount();
+				//valueSource.SetLacunarity(prevLacunarity*0.004);
+				//valueSource.SetOctaveCount(2);
+				//double warp = valueSource.GetValue(vec.x(), vec.y(), vec.z()) * 8;
+				//valueSource.SetLacunarity(prevLacunarity);
+				//valueSource.SetOctaveCount(prevOctaveCount);
+				//return (OutValueType)(warp + valueSource.GetValue(vec.x(), vec.y(), vec.z()) - vec.z());
+				return (OutValueType)(valueSource.GetValue(vec.x(), vec.y(), vec.z()) - vec.z());
 			}
 		private:
 			noise::module::Perlin valueSource;
@@ -192,19 +217,46 @@ namespace Vdb
 			}
 			inline void operator()(const IterType &iter, OutAccessorType &acc) override
 			{
-				const openvdb::Coord &coord = iter.getCoord();
+				openvdb::Coord coord = iter.getCoord();
 				uint8 insideBits = 0;
 				//For each neighboring value set a bit if it is inside the surface (inside = positive value)
-				if (iter.getValue() > surfaceValue) { insideBits |= 1; }
-				if (acc.getValue(coord.offsetBy(1, 0, 0)) > surfaceValue) { insideBits |= 2; }
-				if (acc.getValue(coord.offsetBy(0, 1, 0)) > surfaceValue) { insideBits |= 4; }
-				if (acc.getValue(coord.offsetBy(0, 0, 1)) > surfaceValue) { insideBits |= 8; }
-				if (acc.getValue(coord.offsetBy(1, 1, 0)) > surfaceValue) { insideBits |= 16; }
-				if (acc.getValue(coord.offsetBy(1, 0, 1)) > surfaceValue) { insideBits |= 32; }
-				if (acc.getValue(coord.offsetBy(0, 1, 1)) > surfaceValue) { insideBits |= 64; }
-				if (acc.getValue(coord.offsetBy(1, 1, 1)) > surfaceValue) { insideBits |= 128; }
+				if (acc.getValue(coord) > surfaceValue)
+				{
+					insideBits |= 1;
+				}
+				if (acc.getValue(coord.offsetBy(1, 0, 0)) > surfaceValue)
+				{
+					insideBits |= 2;
+				}
+				if (acc.getValue(coord.offsetBy(0, 1, 0)) > surfaceValue)
+				{
+					insideBits |= 4;
+				}
+				if (acc.getValue(coord.offsetBy(0, 0, 1)) > surfaceValue)
+				{
+					insideBits |= 8;
+				}
+				if (acc.getValue(coord.offsetBy(1, 1, 0)) > surfaceValue)
+				{
+					insideBits |= 16;
+				}
+				if (acc.getValue(coord.offsetBy(1, 0, 1)) > surfaceValue)
+				{
+					insideBits |= 32;
+				}
+				if (acc.getValue(coord.offsetBy(0, 1, 1)) > surfaceValue)
+				{
+					insideBits |= 64;
+				}
+				if (acc.getValue(coord.offsetBy(1, 1, 1)) > surfaceValue)
+				{
+					insideBits |= 128;
+				}
 				//If all vertices are inside the surface or all are outside the surface then set off in order to not mesh this voxel
-				iter.setActiveState(insideBits > 0 && insideBits < 255);
+				if (insideBits == 0 || insideBits == 255)
+				{
+					iter.setValueOff();
+				}
 			}
 		private:
 			InValueType surfaceValue;
@@ -219,54 +271,46 @@ namespace Vdb
 				: ITransformOp(sourceXform), vertices(vertexBuffer), polygons(polygonBuffer), normals(normalBuffer) {}
 			inline void operator()(const IterType &iter, OutAccessorType &acc) override
 			{
-				const openvdb::Coord coord = iter.getCoord();
-				const InValueType &density = iter.getValue();
+				openvdb::Coord coord = iter.getCoord();
+				InValueType density = iter.getValue();
 				//Mesh the voxel as a simple cube with 6 equal sized quads
 				PrimitiveCube primitiveIndices(coord);
 				for (uint32 i = 0; i < CUBE_VERTEX_COUNT; ++i)
 				{
-					const CubeVertex &vtx = (CubeVertex)i;
-					const openvdb::Coord &idxCoord = primitiveIndices.getCoord(vtx);
-
+					openvdb::Coord idxCoord = primitiveIndices.getCoord(i);
 					OutValueType vertexIndex;
-					vertexMutex.Lock();
 					{
+						FScopeLock Lock(&CriticalSection);
 						vertexIndex = acc.getValue(idxCoord);
 						if (vertexIndex == acc.getTree()->background())
 						{
-							vertexIndex = (OutValueType)(vertices.Num()); //TODO: Error check index ranges
-							const openvdb::Vec3d vtx = inTreeXform.indexToWorld(idxCoord);
-							vertices.Add(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z()));
+							vertexIndex = vertices.Num(); //TODO: Error check index ranges
+							openvdb::Vec3d vtx = inTreeXform.indexToWorld(idxCoord);
+							vertices.Push(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z()));
 							//Since this is a new vertex save it to the global visited vertex grid for use by any other voxels in the same region that share it
 							acc.setValue(idxCoord, vertexIndex);
 						}
 					}
-					vertexMutex.Unlock();
-					primitiveIndices[vtx] = vertexIndex;
+					primitiveIndices[i] = vertexIndex;
 				}
-				vertexMutex.Lock();
-				{
-					quads.Add(primitiveIndices.getQuadXY0());
-					quads.Add(primitiveIndices.getQuadXY1());
-					quads.Add(primitiveIndices.getQuadXZ0());
-					quads.Add(primitiveIndices.getQuadXZ1());
-					quads.Add(primitiveIndices.getQuadYZ0());
-					quads.Add(primitiveIndices.getQuadYZ1());
-				}
-				vertexMutex.Unlock();
+				quads.Enqueue(primitiveIndices.getQuadXY0());
+				quads.Enqueue(primitiveIndices.getQuadXY1());
+				quads.Enqueue(primitiveIndices.getQuadXZ0());
+				quads.Enqueue(primitiveIndices.getQuadXZ1());
+				quads.Enqueue(primitiveIndices.getQuadYZ0());
+				quads.Enqueue(primitiveIndices.getQuadYZ1());
 			}
 			inline void initialize()
 			{
-				quads.Empty();
 				vertices.Empty();
 				polygons.Empty();
 				normals.Empty();
 			}
 			inline void collectPolygons()
 			{
-				for (auto i = quads.CreateConstIterator(); i; ++i)
+				openvdb::Vec4i q;
+				while(quads.Dequeue(q))
 				{
-					const openvdb::Vec4i &q = *i;
 					polygons.Add(q[0]);
 					polygons.Add(q[1]);
 					polygons.Add(q[2]);
@@ -280,25 +324,25 @@ namespace Vdb
 				}
 			}
 		private:
-			FCriticalSection vertexMutex;
-			TArray<openvdb::Vec4i> quads;
+			FCriticalSection CriticalSection;
+			TQueue<openvdb::Vec4i, EQueueMode::Mpsc> quads;
 			TArray<FVector> &vertices;
 			TArray<int32> &polygons;
 			TArray<FVector> &normals;
 		};
 
 		//Helper struct to hold the associated grid meshing info
-		template <typename TreeType, typename IndexTreeType = openvdb::Int32Tree> //TODO: Use UE4 platform int32
+		template <typename TreeType, typename VertexIndexTreeType>
 		class BasicMesher
 		{
 		public:
-			typedef typename boost::shared_ptr<BasicMesher<TreeType>> Ptr;
+			typedef typename boost::shared_ptr<BasicMesher<TreeType, VertexIndexTreeType>> Ptr;
 			typedef typename ExtractSurfaceOp<TreeType> ActivateValuesOpType;
 			typedef typename ActivateValuesOpType::InValueType InValueType;
-			typedef typename MeshGeometryOp<IndexTreeType, TreeType> MeshOpType;
+			typedef typename MeshGeometryOp<VertexIndexTreeType, TreeType> MeshOpType;
 			typedef typename MeshOpType::OutValueType OutValueType;
 			typedef typename openvdb::Grid<TreeType> GridType;
-			typedef typename openvdb::Grid<IndexTreeType> VertexIndexGridType;
+			typedef typename openvdb::Grid<VertexIndexTreeType> VertexIndexGridType;			
 			BasicMesher(typename GridType::Ptr grid, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer)
 				: gridPtr(grid), meshOp(new MeshOpType(grid->transform(), vertexBuffer, polygonBuffer, normalBuffer)), activateValuesOp(new ActivateValuesOpType()) {}
 			inline void doActivateValuesOp(InValueType isovalue)
@@ -310,7 +354,7 @@ namespace Vdb
 			{
 				if (initialize || visitedVertexIndices == nullptr)
 				{
-					visitedVertexIndices = VertexIndexGridType::create((OutValueType)UNVISITED_VERTEX_INDEX);
+					visitedVertexIndices = VertexIndexGridType::create(UNVISITED_VERTEX_INDEX);
 					visitedVertexIndices->setTransform(gridPtr->transformPtr()->copy());
 					visitedVertexIndices->topologyUnion(*gridPtr);
 					meshOp->initialize();

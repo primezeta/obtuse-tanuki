@@ -24,7 +24,7 @@ public class OpenVDBModule : ModuleRules
         bFasterWithoutUnity = true;
         bUseRTTI = true;
         bEnableExceptions = true;
-        //UEBuildConfiguration.bForceEnableExceptions = true;
+        OptimizeCode = CodeOptimization.Never;
     }
 
     private UnrealTargetPlatform Platform;

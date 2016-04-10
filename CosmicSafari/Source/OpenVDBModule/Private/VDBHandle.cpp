@@ -274,7 +274,7 @@ void UVdbHandle::ReadGridTreeIndex(const FString &gridID, FIntVector &activeStar
 	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 	try
 	{
-		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->ReadGridTree<TreeType, Vdb::Metadata::RegionMetadata>(gridID, activeStart, activeEnd);
+		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->ReadGridTree<TreeType>(gridID, activeStart, activeEnd);
 		if (GridPtr == nullptr)
 		{
 			openvdb::TypedMetadata<Vdb::Metadata::RegionMetadata>::Ptr regionMetaValue = VdbPrivatePtr->GetFileMetaValue<Vdb::Metadata::RegionMetadata>(gridID);
@@ -282,7 +282,7 @@ void UVdbHandle::ReadGridTreeIndex(const FString &gridID, FIntVector &activeStar
 			const openvdb::CoordBBox regionBBox = regionMetaValue->value().GetRegionBBox();
 			FIntVector startFill(regionBBox.min().x(), regionBBox.min().y(), regionBBox.min().z());
 			FIntVector endFill(regionBBox.max().x(), regionBBox.max().y(), regionBBox.max().z());
-			VdbPrivatePtr->FillGrid_PerlinDensity<TreeType, Vdb::Metadata::RegionMetadata>(gridID, startFill, endFill, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, activeStart, activeEnd);
+			VdbPrivatePtr->FillGrid_PerlinDensity<TreeType>(gridID, startFill, endFill, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, activeStart, activeEnd);
 			VdbPrivatePtr->WriteChangesAsync();
 		}
 	}
@@ -329,7 +329,7 @@ void UVdbHandle::MeshGrid(const FString &gridID, float surfaceValue, TArray<FVec
 	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 	try
 	{
-		VdbPrivatePtr->MeshRegion<TreeType, Vdb::Metadata::RegionMetadata>(gridID, surfaceValue, vertexBuffer, polygonBuffer, normalBuffer);
+		VdbPrivatePtr->MeshRegion<TreeType, Vdb::GridOps::IndexTreeType>(gridID, surfaceValue, vertexBuffer, polygonBuffer, normalBuffer);
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -354,7 +354,7 @@ void UVdbHandle::ReadGridIndexBounds(const FString &gridID, FIntVector &indexSta
 	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 	try
 	{
-		VdbPrivatePtr->ReadGridIndexBounds<TreeType, Vdb::Metadata::RegionMetadata>(gridID, indexStart, indexEnd);
+		VdbPrivatePtr->ReadGridIndexBounds<TreeType>(gridID, indexStart, indexEnd);
 	}
 	catch (const openvdb::Exception &e)
 	{
