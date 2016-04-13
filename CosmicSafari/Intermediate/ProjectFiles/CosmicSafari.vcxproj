@@ -178,7 +178,7 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugGame_Game|Win32'">
-    <IncludePath />
+    <IncludePath>;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -201,12 +201,13 @@
     <NMakeReBuildCommandLine>@echo Win32 is not a supported platform for CosmicSafariEditor. Valid platforms are Win64, Mac, Linux.</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>@echo Win32 is not a supported platform for CosmicSafariEditor. Valid platforms are Win64, Mac, Linux.</NMakeCleanCommandLine>
     <NMakeOutput />
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
   </PropertyGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugGame_Game|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugGame_Game|x64'">
-    <IncludePath />
+    <IncludePath>;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -223,7 +224,7 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugGame_Editor|x64'">
-    <IncludePath />
+    <IncludePath>;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -240,7 +241,7 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='HTML5_DebugGame_Game|Win32'">
-    <IncludePath />
+    <IncludePath>;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -263,12 +264,13 @@
     <NMakeReBuildCommandLine>@echo HTML5 is not a supported platform for CosmicSafariEditor. Valid platforms are Win64, Mac, Linux.</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>@echo HTML5 is not a supported platform for CosmicSafariEditor. Valid platforms are Win64, Mac, Linux.</NMakeCleanCommandLine>
     <NMakeOutput />
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
   </PropertyGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Development_Game|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Development_Game|Win32'">
-    <IncludePath />
+    <IncludePath>;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -291,12 +293,13 @@
     <NMakeReBuildCommandLine>@echo Win32 is not a supported platform for CosmicSafariEditor. Valid platforms are Win64, Mac, Linux.</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>@echo Win32 is not a supported platform for CosmicSafariEditor. Valid platforms are Win64, Mac, Linux.</NMakeCleanCommandLine>
     <NMakeOutput />
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
   </PropertyGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Development_Game|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Development_Game|x64'">
-    <IncludePath />
+    <IncludePath>;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -313,7 +316,7 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Development_Editor|x64'">
-    <IncludePath>C:\boost;C:\Program Files\Epic Games</IncludePath>
+    <IncludePath>C:\boost;C:\Program Files\Epic Games;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -330,7 +333,7 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='HTML5_Development_Game|Win32'">
-    <IncludePath />
+    <IncludePath>;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -353,12 +356,13 @@
     <NMakeReBuildCommandLine>@echo HTML5 is not a supported platform for CosmicSafariEditor. Valid platforms are Win64, Mac, Linux.</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>@echo HTML5 is not a supported platform for CosmicSafariEditor. Valid platforms are Win64, Mac, Linux.</NMakeCleanCommandLine>
     <NMakeOutput />
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
   </PropertyGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Shipping_Game|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Shipping_Game|Win32'">
-    <IncludePath />
+    <IncludePath>;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -375,7 +379,7 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Shipping_Game|x64'">
-    <IncludePath />
+    <IncludePath>;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -392,7 +396,7 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='HTML5_Shipping_Game|Win32'">
-    <IncludePath />
+    <IncludePath>;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -1787,6 +1791,21 @@
     <NMakeForcedIncludes>$(NMakeForcedIncludes)</NMakeForcedIncludes>
     <NMakeAssemblySearchPath>$(NMakeAssemblySearchPath)</NMakeAssemblySearchPath>
     <NMakeForcedUsingAssemblies>$(NMakeForcedUsingAssemblies)</NMakeForcedUsingAssemblies>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='HTML5_Development_Game|x64'">
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='HTML5_Shipping_Game|x64'">
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='HTML5_DebugGame_Editor|x64'">
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='HTML5_Development_Editor|x64'">
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='HTML5_DebugGame_Game|x64'">
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);;C:\Users\zach\Documents\Unreal Projects\obtuse-tanuki\CosmicSafari\Source\ThirdParty</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup>
   </ItemDefinitionGroup>
