@@ -11,6 +11,16 @@ namespace Vdb
 {
 	namespace GridOps
 	{
+		template<typename InIterT, typename OutGridT, typename XformOp>
+		inline void transformValuesSharedOpOnly(const InIterT& inIter, OutGridT& outGrid, XformOp& op, bool threaded = true, openvdb::MergePolicy merge = openvdb::MERGE_ACTIVE_STATES)
+		{
+			typedef openvdb::TreeAdapter<OutGridT> Adapter;
+			typedef typename Adapter::TreeType OutTreeT;
+			typedef typename openvdb::tools::valxform::SharedOpTransformer<InIterT, OutTreeT, XformOp> Processor;
+			Processor proc(inIter, Adapter::tree(outGrid), op, merge);
+			proc.process(threaded);
+		}
+
 		typedef int32 IndexType;
 		typedef openvdb::tree::Tree4<IndexType, 5, 4, 3>::Type IndexTreeType; //Same tree configuration (5,4,3) as openvdb::FloatTree (see openvdb.h)
 		const static IndexType UNVISITED_VERTEX_INDEX = -1;
@@ -152,11 +162,11 @@ namespace Vdb
 					//acc.modifyValueAndActiveState<ModifyOpType>(coord, ModifyOpType(GetDensityValue(vec), isInsideBoundary));
 					if (isInsideBoundary)
 					{
-						acc.setValueOn(coord, (OutValueType)GetDensityValue(vec));
+						acc.setValueOn(coord, GetDensityValue(vec));
 					}
 					else
 					{
-						acc.setValueOff(coord, (OutValueType)GetDensityValue(vec));
+						acc.setValueOnly(coord, GetDensityValue(vec));
 					}
 				}
 				else
@@ -177,18 +187,18 @@ namespace Vdb
 								//acc.modifyValueAndActiveState<ModifyOpType>(coord, ModifyOpType(GetDensityValue(vec), isInsideBoundary));
 								if (isInsideBoundary)
 								{
-									acc.setValueOn(coord, (OutValueType)GetDensityValue(vec));
+									acc.setValueOn(coord, GetDensityValue(vec));
 								}
 								else
 								{
-									acc.setValueOff(coord, (OutValueType)GetDensityValue(vec));
+									acc.setValueOnly(coord, GetDensityValue(vec));
 								}
 							}
 						}
 					}
 				}
 			}
-			inline double GetDensityValue(const openvdb::Vec3d &vec)
+			inline OutValueType GetDensityValue(const openvdb::Vec3d &vec)
 			{
 				//double prevLacunarity = valueSource.GetLacunarity();
 				//int32 prevOctaveCount = valueSource.GetOctaveCount();
@@ -217,17 +227,41 @@ namespace Vdb
 			}
 			inline void operator()(const IterType &iter, OutAccessorType &acc) override
 			{
-				const openvdb::Coord &coord = iter.getCoord();
-				uint8_t insideBits = 0;
+				openvdb::Coord coord = iter.getCoord();
+				uint8 insideBits = 0;
 				//For each neighboring value set a bit if it is inside the surface (inside = positive value)
-				if (iter.getValue() > surfaceValue) { insideBits |= 1; }
-				if (acc.getValue(coord.offsetBy(1, 0, 0)) > surfaceValue) { insideBits |= 2; }
-				if (acc.getValue(coord.offsetBy(0, 1, 0)) > surfaceValue) { insideBits |= 4; }
-				if (acc.getValue(coord.offsetBy(0, 0, 1)) > surfaceValue) { insideBits |= 8; }
-				if (acc.getValue(coord.offsetBy(1, 1, 0)) > surfaceValue) { insideBits |= 16; }
-				if (acc.getValue(coord.offsetBy(1, 0, 1)) > surfaceValue) { insideBits |= 32; }
-				if (acc.getValue(coord.offsetBy(0, 1, 1)) > surfaceValue) { insideBits |= 64; }
-				if (acc.getValue(coord.offsetBy(1, 1, 1)) > surfaceValue) { insideBits |= 128; }
+				if (acc.getValue(coord) > surfaceValue)
+				{
+					insideBits |= 1;
+				}
+				if (acc.getValue(coord.offsetBy(1, 0, 0)) > surfaceValue)
+				{
+					insideBits |= 2;
+				}
+				if (acc.getValue(coord.offsetBy(0, 1, 0)) > surfaceValue)
+				{
+					insideBits |= 4;
+				}
+				if (acc.getValue(coord.offsetBy(0, 0, 1)) > surfaceValue)
+				{
+					insideBits |= 8;
+				}
+				if (acc.getValue(coord.offsetBy(1, 1, 0)) > surfaceValue)
+				{
+					insideBits |= 16;
+				}
+				if (acc.getValue(coord.offsetBy(1, 0, 1)) > surfaceValue)
+				{
+					insideBits |= 32;
+				}
+				if (acc.getValue(coord.offsetBy(0, 1, 1)) > surfaceValue)
+				{
+					insideBits |= 64;
+				}
+				if (acc.getValue(coord.offsetBy(1, 1, 1)) > surfaceValue)
+				{
+					insideBits |= 128;
+				}
 				//If all vertices are inside the surface or all are outside the surface then set off in order to not mesh this voxel
 				if (insideBits == 0 || insideBits == 255)
 				{
@@ -248,6 +282,7 @@ namespace Vdb
 			inline void operator()(const IterType &iter, OutAccessorType &acc) override
 			{
 				openvdb::Coord coord = iter.getCoord();
+				InValueType density = iter.getValue();
 				//Mesh the voxel as a simple cube with 6 equal sized quads
 				PrimitiveCube primitiveIndices(coord);
 				for (uint32 i = 0; i < CUBE_VERTEX_COUNT; ++i)
@@ -261,7 +296,7 @@ namespace Vdb
 						{
 							vertexIndex = vertices.Num(); //TODO: Error check index ranges
 							openvdb::Vec3d vtx = inTreeXform.indexToWorld(idxCoord);
-							vertices.Add(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z()));
+							vertices.Push(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z()));
 							//Since this is a new vertex save it to the global visited vertex grid for use by any other voxels in the same region that share it
 							acc.setValue(idxCoord, vertexIndex);
 						}
@@ -284,7 +319,7 @@ namespace Vdb
 			inline void collectPolygons()
 			{
 				openvdb::Vec4i q;
-				while(quads.Dequeue(q))
+				while (quads.Dequeue(q))
 				{
 					polygons.Add(q[0]);
 					polygons.Add(q[1]);
@@ -317,13 +352,13 @@ namespace Vdb
 			typedef typename MeshGeometryOp<VertexIndexTreeType, TreeType> MeshOpType;
 			typedef typename MeshOpType::OutValueType OutValueType;
 			typedef typename openvdb::Grid<TreeType> GridType;
-			typedef typename openvdb::Grid<VertexIndexTreeType> VertexIndexGridType;			
+			typedef typename openvdb::Grid<VertexIndexTreeType> VertexIndexGridType;
 			BasicMesher(typename GridType::Ptr grid, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer)
 				: gridPtr(grid), meshOp(new MeshOpType(grid->transform(), vertexBuffer, polygonBuffer, normalBuffer)), activateValuesOp(new ActivateValuesOpType()) {}
 			inline void doActivateValuesOp(InValueType isovalue)
 			{
 				activateValuesOp->SetSurfaceValue(isovalue);
-				openvdb::tools::transformValues<ActivateValuesOpType::IterType, ActivateValuesOpType::OutGridType, ActivateValuesOpType>(gridPtr->beginValueOn(), *gridPtr, *activateValuesOp);
+				transformValuesSharedOpOnly<ActivateValuesOpType::IterType, ActivateValuesOpType::OutGridType, ActivateValuesOpType>(gridPtr->beginValueOn(), *gridPtr, *activateValuesOp);
 			}
 			inline void doMeshOp(bool initialize)
 			{
@@ -334,7 +369,7 @@ namespace Vdb
 					visitedVertexIndices->topologyUnion(*gridPtr);
 					meshOp->initialize();
 				}
-				openvdb::tools::transformValues<MeshOpType::IterType, MeshOpType::OutGridType, MeshOpType>(gridPtr->cbeginValueOn(), *visitedVertexIndices, *meshOp);
+				transformValuesSharedOpOnly<MeshOpType::IterType, MeshOpType::OutGridType, MeshOpType>(gridPtr->cbeginValueOn(), *visitedVertexIndices, *meshOp);
 				meshOp->collectPolygons();
 			}
 			const typename GridType::Ptr gridPtr;

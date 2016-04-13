@@ -7,8 +7,8 @@
 AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializer)
 {
 	VdbHandle = ObjectInitializer.CreateDefaultSubobject<UVdbHandle>(this, TEXT("VDB Handle"));
-	TerrainMeshComponent = ObjectInitializer.CreateDefaultSubobject<UProceduralTerrainMeshComponent>(this, TEXT("GeneratedTerrain"));
 	check(VdbHandle != nullptr);
+	TerrainMeshComponent = ObjectInitializer.CreateDefaultSubobject<UProceduralTerrainMeshComponent>(this, TEXT("GeneratedTerrain"));
 	check(TerrainMeshComponent != nullptr);
 
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
@@ -47,10 +47,10 @@ void AProceduralTerrain::BeginPlay()
 	Super::BeginPlay();
 
 	ACharacter* FirstPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-	FIntVector RegionIndexCoords(0, 0, 0);
+	FIntVector RegionIndexCoords(0,0,0);
 	if (FirstPlayerCharacter != nullptr)
 	{
-		VdbHandle->GetRegionIndex(FirstPlayerCharacter->GetActorLocation());
+		RegionIndexCoords = VdbHandle->GetRegionIndex(FirstPlayerCharacter->GetActorLocation());
 	}
 	FIntVector IndexStart;
 	FIntVector IndexEnd;

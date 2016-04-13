@@ -100,9 +100,6 @@ class OPENVDBMODULE_API UVdbHandle : public UActorComponent, public IVdbInterfac
 	GENERATED_BODY()
 
 public:
-	static UVdbHandle const * RegisterNewVdb(const FObjectInitializer& ObjectInitializer, UObject * parent, const FString &path, const FString &worldName, bool enableDelayLoad, bool enableGridStats);
-	static void RegisterVdb(UVdbHandle const * VdbHandle);
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Path to voxel database"))
 		FString FilePath;
 
@@ -132,7 +129,6 @@ public:
 
 	UVdbHandle(const FObjectInitializer& ObjectInitializer);
 
-	virtual void PostInitProperties() override;
 	virtual void BeginDestroy() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;

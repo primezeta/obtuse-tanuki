@@ -46,7 +46,9 @@ public:
 	typedef typename IndexGridType::Ptr IndexGridTypePtr;
 	typedef typename IndexGridType::ConstPtr IndexGridTypeCPtr;
 
-	UVdbHandle const * VdbHandle;
+	const FString FilePath;
+	const bool EnableGridStats;
+	const bool EnableDelayLoad;
 	boost::shared_ptr<openvdb::io::File> FilePtr;
 	openvdb::GridPtrVecPtr GridsPtr;
 	openvdb::MetaMap::Ptr FileMetaPtr;
@@ -54,8 +56,8 @@ public:
 	static FString MetaName_WorldName() { return TEXT("WorldName"); }
 	static FString MetaName_RegionSize() { return TEXT("RegionSize"); }
 
-	VdbHandlePrivate(UVdbHandle const * vdbHandle)
-		: VdbHandle(vdbHandle)
+	VdbHandlePrivate(const FString &filePath, const bool &enableGridStats, const bool &enableDelayLoad)
+		: FilePath(filePath), EnableGridStats(enableGridStats), EnableDelayLoad(enableDelayLoad)
 	{
 		//Initialize OpenVDB, our metadata types, and the vdb file
 		openvdb::initialize();
@@ -64,17 +66,19 @@ public:
 			IndexGridType::registerGrid();
 		}
 		InitializeMetadataTypes<MetadataTypes...>();
-		FilePtr = boost::shared_ptr<openvdb::io::File>(new openvdb::io::File(TCHAR_TO_UTF8(*(VdbHandle->FilePath))));
-		check(FilePtr != nullptr);
-		FilePtr->setGridStatsMetadataEnabled(VdbHandle->EnableGridStats);
 
-		if (!FPaths::FileExists(VdbHandle->FilePath))
+		CloseFileGuard();
+		FilePtr = boost::shared_ptr<openvdb::io::File>(new openvdb::io::File(TCHAR_TO_UTF8(*(FilePath))));
+		check(FilePtr != nullptr);
+		FilePtr->setGridStatsMetadataEnabled(EnableGridStats);
+
+		if (!FPaths::FileExists(FilePath))
 		{
 			//Create an empty vdb file
 			FilePtr->write(openvdb::GridCPtrVec(), openvdb::MetaMap());
-			UE_LOG(LogOpenVDBModule, Verbose, TEXT("IVdb: Created %s"), *(VdbHandle->FilePath));
+			UE_LOG(LogOpenVDBModule, Verbose, TEXT("IVdb: Created %s"), *(FilePath));
 		}
-		check(FPaths::FileExists(VdbHandle->FilePath)); //TODO: Error handling when unable to create file. For now assume the file exists
+		check(FPaths::FileExists(FilePath)); //TODO: Error handling when unable to create file. For now assume the file exists
 
 		OpenFileGuard();
 		GridsPtr = FilePtr->readAllGridMetadata();
@@ -85,12 +89,15 @@ public:
 
 	~VdbHandlePrivate()
 	{
-		//TODO: Write changes if they exist?
+		WriteChanges();
 		openvdb::uninitialize();
 		if (IndexGridType::isRegistered())
 		{
 			IndexGridType::unregisterGrid();
 		}
+		FilePtr.reset();
+		GridsPtr.reset();
+		FileMetaPtr.reset();
 	}
 
 	template<typename TreeType, typename... MetadataTypes>
@@ -275,8 +282,6 @@ public:
 		{
 			TSharedPtr<MesherOpType> mesherOpPtr = TSharedPtr<MesherOpType>(new MesherOpType(gridPtr, vertexBuffer, polygonBuffer, normalBuffer));
 			mesherOpPtr->doActivateValuesOp(surfaceValue);
-			check(gridPtr->activeVoxelCount() <= INT32_MAX);
-			vertexBuffer.Reserve(gridPtr->activeVoxelCount());
 			mesherOpPtr->doMeshOp(true);
 		}
 	}
@@ -307,7 +312,7 @@ public:
 			GridsPtr->push_back(GridType::create());
 			gridPtr = openvdb::gridPtrCast<GridType>(GridsPtr->back());
 			gridPtr->setName(TCHAR_TO_UTF8(*gridName));
-			gridPtr->setTransform(openvdb::math::Transform::Ptr(new openvdb::math::Transform(openvdb::math::UniformScaleMap::Ptr(new openvdb::math::UniformScaleMap(1.0)))));
+			gridPtr->setTransform(openvdb::math::Transform::Ptr(new openvdb::math::Transform(openvdb::math::UniformScaleMap::Ptr(new openvdb::math::UniformScaleMap(0.1)))));
 		}
 
 		//Noise module parameters are at the grid-level metadata
@@ -368,7 +373,7 @@ private:
 	{
 		if (FilePtr != nullptr && !FilePtr->isOpen())
 		{
-			FilePtr->open(VdbHandle->EnableDelayLoad);
+			FilePtr->open(EnableDelayLoad);
 		}
 	}
 

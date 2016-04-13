@@ -7,6 +7,9 @@ void UVdbHandle::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyCh
 	FName PropertyName = (PropertyChangedEvent.Property != nullptr) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
 	if (PropertyName == GET_MEMBER_NAME_CHECKED(UVdbHandle, FilePath) && !FilePath.IsEmpty())
 	{
-		UVdbHandle::RegisterVdb(this);
+		if (FOpenVDBModule::IsAvailable())
+		{
+			FOpenVDBModule::Get().RegisterVdb(*this);
+		}
 	}
 }

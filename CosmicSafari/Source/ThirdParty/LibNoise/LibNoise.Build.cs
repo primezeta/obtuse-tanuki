@@ -1,34 +1,27 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
 using System;
 
-public class OpenVDBModule : ModuleRules
+public class LibNoise : ModuleRules
 {
-	public OpenVDBModule(TargetInfo Target)
-	{
+    private UnrealTargetPlatform Platform;
+    private UnrealTargetConfiguration Configuration;
+    
+    public LibNoise(TargetInfo Target)
+    {
         Platform = Target.Platform;
         Configuration = Target.Configuration;
-        Type = ModuleType.CPlusPlus;
-
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "UEOpenVdb", "LibNoise" });
+        Type = ModuleType.External;
+        OptimizeCode = CodeOptimization.InNonDebugBuilds;
         PublicIncludePaths.AddRange(PublicIncludes);
         PrivateIncludePaths.AddRange(PrivateIncludes);
         PublicSystemIncludePaths.AddRange(ThirdPartyIncludes);
         PublicLibraryPaths.AddRange(ThirdPartyLibPaths);
         PublicAdditionalLibraries.AddRange(ThirdPartyLibNames);
-        //Definitions.AddRange(new string[] { "ZLIB_STATIC", "OPENVDB_STATICLIB" });
-        MinFilesUsingPrecompiledHeaderOverride = 1;
-        bFasterWithoutUnity = true;
-        bUseRTTI = true;
-        bEnableExceptions = true;
-        OptimizeCode = CodeOptimization.InNonDebugBuilds;
     }
-
-    private UnrealTargetPlatform Platform;
-    private UnrealTargetConfiguration Configuration;
-
+    
     private string PlatformPath
     {
         get
@@ -62,7 +55,7 @@ public class OpenVDBModule : ModuleRules
         {
             return new string[]
             {
-                Path.Combine(ModuleDirectory, "Public"),
+                Path.Combine(ModuleDirectory),
             };
         }
     }
@@ -73,8 +66,15 @@ public class OpenVDBModule : ModuleRules
         {
             return new string[]
             {
-                Path.Combine(ModuleDirectory, "Private"),
             };
+        }
+    }
+
+    private string ThirdPartyPath
+    {
+        get
+        {
+            return Path.Combine(ModuleDirectory, "..");
         }
     }
 
@@ -94,6 +94,8 @@ public class OpenVDBModule : ModuleRules
         {
             return new string[]
             {
+                //if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
+                Path.Combine(ModuleDirectory, "Binaries", "VS2015", PlatformPath, ConfigurationPath),
             };
         }
     }
@@ -104,7 +106,8 @@ public class OpenVDBModule : ModuleRules
         {
             return new string[]
             {
+                "libnoise.lib",
             };
         }
-    }
+    }    
 }

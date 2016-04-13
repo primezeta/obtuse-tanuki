@@ -18,6 +18,8 @@ public:
 		return FModuleManager::Get().IsModuleLoaded("OpenVDBModule");
 	}
 
+	void RegisterVdb(const UVdbHandle &vdbObject);
+
 	static VdbRegistryType VdbRegistry;
 };
 

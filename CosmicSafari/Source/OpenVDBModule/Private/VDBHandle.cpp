@@ -8,58 +8,6 @@
 
 VdbRegistryType FOpenVDBModule::VdbRegistry;
 
-UVdbHandle const * UVdbHandle::RegisterNewVdb(const FObjectInitializer& ObjectInitializer, UObject * parent, const FString &path, const FString &worldName, bool enableDelayLoad, bool enableGridStats)
-{
-	UVdbHandle * VdbHandle = ObjectInitializer.CreateDefaultSubobject<UVdbHandle>(parent, TEXT("VDB Handle"));
-	VdbHandle->FilePath = path;
-	VdbHandle->WorldName = worldName;
-	VdbHandle->EnableDelayLoad = enableDelayLoad;
-	VdbHandle->EnableGridStats = enableGridStats;
-	UVdbHandle::RegisterVdb(VdbHandle);
-	return VdbHandle;
-}
-
-void UVdbHandle::RegisterVdb(UVdbHandle const * VdbHandle)
-{
-	check(!VdbHandle->FilePath.IsEmpty());
-	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr;
-	try
-	{
-		if (!FOpenVDBModule::VdbRegistry.Contains(VdbHandle->FilePath))
-		{
-			VdbPrivatePtr = TSharedPtr<VdbHandlePrivateType>(new VdbHandlePrivateType(VdbHandle));
-			FOpenVDBModule::VdbRegistry.Add(VdbHandle->FilePath, VdbPrivatePtr);
-		}
-		else
-		{
-			VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(VdbHandle->FilePath);
-			if (VdbPrivatePtr->VdbHandle->EnableDelayLoad != VdbHandle->EnableDelayLoad ||
-				VdbPrivatePtr->VdbHandle->EnableGridStats != VdbHandle->EnableGridStats)
-			{
-				VdbPrivatePtr->WriteChanges();
-				VdbPrivatePtr = TSharedPtr<VdbHandlePrivateType>(new VdbHandlePrivateType(VdbHandle));
-				FOpenVDBModule::VdbRegistry[VdbHandle->FilePath] = VdbPrivatePtr;
-			}
-		}
-	}
-	catch (const openvdb::Exception &e)
-	{
-		UE_LOG(LogOpenVDBModule, Error, TEXT("UVdbHandle OpenVDB exception: %s"), UTF8_TO_TCHAR(e.what()));
-	}
-	catch (const std::exception& e)
-	{
-		UE_LOG(LogOpenVDBModule, Error, TEXT("UVdbHandle exception: %s"), UTF8_TO_TCHAR(e.what()));
-	}
-	catch (const std::string& e)
-	{
-		UE_LOG(LogOpenVDBModule, Error, TEXT("UVdbHandle exception: %s"), UTF8_TO_TCHAR(e.c_str()));
-	}
-	catch (...)
-	{
-		UE_LOG(LogOpenVDBModule, Fatal, TEXT("UVdbHandle unexpected exception"));
-	}
-}
-
 UVdbHandle::UVdbHandle(const FObjectInitializer& ObjectInitializer)
 {
 	FilePath = "";
@@ -77,7 +25,10 @@ void UVdbHandle::InitVdb()
 #if WITH_ENGINE
 	if (!FilePath.IsEmpty())
 	{
-		RegisterVdb(this);
+		if (FOpenVDBModule::IsAvailable())
+		{
+			FOpenVDBModule::Get().RegisterVdb(*this);
+		}
 		TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 		try
 		{
@@ -103,8 +54,10 @@ void UVdbHandle::InitVdb()
 #endif
 }
 
-void UVdbHandle::FinishVdb()
+void UVdbHandle::BeginDestroy()
 {
+	//Queue up the file to be written because From UObject.h BeginDestroy() is:
+	//"Called before destroying the object. This is called immediately upon deciding to destroy the object, to allow the object to begin an asynchronous cleanup process."
 #if WITH_ENGINE
 	if (!FilePath.IsEmpty())
 	{
@@ -131,19 +84,6 @@ void UVdbHandle::FinishVdb()
 		}
 	}
 #endif
-}
-
-void UVdbHandle::PostInitProperties()
-{
-	Super::PostInitProperties();
-	InitVdb();
-}
-
-void UVdbHandle::BeginDestroy()
-{
-	//Queue up the file to be written because From UObject.h BeginDestroy() is:
-	//"Called before destroying the object. This is called immediately upon deciding to destroy the object, to allow the object to begin an asynchronous cleanup process."
-	FinishVdb();
 	Super::BeginDestroy();
 }
 

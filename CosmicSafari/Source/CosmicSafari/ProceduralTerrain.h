@@ -3,7 +3,7 @@
 #pragma once
 
 #include "GameFramework/Actor.h"
-#include "VdbHandle.h"
+#include "VDBHandle.h"
 #include "ProceduralTerrainMeshComponent.h"
 #include "ProceduralTerrain.generated.h"
 
@@ -40,7 +40,6 @@ public:
 		bool bCreateCollision;
 
 private:
-
 	TArray<int32> MeshSectionIndices;
 	TMap<int32, FString> MeshSectionIDs;
 	TMap<int32, bool> IsGridSectionMeshed;
