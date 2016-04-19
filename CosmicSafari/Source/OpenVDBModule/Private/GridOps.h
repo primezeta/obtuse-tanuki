@@ -132,10 +132,10 @@ namespace Vdb
 			typedef typename OutTreeType::ValueType OutValueType;
 			typedef typename openvdb::Grid<OutTreeType> OutGridType;
 			typedef typename openvdb::tree::ValueAccessor<OutTreeType> OutAccessorType;
-			ITransformOp(const openvdb::math::Transform &xform) : inTreeXform(xform) {}
+			ITransformOp(const openvdb::math::Transform &xform) : inTreeXformPtr(xform.copy()) {}
 			virtual inline void operator()(const IterType &iter, OutAccessorType& acc) = 0;
 		protected:
-			const openvdb::math::Transform &inTreeXform;
+			const openvdb::math::Transform::Ptr inTreeXformPtr;
 		};
 
 		//Operator to fill a grid with Perlin noise values
@@ -158,7 +158,7 @@ namespace Vdb
 				{
 					openvdb::Coord coord = iter.getCoord();
 					//Set the density value from the noise source and set on if the voxel is in the active boundary
-					openvdb::Vec3d vec = inTreeXform.indexToWorld(coord);
+					openvdb::Vec3d vec = inTreeXformPtr->indexToWorld(coord);
 					//acc.modifyValueAndActiveState<ModifyOpType>(coord, ModifyOpType(GetDensityValue(vec), isInsideBoundary));
 					if (isInsideBoundary)
 					{
@@ -183,7 +183,7 @@ namespace Vdb
 							for (auto z = bbox.min().z(); z <= bbox.max().z(); ++z)
 							{
 								coord.setZ(z);
-								openvdb::Vec3d vec = inTreeXform.indexToWorld(coord);
+								openvdb::Vec3d vec = inTreeXformPtr->indexToWorld(coord);
 								//acc.modifyValueAndActiveState<ModifyOpType>(coord, ModifyOpType(GetDensityValue(vec), isInsideBoundary));
 								if (isInsideBoundary)
 								{
@@ -225,43 +225,23 @@ namespace Vdb
 			{
 				surfaceValue = isovalue;
 			}
+			inline InValueType GetSurfaceValue()
+			{
+				return surfaceValue;
+			}
 			inline void operator()(const IterType &iter, OutAccessorType &acc) override
 			{
 				openvdb::Coord coord = iter.getCoord();
 				uint8 insideBits = 0;
 				//For each neighboring value set a bit if it is inside the surface (inside = positive value)
-				if (acc.getValue(coord) > surfaceValue)
-				{
-					insideBits |= 1;
-				}
-				if (acc.getValue(coord.offsetBy(1, 0, 0)) > surfaceValue)
-				{
-					insideBits |= 2;
-				}
-				if (acc.getValue(coord.offsetBy(0, 1, 0)) > surfaceValue)
-				{
-					insideBits |= 4;
-				}
-				if (acc.getValue(coord.offsetBy(0, 0, 1)) > surfaceValue)
-				{
-					insideBits |= 8;
-				}
-				if (acc.getValue(coord.offsetBy(1, 1, 0)) > surfaceValue)
-				{
-					insideBits |= 16;
-				}
-				if (acc.getValue(coord.offsetBy(1, 0, 1)) > surfaceValue)
-				{
-					insideBits |= 32;
-				}
-				if (acc.getValue(coord.offsetBy(0, 1, 1)) > surfaceValue)
-				{
-					insideBits |= 64;
-				}
-				if (acc.getValue(coord.offsetBy(1, 1, 1)) > surfaceValue)
-				{
-					insideBits |= 128;
-				}
+				if (acc.getValue(coord) > surfaceValue) { insideBits |= 1; }
+				if (acc.getValue(coord.offsetBy(1, 0, 0)) > surfaceValue){ insideBits |= 2; }
+				if (acc.getValue(coord.offsetBy(0, 1, 0)) > surfaceValue) { insideBits |= 4; }
+				if (acc.getValue(coord.offsetBy(0, 0, 1)) > surfaceValue) { insideBits |= 8; }
+				if (acc.getValue(coord.offsetBy(1, 1, 0)) > surfaceValue) { insideBits |= 16; }
+				if (acc.getValue(coord.offsetBy(1, 0, 1)) > surfaceValue) { insideBits |= 32; }
+				if (acc.getValue(coord.offsetBy(0, 1, 1)) > surfaceValue) { insideBits |= 64; }
+				if (acc.getValue(coord.offsetBy(1, 1, 1)) > surfaceValue) { insideBits |= 128; }
 				//If all vertices are inside the surface or all are outside the surface then set off in order to not mesh this voxel
 				if (insideBits == 0 || insideBits == 255)
 				{
@@ -282,7 +262,6 @@ namespace Vdb
 			inline void operator()(const IterType &iter, OutAccessorType &acc) override
 			{
 				openvdb::Coord coord = iter.getCoord();
-				InValueType density = iter.getValue();
 				//Mesh the voxel as a simple cube with 6 equal sized quads
 				PrimitiveCube primitiveIndices(coord);
 				for (uint32 i = 0; i < CUBE_VERTEX_COUNT; ++i)
@@ -295,7 +274,7 @@ namespace Vdb
 						if (vertexIndex == acc.getTree()->background())
 						{
 							vertexIndex = vertices.Num(); //TODO: Error check index ranges
-							openvdb::Vec3d vtx = inTreeXform.indexToWorld(idxCoord);
+							openvdb::Vec3d vtx = inTreeXformPtr->indexToWorld(idxCoord);
 							vertices.Push(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z()));
 							//Since this is a new vertex save it to the global visited vertex grid for use by any other voxels in the same region that share it
 							acc.setValue(idxCoord, vertexIndex);
@@ -354,15 +333,19 @@ namespace Vdb
 			typedef typename openvdb::Grid<TreeType> GridType;
 			typedef typename openvdb::Grid<VertexIndexTreeType> VertexIndexGridType;
 			BasicMesher(typename GridType::Ptr grid, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer)
-				: gridPtr(grid), meshOp(new MeshOpType(grid->transform(), vertexBuffer, polygonBuffer, normalBuffer)), activateValuesOp(new ActivateValuesOpType()) {}
+				: gridPtr(grid), meshOp(new MeshOpType(grid->transform(), vertexBuffer, polygonBuffer, normalBuffer)), activateValuesOp(new ActivateValuesOpType()), isDirty(true) {}
 			inline void doActivateValuesOp(InValueType isovalue)
 			{
-				activateValuesOp->SetSurfaceValue(isovalue);
+				if (!openvdb::math::isApproxEqual(isovalue, activateValuesOp->GetSurfaceValue()))
+				{
+					isDirty = true;
+					activateValuesOp->SetSurfaceValue(isovalue);
+				}
 				transformValuesSharedOpOnly<ActivateValuesOpType::IterType, ActivateValuesOpType::OutGridType, ActivateValuesOpType>(gridPtr->beginValueOn(), *gridPtr, *activateValuesOp);
 			}
-			inline void doMeshOp(bool initialize)
+			inline void doMeshOp()
 			{
-				if (initialize || visitedVertexIndices == nullptr)
+				if (isDirty || visitedVertexIndices == nullptr)
 				{
 					visitedVertexIndices = VertexIndexGridType::create(UNVISITED_VERTEX_INDEX);
 					visitedVertexIndices->setTransform(gridPtr->transformPtr()->copy());
@@ -374,6 +357,7 @@ namespace Vdb
 			}
 			const typename GridType::Ptr gridPtr;
 			const typename MeshOpType::Ptr meshOp;
+			bool isDirty;
 		private:
 			typename ActivateValuesOpType::Ptr activateValuesOp;
 			typename VertexIndexGridType::Ptr visitedVertexIndices;

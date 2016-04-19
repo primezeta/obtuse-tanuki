@@ -20,12 +20,12 @@ UVdbHandle::UVdbHandle(const FObjectInitializer& ObjectInitializer)
 	PerlinOctaveCount = 8;
 }
 
-void UVdbHandle::InitVdb()
+void UVdbHandle::InitVdb(TArray<TArray<FVector>> &VertexBuffers, TArray<TArray<int32>> &PolygonBuffers, TArray<TArray<FVector>> &NormalBuffers)
 {
 #if WITH_ENGINE
 	if (!FilePath.IsEmpty() && FOpenVDBModule::IsAvailable())
 	{
-		FOpenVDBModule::Get().RegisterVdb(FilePath, EnableGridStats, EnableDelayLoad);
+		FOpenVDBModule::Get().RegisterVdb(FilePath, EnableGridStats, EnableDelayLoad, VertexBuffers, PolygonBuffers, NormalBuffers);
 		TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 		try
 		{
@@ -84,7 +84,7 @@ void UVdbHandle::BeginDestroy()
 	Super::BeginDestroy();
 }
 
-FString UVdbHandle::AddGrid(const FString &gridName, const FIntVector &worldIndex, FIntVector &indexStart, FIntVector &indexEnd)
+FString UVdbHandle::AddGrid(const FString &gridName, const FVector &worldLocation, FIntVector &indexStart, FIntVector &indexEnd)
 {
 	FString gridID;
 	if (FOpenVDBModule::IsAvailable())
@@ -95,7 +95,7 @@ FString UVdbHandle::AddGrid(const FString &gridName, const FIntVector &worldInde
 			openvdb::TypedMetadata<openvdb::math::ScaleMap>::Ptr regionSizeMetaValue = VdbPrivatePtr->GetFileMetaValue<openvdb::math::ScaleMap>(VdbHandlePrivateType::MetaName_RegionScale());
 			check(regionSizeMetaValue != nullptr);
 
-			openvdb::Vec3d regionStart = regionSizeMetaValue->value().applyInverseMap(openvdb::Vec3d((double)worldIndex.X, (double)worldIndex.Y, (double)worldIndex.Z));
+			openvdb::Vec3d regionStart = regionSizeMetaValue->value().applyInverseMap(openvdb::Vec3d((double)worldLocation.X, (double)worldLocation.Y, (double)worldLocation.Z));
 			openvdb::Coord endIndexCoord = openvdb::Coord((int32)regionStart.x() + 1, (int32)regionStart.y() + 1, (int32)regionStart.z() + 1);
 			openvdb::Vec3d regionEnd = regionSizeMetaValue->value().applyMap(openvdb::Vec3d((double)endIndexCoord.x(), (double)endIndexCoord.y(), (double)endIndexCoord.z()));
 			indexStart = FIntVector(regionStart.x(), regionStart.y(), regionStart.z());
@@ -262,7 +262,7 @@ void UVdbHandle::ReadGridTreeIndex(const FString &gridID, const FIntVector &star
 //	}
 //}
 
-void UVdbHandle::MeshGrid(const FString &gridID, float surfaceValue, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer)
+void UVdbHandle::MeshGrid(const FString &gridID, float surfaceValue)
 {
 	if (!FOpenVDBModule::IsAvailable())
 	{
@@ -271,36 +271,7 @@ void UVdbHandle::MeshGrid(const FString &gridID, float surfaceValue, TArray<FVec
 	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 	try
 	{
-		VdbPrivatePtr->MeshRegion<TreeType, Vdb::GridOps::IndexTreeType>(gridID, surfaceValue, vertexBuffer, polygonBuffer, normalBuffer);
-	}
-	catch (const openvdb::Exception &e)
-	{
-		UE_LOG(LogOpenVDBModule, Error, TEXT("UVdbHandle OpenVDB exception: %s"), UTF8_TO_TCHAR(e.what()));
-	}
-	catch (const std::exception& e)
-	{
-		UE_LOG(LogOpenVDBModule, Error, TEXT("UVdbHandle exception: %s"), UTF8_TO_TCHAR(e.what()));
-	}
-	catch (const std::string& e)
-	{
-		UE_LOG(LogOpenVDBModule, Error, TEXT("UVdbHandle exception: %s"), UTF8_TO_TCHAR(e.c_str()));
-	}
-	catch (...)
-	{
-		UE_LOG(LogOpenVDBModule, Fatal, TEXT("UVdbHandle unexpected exception"));
-	}
-}
-
-void UVdbHandle::ReadGridIndexBounds(const FString &gridID, FIntVector &indexStart, FIntVector &indexEnd)
-{
-	if (!FOpenVDBModule::IsAvailable())
-	{
-		return;
-	}
-	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
-	try
-	{
-		VdbPrivatePtr->ReadGridIndexBounds<TreeType>(gridID, indexStart, indexEnd);
+		VdbPrivatePtr->MeshRegion<TreeType, Vdb::GridOps::IndexTreeType>(gridID, surfaceValue);
 	}
 	catch (const openvdb::Exception &e)
 	{

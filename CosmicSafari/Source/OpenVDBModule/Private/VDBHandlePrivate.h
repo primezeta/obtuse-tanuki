@@ -53,8 +53,8 @@ public:
 	static FString MetaName_WorldName() { return TEXT("WorldName"); }
 	static FString MetaName_RegionScale() { return TEXT("RegionScale"); }
 
-	VdbHandlePrivate(const FString &filePath, const bool &enableGridStats, const bool &enableDelayLoad)
-		: FilePath(filePath), EnableGridStats(enableGridStats), EnableDelayLoad(enableDelayLoad)
+	VdbHandlePrivate(const FString &filePath, const bool &enableGridStats, const bool &enableDelayLoad, TArray<TArray<FVector>> *vertexBuffers, TArray<TArray<int32>> *polygonBuffers, TArray<TArray<FVector>> *normalBuffers)
+		: FilePath(filePath), EnableGridStats(enableGridStats), EnableDelayLoad(enableDelayLoad), VertexSectionBuffer(vertexBuffers), PolygonSectionBuffer(polygonBuffers), NormalSectionBuffer(normalBuffers)
 	{
 	}
 
@@ -66,6 +66,13 @@ public:
 		{
 			IndexGridType::unregisterGrid();
 		}
+	}
+
+	void InitBuffers(TArray<TArray<FVector>> *vertexBuffers, TArray<TArray<int32>> *polygonBuffers, TArray<TArray<FVector>> *normalBuffers)
+	{
+		VertexSectionBuffer = vertexBuffers;
+		PolygonSectionBuffer = polygonBuffers;
+		NormalSectionBuffer = normalBuffers;
 	}
 
 	void Init()
@@ -100,6 +107,23 @@ public:
 		{
 			FileMetaPtr = FilePtr->getMetadata();
 		}
+		
+		int32 sectionIndex = 0;
+		for (auto i = GridsPtr->begin(); i != GridsPtr->end(); ++i)
+		{
+			const FString gridName = UTF8_TO_TCHAR((*i)->getName().c_str());
+			if (MeshOps.Contains(gridName))
+			{
+				MeshOps.Remove(gridName);
+			}
+			VertexSectionBuffer->Add(TArray<FVector>());
+			PolygonSectionBuffer->Add(TArray<int32>());
+			NormalSectionBuffer->Add(TArray<FVector>());
+			GridTypePtr grid = openvdb::gridPtrCast<GridType>(*i);
+			check(grid != nullptr);
+			MeshOps.Add(gridName, TSharedPtr<MesherOpType>(new MesherOpType(grid, (*VertexSectionBuffer)[sectionIndex], (*PolygonSectionBuffer)[sectionIndex], (*NormalSectionBuffer)[sectionIndex])));
+			sectionIndex++;
+		}
 	}
 
 	template<typename TreeType>
@@ -119,8 +143,14 @@ public:
 		}
 		if (i == GridsPtr->end())
 		{
+			int32 sectionIndex = GridsPtr->size();
 			GridsPtr->push_back(grid);
 			WriteChanges();
+			
+			VertexSectionBuffer->Add(TArray<FVector>());
+			PolygonSectionBuffer->Add(TArray<int32>());
+			NormalSectionBuffer->Add(TArray<FVector>());
+			MeshOps.Add(gridName, TSharedPtr<MesherOpType>(new MesherOpType(grid, (*VertexSectionBuffer)[sectionIndex], (*PolygonSectionBuffer)[sectionIndex], (*NormalSectionBuffer)[sectionIndex])));
 		}
 		return grid;
 	}
@@ -128,8 +158,11 @@ public:
 	template<typename TreeType>
 	void AddGrid(const FString &gridName)
 	{
-		GridTypePtr grid = GetGridPtr<TreeType>(gridName);
-		check(grid != nullptr);
+		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
+		check(gridPtr != nullptr);
+		openvdb::math::UniformScaleMap::Ptr map = openvdb::math::UniformScaleMap::Ptr(new openvdb::math::UniformScaleMap(0.1));
+		openvdb::math::Transform::Ptr xform = openvdb::math::Transform::Ptr(new openvdb::math::Transform(map));
+		gridPtr->setTransform(xform->copy());
 	}
 
 	template<typename TreeType>
@@ -139,8 +172,9 @@ public:
 		if (grid->activeVoxelCount() == 0)
 		{
 			OpenFileGuard();
-			grid = openvdb::gridPtrCast<GridType>(FilePtr->readGrid(TCHAR_TO_UTF8(*gridName)));
-			check(grid != nullptr);
+			GridTypePtr activeGrid = openvdb::gridPtrCast<GridType>(FilePtr->readGrid(TCHAR_TO_UTF8(*gridName)));
+			check(activeGrid != nullptr);
+			grid.swap(activeGrid);
 		}
 		openvdb::CoordBBox activeBBox = grid->evalActiveVoxelBoundingBox();
 		activeStart.X = activeBBox.min().x();
@@ -159,8 +193,9 @@ public:
 		if (grid->activeVoxelCount() == 0)
 		{
 			OpenFileGuard();
-			grid = openvdb::gridPtrCast<GridType>(FilePtr->readGrid(TCHAR_TO_UTF8(*gridName)));
-			check(grid != nullptr);
+			GridTypePtr activeGrid = openvdb::gridPtrCast<GridType>(FilePtr->readGrid(TCHAR_TO_UTF8(*gridName)));
+			check(activeGrid != nullptr);
+			grid.swap(activeGrid);
 		}
 		openvdb::CoordBBox activeBBox = grid->indexToWorld(grid->evalActiveVoxelBoundingBox());
 		activeStart.X = activeBBoxd.min().x();
@@ -196,8 +231,10 @@ public:
 	{
 		for (auto i = GridsPtr->begin(); i != GridsPtr->end(); ++i)
 		{
-			if (gridName == UTF8_TO_TCHAR((*i)->getName().c_str()))
+			const FString name = UTF8_TO_TCHAR((*i)->getName().c_str());
+			if (gridName == name)
 			{
+				MeshOps.Remove(name);
 				i->reset();
 				GridsPtr->erase(i);
 				return;
@@ -250,27 +287,12 @@ public:
 	}
 
 	template<typename TreeType, typename IndexTreeType>
-	void MeshRegion(const FString &gridName, float surfaceValue, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer)
+	void MeshRegion(const FString &gridName, float surfaceValue)
 	{
 		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
-		MesherOpType mesherOp(gridPtr, vertexBuffer, polygonBuffer, normalBuffer);
-		mesherOp.doActivateValuesOp(surfaceValue);
-		mesherOp.doMeshOp(true);
-	}
-
-	template<typename TreeType>
-	void ReadGridIndexBounds(const FString &gridName, FIntVector &indexStart, FIntVector &indexEnd)
-	{
-		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
-		indexStart = FIntVector::ZeroValue;
-		indexEnd = FIntVector::ZeroValue;
-		const openvdb::CoordBBox bbox = gridPtr->evalActiveVoxelBoundingBox();
-		indexStart.X = bbox.min().x();
-		indexStart.Y = bbox.min().y();
-		indexStart.Z = bbox.min().z();
-		indexEnd.X = bbox.max().x();
-		indexEnd.Y = bbox.max().y();
-		indexEnd.Z = bbox.max().z();
+		TSharedPtr<MesherOpType> mesherOp = MeshOps.FindChecked(gridName);
+		mesherOp->doActivateValuesOp(surfaceValue);
+		mesherOp->doMeshOp();
 	}
 
 	template<typename TreeType>
@@ -290,10 +312,6 @@ public:
 			persistenceMeta == nullptr || !openvdb::math::isApproxEqual(persistence, persistenceMeta->value()) ||
 			octaveCountMeta == nullptr || !openvdb::math::isExactlyEqual(octaveCount, octaveCountMeta->value()))
 		{
-			openvdb::math::UniformScaleMap::Ptr map = openvdb::math::UniformScaleMap::Ptr(new openvdb::math::UniformScaleMap(0.1));
-			openvdb::math::Transform::Ptr xform = openvdb::math::Transform::Ptr(new openvdb::math::Transform(map));
-			gridPtr->setTransform(xform->copy());
-
 			//Update the Perlin noise parameters
 			gridPtr->insertMeta("frequency", openvdb::FloatMetadata(frequency));
 			gridPtr->insertMeta("lacunarity", openvdb::FloatMetadata(lacunarity));
@@ -334,6 +352,10 @@ private:
 	TSharedPtr<openvdb::io::File> FilePtr;
 	openvdb::GridPtrVecPtr GridsPtr;
 	openvdb::MetaMap::Ptr FileMetaPtr;
+	TMap<FString, TSharedPtr<MesherOpType>> MeshOps;
+	TArray<TArray<FVector>> *VertexSectionBuffer;
+	TArray<TArray<int32>> *PolygonSectionBuffer;
+	TArray<TArray<FVector>> *NormalSectionBuffer;
 
 	template<typename MetadataType>
 	void InitializeMetadata()

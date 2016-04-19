@@ -135,7 +135,7 @@ public:
 #endif
 
 	UFUNCTION(BlueprintCallable, Category="VDB Handle")
-		virtual FString AddGrid(const FString &gridName, const FIntVector &worldIndex, FIntVector &indexStart, FIntVector &indexEnd) override;
+		virtual FString AddGrid(const FString &gridName, const FVector &worldLocation, FIntVector &indexStart, FIntVector &indexEnd) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void RemoveGrid(const FString &gridID) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
@@ -146,13 +146,11 @@ public:
 	//UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 	//	virtual void ReadGridTreeWorld(const FString &gridID, FVector &activeStart, FVector &activeEnd) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void MeshGrid(const FString &gridID, float surfaceValue, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer) override;
-	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void ReadGridIndexBounds(const FString &gridID, FIntVector &indexStart, FIntVector &indexEnd) override;
+		virtual void MeshGrid(const FString &gridID, float surfaceValue) override;
 
 	TArray<FString> GetAllGridIDs();
 	FIntVector GetRegionIndex(const FVector &worldLocation);
-	void InitVdb();
+	void InitVdb(TArray<TArray<FVector>> &VertexBuffers, TArray<TArray<int32>> &PolygonBuffers, TArray<TArray<FVector>> &NormalBuffers);
 
 private:
 	void FinishVdb();

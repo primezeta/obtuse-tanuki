@@ -38,7 +38,7 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	VdbHandle->InitVdb();
+	VdbHandle->InitVdb(MeshSectionVertices, MeshSectionPolygons, MeshSectionNormals);
 }
 
 // Called when the game starts or when spawned
@@ -47,15 +47,15 @@ void AProceduralTerrain::BeginPlay()
 	Super::BeginPlay();
 
 	ACharacter* FirstPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-	FIntVector RegionIndexCoords(0,0,0);
+	FVector PlayerLocation = FVector(0,0,0);
 	if (FirstPlayerCharacter != nullptr)
 	{
-		RegionIndexCoords = VdbHandle->GetRegionIndex(FirstPlayerCharacter->GetActorLocation());
+		PlayerLocation = FirstPlayerCharacter->GetActorLocation();
 	}
 
 	FIntVector IndexStart;
 	FIntVector IndexEnd;
-	FString GridID = VdbHandle->AddGrid(TEXT("StartRegion"), RegionIndexCoords, IndexStart, IndexEnd);
+	FString GridID = VdbHandle->AddGrid(TEXT("StartRegion"), PlayerLocation, IndexStart, IndexEnd);
 
 	FIntVector ActiveStart;
 	FIntVector ActiveEnd;
@@ -64,19 +64,17 @@ void AProceduralTerrain::BeginPlay()
 	MeshSectionIndices.Add(0);
 	MeshSectionIDs.Add(0, GridID);
 	IsGridSectionMeshed.Add(0, false);
-	MeshSectionVertices.Add(0, TArray<FVector>());
-	MeshSectionPolygons.Add(0, TArray<int32>());
-	MeshSectionUVMap.Add(0, TArray<FVector2D>());
-	MeshSectionNormals.Add(0, TArray<FVector>());
-	MeshSectionVertexColors.Add(0, TArray<FColor>());
-	MeshSectionTangents.Add(0, TArray<FProcMeshTangent>());
+
+	MeshSectionUVMap.Add(TArray<FVector2D>());
+	MeshSectionVertexColors.Add(TArray<FColor>());
+	MeshSectionTangents.Add(TArray<FProcMeshTangent>());
 
 	for (auto i = MeshSectionIndices.CreateConstIterator(); i; ++i)
 	{
 		const int32 &sectionIndex = *i;
 		if (!IsGridSectionMeshed[sectionIndex])
 		{
-			VdbHandle->MeshGrid(MeshSectionIDs[sectionIndex], MeshSurfaceValue, MeshSectionVertices[sectionIndex], MeshSectionPolygons[sectionIndex], MeshSectionNormals[sectionIndex]);
+			VdbHandle->MeshGrid(MeshSectionIDs[sectionIndex], MeshSurfaceValue);
 			TerrainMeshComponent->CreateTerrainMeshSection(*i, bCreateCollision,
 				MeshSectionVertices[sectionIndex],
 				MeshSectionPolygons[sectionIndex],

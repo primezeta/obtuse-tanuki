@@ -43,11 +43,11 @@ private:
 	TArray<int32> MeshSectionIndices;
 	TMap<int32, FString> MeshSectionIDs;
 	TMap<int32, bool> IsGridSectionMeshed;
-	TMap<int32, TArray<FVector>> MeshSectionVertices;
-	TMap<int32, TArray<int32>> MeshSectionPolygons;
-	TMap<int32, TArray<FVector2D>> MeshSectionUVMap;
-	TMap<int32, TArray<FVector>> MeshSectionNormals;
-	TMap<int32, TArray<FColor>> MeshSectionVertexColors;
-	TMap<int32, TArray<FProcMeshTangent>> MeshSectionTangents;
+	TArray<TArray<FVector>> MeshSectionVertices;
+	TArray<TArray<int32>> MeshSectionPolygons;
+	TArray<TArray<FVector2D>> MeshSectionUVMap;
+	TArray<TArray<FVector>> MeshSectionNormals;
+	TArray<TArray<FColor>> MeshSectionVertexColors;
+	TArray<TArray<FProcMeshTangent>> MeshSectionTangents;
 	//UMaterialInstanceDynamic * TerrainDynamicMaterial;
 };
