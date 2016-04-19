@@ -9,7 +9,7 @@ void UVdbHandle::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyCh
 	{
 		if (FOpenVDBModule::IsAvailable())
 		{
-			FOpenVDBModule::Get().RegisterVdb(*this);
+			FOpenVDBModule::Get().RegisterVdb(FilePath, EnableGridStats, EnableDelayLoad);
 		}
 	}
 }

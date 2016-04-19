@@ -52,10 +52,14 @@ void AProceduralTerrain::BeginPlay()
 	{
 		RegionIndexCoords = VdbHandle->GetRegionIndex(FirstPlayerCharacter->GetActorLocation());
 	}
+
 	FIntVector IndexStart;
 	FIntVector IndexEnd;
 	FString GridID = VdbHandle->AddGrid(TEXT("StartRegion"), RegionIndexCoords, IndexStart, IndexEnd);
-	VdbHandle->ReadGridTreeIndex(GridID, IndexStart, IndexEnd);
+
+	FIntVector ActiveStart;
+	FIntVector ActiveEnd;
+	VdbHandle->ReadGridTreeIndex(GridID, IndexStart, IndexEnd, ActiveStart, ActiveEnd);
 
 	MeshSectionIndices.Add(0);
 	MeshSectionIDs.Add(0, GridID);

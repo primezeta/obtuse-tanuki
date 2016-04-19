@@ -18,11 +18,10 @@ class IVdbInterface
 public:
 	virtual FString AddGrid(const FString &gridName, const FIntVector &worldIndex, FIntVector &indexStart, FIntVector &indexEnd) = 0;
 	virtual void RemoveGrid(const FString &gridID) = 0;
-	virtual void SetRegionSize(const FIntVector &regionSize) = 0;
-	virtual void ReadGridTreeIndex(const FString &gridID, FIntVector &activeStart, FIntVector &activeEnd) = 0;
+	virtual void SetRegionScale(const FIntVector &regionScale) = 0;
+	virtual void ReadGridTreeIndex(const FString &gridID, const FIntVector &startFill, const FIntVector &endFill, FIntVector &activeStart, FIntVector &activeEnd) = 0;
 	//TODO
 	//virtual void ReadGridTreeWorld(const FString &gridID, FVector &activeStart, FVector &activeEnd) = 0;
 	virtual void MeshGrid(const FString &gridID, float surfaceValue, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer) = 0;
 	virtual void ReadGridIndexBounds(const FString &gridID, FIntVector &indexStart, FIntVector &indexEnd) = 0;
-	virtual int32 ReadGridCount() = 0;
 };

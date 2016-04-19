@@ -18,7 +18,8 @@ public:
 		return FModuleManager::Get().IsModuleLoaded("OpenVDBModule");
 	}
 
-	void RegisterVdb(const UVdbHandle &vdbObject);
+	void RegisterVdb(const FString &FilePath, bool EnableGridStats, bool EnableDelayLoad);
+	void UnregisterVdb(const FString &FilePath);
 
 	static VdbRegistryType VdbRegistry;
 };
