@@ -112,9 +112,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Name of volume"))
 		FString WorldName;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Voxels per dimension of a region"))
-		FIntVector RegionVoxelCount;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Perlin noise source frequency"))
 		float PerlinFrequency;
 
@@ -135,13 +132,13 @@ public:
 #endif
 
 	UFUNCTION(BlueprintCallable, Category="VDB Handle")
-		virtual FString AddGrid(const FString &gridName, const FVector &worldLocation, FIntVector &indexStart, FIntVector &indexEnd) override;
+		virtual FString AddGrid(const FString &gridName, const FVector &worldLocation, const FVector &voxelSize) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void RemoveGrid(const FString &gridID) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void SetRegionScale(const FIntVector &regionScale) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void ReadGridTreeIndex(const FString &gridID, const FIntVector &startFill, const FIntVector &endFill, FIntVector &activeStart, FIntVector &activeEnd) override;
+		virtual void ReadGridTreeIndex(const FString &gridID, FIntVector &activeStart, FIntVector &activeEnd) override;
 	//TODO
 	//UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 	//	virtual void ReadGridTreeWorld(const FString &gridID, FVector &activeStart, FVector &activeEnd) override;

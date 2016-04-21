@@ -33,6 +33,8 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 	//	material->Create
 	//	TerrainMeshComponent->SetMaterial(0, TerrainDynamicMaterial);
 	//}
+
+	VoxelSize = FVector(1.0f, 1.0f, 1.0f);
 }
 
 void AProceduralTerrain::PostInitializeComponents()
@@ -46,20 +48,19 @@ void AProceduralTerrain::BeginPlay()
 {
 	Super::BeginPlay();
 
+	VdbHandle->SetRegionScale(RegionDimensions);
+
 	ACharacter* FirstPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
 	FVector PlayerLocation = FVector(0,0,0);
 	if (FirstPlayerCharacter != nullptr)
 	{
 		PlayerLocation = FirstPlayerCharacter->GetActorLocation();
 	}
-
-	FIntVector IndexStart;
-	FIntVector IndexEnd;
-	FString GridID = VdbHandle->AddGrid(TEXT("StartRegion"), PlayerLocation, IndexStart, IndexEnd);
+	FString GridID = VdbHandle->AddGrid(TEXT("StartRegion"), PlayerLocation, VoxelSize);
 
 	FIntVector ActiveStart;
 	FIntVector ActiveEnd;
-	VdbHandle->ReadGridTreeIndex(GridID, IndexStart, IndexEnd, ActiveStart, ActiveEnd);
+	VdbHandle->ReadGridTreeIndex(GridID, ActiveStart, ActiveEnd);
 
 	MeshSectionIndices.Add(0);
 	MeshSectionIDs.Add(0, GridID);

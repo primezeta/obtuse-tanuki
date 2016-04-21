@@ -26,27 +26,6 @@ void UVdbHandle::InitVdb(TArray<TArray<FVector>> &VertexBuffers, TArray<TArray<i
 	if (!FilePath.IsEmpty() && FOpenVDBModule::IsAvailable())
 	{
 		FOpenVDBModule::Get().RegisterVdb(FilePath, EnableGridStats, EnableDelayLoad, VertexBuffers, PolygonBuffers, NormalBuffers);
-		TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
-		try
-		{
-			VdbPrivatePtr->InsertFileMeta<openvdb::math::ScaleMap>(VdbHandlePrivateType::MetaName_RegionScale(), openvdb::math::ScaleMap(openvdb::Vec3d((double)RegionVoxelCount.X, (double)RegionVoxelCount.Y, (double)RegionVoxelCount.Z)));
-		}
-		catch (const openvdb::Exception &e)
-		{
-			UE_LOG(LogOpenVDBModule, Error, TEXT("UVdbHandle OpenVDB exception: %s"), UTF8_TO_TCHAR(e.what()));
-		}
-		catch (const std::exception& e)
-		{
-			UE_LOG(LogOpenVDBModule, Error, TEXT("UVdbHandle exception: %s"), UTF8_TO_TCHAR(e.what()));
-		}
-		catch (const std::string& e)
-		{
-			UE_LOG(LogOpenVDBModule, Error, TEXT("UVdbHandle exception: %s"), UTF8_TO_TCHAR(e.c_str()));
-		}
-		catch (...)
-		{
-			UE_LOG(LogOpenVDBModule, Fatal, TEXT("UVdbHandle unexpected exception"));
-		}
 	}
 #endif
 }
@@ -84,7 +63,7 @@ void UVdbHandle::BeginDestroy()
 	Super::BeginDestroy();
 }
 
-FString UVdbHandle::AddGrid(const FString &gridName, const FVector &worldLocation, FIntVector &indexStart, FIntVector &indexEnd)
+FString UVdbHandle::AddGrid(const FString &gridName, const FVector &worldLocation, const FVector &voxelSize)
 {
 	FString gridID;
 	if (FOpenVDBModule::IsAvailable())
@@ -92,16 +71,17 @@ FString UVdbHandle::AddGrid(const FString &gridName, const FVector &worldLocatio
 		TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 		try
 		{
-			openvdb::TypedMetadata<openvdb::math::ScaleMap>::Ptr regionSizeMetaValue = VdbPrivatePtr->GetFileMetaValue<openvdb::math::ScaleMap>(VdbHandlePrivateType::MetaName_RegionScale());
-			check(regionSizeMetaValue != nullptr);
+			TSharedPtr<openvdb::TypedMetadata<openvdb::math::ScaleMap>> regionSizeMetaValue = VdbPrivatePtr->GetFileMetaValue<openvdb::math::ScaleMap>(VdbHandlePrivateType::MetaName_RegionScale());
+			check(regionSizeMetaValue.IsValid());
 
-			openvdb::Vec3d regionStart = regionSizeMetaValue->value().applyInverseMap(openvdb::Vec3d((double)worldLocation.X, (double)worldLocation.Y, (double)worldLocation.Z));
-			openvdb::Coord endIndexCoord = openvdb::Coord((int32)regionStart.x() + 1, (int32)regionStart.y() + 1, (int32)regionStart.z() + 1);
-			openvdb::Vec3d regionEnd = regionSizeMetaValue->value().applyMap(openvdb::Vec3d((double)endIndexCoord.x(), (double)endIndexCoord.y(), (double)endIndexCoord.z()));
-			indexStart = FIntVector(regionStart.x(), regionStart.y(), regionStart.z());
-			indexEnd = FIntVector(regionEnd.x(), regionEnd.y(), regionEnd.z());
+			const openvdb::Vec3d regionStart = regionSizeMetaValue->value().applyInverseMap(openvdb::Vec3d((double)worldLocation.X, (double)worldLocation.Y, (double)worldLocation.Z));
+			const openvdb::Coord endIndexCoord = openvdb::Coord((int32)regionStart.x() + 1, (int32)regionStart.y() + 1, (int32)regionStart.z() + 1);
+			const openvdb::Vec3d regionEnd = regionSizeMetaValue->value().applyMap(openvdb::Vec3d((double)endIndexCoord.x(), (double)endIndexCoord.y(), (double)endIndexCoord.z()));
+			const FIntVector indexStart = FIntVector(regionStart.x(), regionStart.y(), regionStart.z());
+			const FIntVector indexEnd = FIntVector(regionEnd.x(), regionEnd.y(), regionEnd.z());
+			
 			gridID = indexStart.ToString() + TEXT(",") + indexEnd.ToString();
-			VdbPrivatePtr->AddGrid<TreeType>(gridID);
+			VdbPrivatePtr->AddGrid<TreeType>(gridID, indexStart, indexEnd, voxelSize);
 		}
 		catch (const openvdb::Exception &e)
 		{
@@ -192,7 +172,10 @@ void UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 	try
 	{
-		VdbPrivatePtr->InsertFileMeta(VdbHandlePrivateType::MetaName_RegionScale(), openvdb::math::ScaleMap(openvdb::Vec3d((double)regionScale.X, (double)regionScale.Y, (double)regionScale.Z)));
+		if (regionScale.X > 0 && regionScale.Y > 0 && regionScale.Z > 0)
+		{
+			VdbPrivatePtr->InsertFileMeta(VdbHandlePrivateType::MetaName_RegionScale(), openvdb::math::ScaleMap(openvdb::Vec3d((double)regionScale.X, (double)regionScale.Y, (double)regionScale.Z)));
+		}
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -212,7 +195,7 @@ void UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 	}
 }
 
-void UVdbHandle::ReadGridTreeIndex(const FString &gridID, const FIntVector &startFill, const FIntVector &endFill, FIntVector &activeStart, FIntVector &activeEnd)
+void UVdbHandle::ReadGridTreeIndex(const FString &gridID, FIntVector &activeStart, FIntVector &activeEnd)
 {
 	if (!FOpenVDBModule::IsAvailable())
 	{
@@ -221,8 +204,12 @@ void UVdbHandle::ReadGridTreeIndex(const FString &gridID, const FIntVector &star
 	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 	try
 	{
-		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->ReadGridTree<TreeType>(gridID, activeStart, activeEnd);
+		FIntVector startFill;
+		FIntVector endFill;
+		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->ReadGridTree<TreeType>(gridID, startFill, endFill);
+		UE_LOG(LogOpenVDBModule, Display, TEXT("Pre Perlin op: %s has %d active voxels"), *gridID, GridPtr->activeVoxelCount());
 		VdbPrivatePtr->FillGrid_PerlinDensity<TreeType>(gridID, startFill, endFill, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, activeStart, activeEnd);
+		UE_LOG(LogOpenVDBModule, Display, TEXT("Post Perlin op: %s has %d active voxels"), *gridID, GridPtr->activeVoxelCount());
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -271,7 +258,12 @@ void UVdbHandle::MeshGrid(const FString &gridID, float surfaceValue)
 	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 	try
 	{
+		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->GetGridPtr<TreeType>(gridID);
+		openvdb::CoordBBox bbox = GridPtr->evalActiveVoxelBoundingBox();
+		UE_LOG(LogOpenVDBModule, Display, TEXT("Pre mesh op: %s has %d active voxels with bbox %d,%d,%d %d,%d,%d"), *gridID, GridPtr->activeVoxelCount(), bbox.min().x(), bbox.min().y(), bbox.min().z(), bbox.max().x(), bbox.max().y(), bbox.max().z());
 		VdbPrivatePtr->MeshRegion<TreeType, Vdb::GridOps::IndexTreeType>(gridID, surfaceValue);
+		bbox = GridPtr->evalActiveVoxelBoundingBox();
+		UE_LOG(LogOpenVDBModule, Display, TEXT("Post mesh op: %s has %d active voxels with bbox %d,%d,%d %d,%d,%d"), *gridID, GridPtr->activeVoxelCount(), bbox.min().x(), bbox.min().y(), bbox.min().z(), bbox.max().x(), bbox.max().y(), bbox.max().z());
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -299,8 +291,8 @@ FIntVector UVdbHandle::GetRegionIndex(const FVector &worldLocation)
 		TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 		try
 		{
-			openvdb::TypedMetadata<openvdb::math::ScaleMap>::Ptr regionSizeMetaValue = VdbPrivatePtr->GetFileMetaValue<openvdb::math::ScaleMap>(VdbHandlePrivateType::MetaName_RegionScale());
-			check(regionSizeMetaValue != nullptr);
+			TSharedPtr<openvdb::TypedMetadata<openvdb::math::ScaleMap>> regionSizeMetaValue = VdbPrivatePtr->GetFileMetaValue<openvdb::math::ScaleMap>(VdbHandlePrivateType::MetaName_RegionScale());
+			check(regionSizeMetaValue.IsValid());
 			regionIndex = regionSizeMetaValue->value().applyMap(openvdb::Vec3d(worldLocation.X, worldLocation.Y, worldLocation.Z));
 		}
 		catch (const openvdb::Exception &e)

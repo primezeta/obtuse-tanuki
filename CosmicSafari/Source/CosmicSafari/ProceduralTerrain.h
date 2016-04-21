@@ -39,6 +39,12 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "OpenVDB|Procedural Terrain")
 		bool bCreateCollision;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Voxels per dimension of a meshable terrain region"))
+		FIntVector RegionDimensions;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Dimensions of a single voxel"))
+		FVector VoxelSize;
+
 private:
 	TArray<int32> MeshSectionIndices;
 	TMap<int32, FString> MeshSectionIDs;
