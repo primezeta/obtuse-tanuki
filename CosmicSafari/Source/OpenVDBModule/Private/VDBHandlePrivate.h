@@ -145,9 +145,9 @@ public:
 			{
 				NormalSectionBuffer->Add(TArray<FVector>());
 			}
-			GridTypePtr grid = openvdb::gridPtrCast<GridType>(*i);
-			check(grid != nullptr);
-			MeshOps.Add(gridName, TSharedPtr<Vdb::GridOps::BasicMesher<TreeType, IndexTreeType>>(new Vdb::GridOps::BasicMesher<TreeType, IndexTreeType>(grid, (*VertexSectionBuffer)[sectionIndex], (*PolygonSectionBuffer)[sectionIndex], (*NormalSectionBuffer)[sectionIndex])));
+			GridTypePtr gridPtr = openvdb::gridPtrCast<GridType>(*i);
+			check(gridPtr != nullptr);
+			MeshOps.Add(gridName, TSharedPtr<Vdb::GridOps::BasicMesher<TreeType, IndexTreeType>>(new Vdb::GridOps::BasicMesher<TreeType, IndexTreeType>(gridPtr, (*VertexSectionBuffer)[sectionIndex], (*PolygonSectionBuffer)[sectionIndex], (*NormalSectionBuffer)[sectionIndex])));
 			sectionIndex++;
 		}
 	}
@@ -155,8 +155,7 @@ public:
 	template<typename TreeType>
 	GridTypePtr GetGridPtr(const FString &gridName)
 	{
-		GridTypePtr grid = GridType::create();
-		grid->setName(TCHAR_TO_UTF8(*gridName));
+		GridTypePtr grid = nullptr;
 		auto i = GridsPtr->begin();
 		for (; i != GridsPtr->end(); ++i)
 		{
@@ -167,31 +166,33 @@ public:
 				break;
 			}
 		}
-		if (i == GridsPtr->end())
-		{
-			int32 sectionIndex = GridsPtr->size();
-			GridsPtr->push_back(grid);
-			VertexSectionBuffer->Add(TArray<FVector>());
-			PolygonSectionBuffer->Add(TArray<int32>());
-			NormalSectionBuffer->Add(TArray<FVector>());
-			MeshOps.Add(gridName, TSharedPtr<Vdb::GridOps::BasicMesher<TreeType, IndexTreeType>>(new Vdb::GridOps::BasicMesher<TreeType, IndexTreeType>(grid, (*VertexSectionBuffer)[sectionIndex], (*PolygonSectionBuffer)[sectionIndex], (*NormalSectionBuffer)[sectionIndex])));
-		}
 		return grid;
 	}
 
 	template<typename TreeType>
 	void AddGrid(const FString &gridName, const FIntVector &indexStart, const FIntVector &indexEnd, const FVector &voxelSize)
 	{
-		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
-		check(gridPtr != nullptr);
+		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);		
+		if (gridPtr == nullptr)
+		{
+			gridPtr = GridType::create();
+			gridPtr->setName(TCHAR_TO_UTF8(*gridName));
+			int32 sectionIndex = GridsPtr->size();
+			GridsPtr->push_back(gridPtr);
+			WriteChanges();
+
+			VertexSectionBuffer->Add(TArray<FVector>());
+			PolygonSectionBuffer->Add(TArray<int32>());
+			NormalSectionBuffer->Add(TArray<FVector>());
+			MeshOps.Add(gridName, TSharedPtr<Vdb::GridOps::BasicMesher<TreeType, IndexTreeType>>(new Vdb::GridOps::BasicMesher<TreeType, IndexTreeType>(gridPtr, (*VertexSectionBuffer)[sectionIndex], (*PolygonSectionBuffer)[sectionIndex], (*NormalSectionBuffer)[sectionIndex])));
+		}
 		
 		const openvdb::Vec3d start(indexStart.X, indexStart.Y, indexStart.Z);
 		const openvdb::Vec3d end(indexEnd.X, indexEnd.Y, indexEnd.Z);
 		const openvdb::Vec3d voxelScale(voxelSize.X, voxelSize.Y, voxelSize.Z);
 		openvdb::math::ScaleMap::Ptr scale = openvdb::math::ScaleMap::Ptr(new openvdb::math::ScaleMap(voxelScale));
 		openvdb::math::ScaleTranslateMap::Ptr map(new openvdb::math::ScaleTranslateMap(voxelScale, scale->applyMap(start)));
-		openvdb::math::Transform::Ptr xform = openvdb::math::Transform::Ptr(new openvdb::math::Transform(map));
-		gridPtr->setTransform(xform->copy());
+		gridPtr->setTransform(openvdb::math::Transform::Ptr(new openvdb::math::Transform(map)));
 
 		const openvdb::Vec3d worldStart = map->applyMap(start);
 		const openvdb::Vec3d worldEnd = map->applyMap(end);
@@ -199,7 +200,6 @@ public:
 		gridPtr->insertMeta(TCHAR_TO_UTF8(*MetaName_RegionEnd()), openvdb::Vec3DMetadata(worldEnd));
 		gridPtr->insertMeta(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()), openvdb::Vec3IMetadata(openvdb::Vec3i(indexStart.X, indexStart.Y, indexStart.Z)));
 		gridPtr->insertMeta(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()), openvdb::Vec3IMetadata(openvdb::Vec3i(indexEnd.X, indexEnd.Y, indexEnd.Z)));
-		WriteChanges();
 	}
 
 	template<typename TreeType>
@@ -360,23 +360,36 @@ public:
 	}
 
 	template<typename TreeType>
-	void FillGrid_PerlinDensity(const FString &gridName, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, float frequency, float lacunarity, float persistence, int32 octaveCount, FIntVector &activeStart, FIntVector &activeEnd)
+	void FillGrid_PerlinDensity(const FString &gridName, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount, FIntVector &activeStart, FIntVector &activeEnd)
 	{
 		GridTypePtr gridPtr = GetGridPtr<TreeType>(gridName);
 		const openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
 
 		//Noise module parameters are at the grid-level metadata
+		openvdb::Int32Metadata::Ptr seedMeta = gridPtr->getMetadata<openvdb::Int32Metadata>("seed");
 		openvdb::FloatMetadata::Ptr frequencyMeta = gridPtr->getMetadata<openvdb::FloatMetadata>("frequency");
 		openvdb::FloatMetadata::Ptr lacunarityMeta = gridPtr->getMetadata<openvdb::FloatMetadata>("lacunarity");
 		openvdb::FloatMetadata::Ptr persistenceMeta = gridPtr->getMetadata<openvdb::FloatMetadata>("persistence");
 		openvdb::Int32Metadata::Ptr octaveCountMeta = gridPtr->getMetadata<openvdb::Int32Metadata>("octaveCount");
-		if (gridPtr->tree().empty() ||
+		bool isEmpty = gridPtr->tree().empty();
+		std::string arg;
+		if (isEmpty)
+		{
+			arg = "empty";
+		}
+		else
+		{
+			arg = "full";
+		}
+		if (isEmpty ||
+			seedMeta == nullptr || !openvdb::math::isExactlyEqual(seed, seedMeta->value()) ||
 			frequencyMeta == nullptr || !openvdb::math::isApproxEqual(frequency, frequencyMeta->value()) ||
 			lacunarityMeta == nullptr || !openvdb::math::isApproxEqual(lacunarity, lacunarityMeta->value()) ||
 			persistenceMeta == nullptr || !openvdb::math::isApproxEqual(persistence, persistenceMeta->value()) ||
 			octaveCountMeta == nullptr || !openvdb::math::isExactlyEqual(octaveCount, octaveCountMeta->value()))
 		{
 			//Update the Perlin noise parameters
+			gridPtr->insertMeta("seed", openvdb::Int32Metadata(seed));
 			gridPtr->insertMeta("frequency", openvdb::FloatMetadata(frequency));
 			gridPtr->insertMeta("lacunarity", openvdb::FloatMetadata(lacunarity));
 			gridPtr->insertMeta("persistence", openvdb::FloatMetadata(persistence));
@@ -390,7 +403,7 @@ public:
 
 			//Create a mask enclosing the region such that the outer edge voxels have value false
 			openvdb::BoolGrid::Ptr mask = openvdb::BoolGrid::create(false);
-			mask->fill(bboxPadded, /*value*/false, /*state*/false);
+			mask->fill(bboxPadded, /*value*/false, /*state*/true);
 			mask->fill(fillBBox, /*value*/true, /*state*/true);
 			UE_LOG(LogOpenVDBModule, Display, TEXT("BBox padded: %d,%d,%d  %d,%d,%d"), bboxPadded.min().x(), bboxPadded.min().y(), bboxPadded.min().z(), bboxPadded.max().x(), bboxPadded.max().y(), bboxPadded.max().z());
 			UE_LOG(LogOpenVDBModule, Display, TEXT("BBox fill: %d,%d,%d  %d,%d,%d"), fillBBox.min().x(), fillBBox.min().y(), fillBBox.min().z(), fillBBox.max().x(), fillBBox.max().y(), fillBBox.max().z());
@@ -398,7 +411,7 @@ public:
 			UE_LOG(LogOpenVDBModule, Display, TEXT("Pre noise fill op Mask bbox: %d,%d,%d  %d,%d,%d"), maskBBox.min().x(), maskBBox.min().y(), maskBBox.min().z(), maskBBox.max().x(), maskBBox.max().y(), maskBBox.max().z());
 			UE_LOG(LogOpenVDBModule, Display, TEXT("Pre noise-fill op: %s has %d active voxels"), *gridName, gridPtr->activeVoxelCount());
 			UE_LOG(LogOpenVDBModule, Display, TEXT("Pre noise-fill op: mask has %d active voxels"), mask->activeVoxelCount());
-			Vdb::GridOps::PerlinNoiseFillOp<TreeType> noiseFillOp(gridPtr->transformPtr(), frequency, lacunarity, persistence, octaveCount);
+			Vdb::GridOps::PerlinNoiseFillOp<TreeType> noiseFillOp(gridPtr->transformPtr(), seed, frequency, lacunarity, persistence, octaveCount);
 			Vdb::GridOps::PerlinNoiseFillOp<TreeType>::transformValues(mask->cbeginValueOn(), *gridPtr, noiseFillOp);
 			maskBBox = mask->evalActiveVoxelBoundingBox();
 			UE_LOG(LogOpenVDBModule, Display, TEXT("Post noise fill op Mask bbox: %d,%d,%d  %d,%d,%d"), maskBBox.min().x(), maskBBox.min().y(), maskBBox.min().z(), maskBBox.max().x(), maskBBox.max().y(), maskBBox.max().z());

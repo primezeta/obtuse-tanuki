@@ -201,9 +201,10 @@ namespace Vdb
 			                    openvdb::tree::ValueAccessor<OutTreeType>>
 		{
 		public:
-			PerlinNoiseFillOp(const openvdb::math::Transform::Ptr xformPtr, float frequency, float lacunarity, float persistence, int32 octaveCount) :
+			PerlinNoiseFillOp(const openvdb::math::Transform::Ptr xformPtr, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount) :
 				ITransformOp(xformPtr)
 			{
+				valueSource.SetSeed(seed);
 				valueSource.SetFrequency((double)frequency);
 				valueSource.SetLacunarity((double)lacunarity);
 				valueSource.SetPersistence((double)persistence);
@@ -297,7 +298,7 @@ namespace Vdb
 			public ITransformOp<typename InTreeType::ValueOnCIter,
 			                    OutTreeType,
 			                    typename MeshGeometryOp<OutTreeType, InTreeType>,
-			                    openvdb::tree::ValueAccessor<OutTreeType, true, OutTreeType::DEPTH - 1, tbb::mutex>>
+			                    openvdb::tree::ValueAccessor<OutTreeType>>
 		{
 		public:
 			typedef typename TSharedPtr<MeshGeometryOp<typename OutTreeType, typename InTreeType>> Ptr;
@@ -312,7 +313,10 @@ namespace Vdb
 				{
 					const openvdb::Coord idxCoord = primitiveIndices.getCoord(i);
 					OutValueType vertexIndex;
-					ModifyValue(iter, acc, idxCoord, vertexIndex);
+					{
+						FScopeLock lock(VertexCriticalSection.Get());
+						ModifyValue(iter, acc, idxCoord, vertexIndex);
+					}
 					primitiveIndices[i] = vertexIndex;
 				}
 				quads.Enqueue(primitiveIndices.getQuadXY0());
@@ -330,7 +334,6 @@ namespace Vdb
 
 			virtual inline void GetValue(const IterType& iter, OutAccessorType& acc, const openvdb::Coord &coord, OutValueType &outValue) override
 			{
-				FScopeLock lock(VertexCriticalSection.Get());
 				outValue = acc.getValue(coord);
 				if (outValue == acc.tree().background())
 				{

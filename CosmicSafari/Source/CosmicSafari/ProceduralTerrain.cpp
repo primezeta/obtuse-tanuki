@@ -58,9 +58,11 @@ void AProceduralTerrain::BeginPlay()
 	}
 	FString GridID = VdbHandle->AddGrid(TEXT("StartRegion"), PlayerLocation, VoxelSize);
 
+	FIntVector StartFill;
+	FIntVector EndFill;
 	FIntVector ActiveStart;
 	FIntVector ActiveEnd;
-	VdbHandle->ReadGridTreeIndex(GridID, ActiveStart, ActiveEnd);
+	VdbHandle->ReadGridTreeIndex(GridID, StartFill, EndFill, ActiveStart, ActiveEnd);
 
 	MeshSectionIndices.Add(0);
 	MeshSectionIDs.Add(0, GridID);
@@ -87,6 +89,11 @@ void AProceduralTerrain::BeginPlay()
 			IsGridSectionMeshed[sectionIndex] = true;
 		}
 	}
+}
+
+void AProceduralTerrain::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	VdbHandle->WriteAllGrids();
 }
 
 // Called every frame

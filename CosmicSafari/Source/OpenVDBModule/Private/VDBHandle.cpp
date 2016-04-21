@@ -14,6 +14,7 @@ UVdbHandle::UVdbHandle(const FObjectInitializer& ObjectInitializer)
 	EnableDelayLoad = true;
 	EnableGridStats = true;
 	WorldName = "";
+	PerlinSeed = 0;
 	PerlinFrequency = 2.01f;
 	PerlinLacunarity = 2.0f;
 	PerlinPersistence = 0.5f;
@@ -195,7 +196,7 @@ void UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 	}
 }
 
-void UVdbHandle::ReadGridTreeIndex(const FString &gridID, FIntVector &activeStart, FIntVector &activeEnd)
+void UVdbHandle::ReadGridTreeIndex(const FString &gridID, FIntVector &startFill, FIntVector &endFill, FIntVector &activeStart, FIntVector &activeEnd)
 {
 	if (!FOpenVDBModule::IsAvailable())
 	{
@@ -204,11 +205,9 @@ void UVdbHandle::ReadGridTreeIndex(const FString &gridID, FIntVector &activeStar
 	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 	try
 	{
-		FIntVector startFill;
-		FIntVector endFill;
 		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->ReadGridTree<TreeType>(gridID, startFill, endFill);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Pre Perlin op: %s has %d active voxels"), *gridID, GridPtr->activeVoxelCount());
-		VdbPrivatePtr->FillGrid_PerlinDensity<TreeType>(gridID, startFill, endFill, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, activeStart, activeEnd);
+		VdbPrivatePtr->FillGrid_PerlinDensity<TreeType>(gridID, startFill, endFill, PerlinSeed, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, activeStart, activeEnd);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Post Perlin op: %s has %d active voxels"), *gridID, GridPtr->activeVoxelCount());
 	}
 	catch (const openvdb::Exception &e)
@@ -313,4 +312,15 @@ FIntVector UVdbHandle::GetRegionIndex(const FVector &worldLocation)
 		}
 	}
 	return FIntVector((int)regionIndex.x(), (int)regionIndex.y(), (int)regionIndex.z());
+}
+
+void UVdbHandle::WriteAllGrids()
+{
+	if (FOpenVDBModule::IsAvailable())
+	{
+		for (auto i = FOpenVDBModule::VdbRegistry.CreateIterator(); i; ++i)
+		{
+			i.Value()->WriteChanges();
+		}
+	}
 }

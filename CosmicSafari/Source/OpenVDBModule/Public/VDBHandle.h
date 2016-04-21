@@ -112,6 +112,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Name of volume"))
 		FString WorldName;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Perlin noise random generator seed"))
+		int32 PerlinSeed;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Perlin noise source frequency"))
 		float PerlinFrequency;
 
@@ -138,7 +141,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void SetRegionScale(const FIntVector &regionScale) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void ReadGridTreeIndex(const FString &gridID, FIntVector &activeStart, FIntVector &activeEnd) override;
+		virtual void ReadGridTreeIndex(const FString &gridID, FIntVector &startFill, FIntVector &endFill, FIntVector &activeStart, FIntVector &activeEnd) override;
 	//TODO
 	//UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 	//	virtual void ReadGridTreeWorld(const FString &gridID, FVector &activeStart, FVector &activeEnd) override;
@@ -148,7 +151,5 @@ public:
 	TArray<FString> GetAllGridIDs();
 	FIntVector GetRegionIndex(const FVector &worldLocation);
 	void InitVdb(TArray<TArray<FVector>> &VertexBuffers, TArray<TArray<int32>> &PolygonBuffers, TArray<TArray<FVector>> &NormalBuffers);
-
-private:
-	void FinishVdb();
+	void WriteAllGrids();
 };
