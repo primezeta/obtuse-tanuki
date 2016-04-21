@@ -115,7 +115,10 @@ namespace Vdb
 		};
 
 		//Virtual interface specification for a grid transformer operator
-		template<typename InIterType, typename OutTreeType, typename SelfOpType>
+		template<typename InIterType,
+			     typename OutTreeType,
+			     typename SelfOpType,
+			     typename AccessorType>
 		class ITransformOp
 		{
 		public:
@@ -123,7 +126,7 @@ namespace Vdb
 			typedef typename InIterType::ValueT InValueType;
 			typedef typename OutTreeType::ValueType OutValueType;
 			typedef typename openvdb::Grid<OutTreeType> OutGridType;
-			typedef typename openvdb::tree::ValueAccessor<OutTreeType, true, OutTreeType::DEPTH-1, tbb::mutex> OutAccessorType;
+			typedef typename AccessorType OutAccessorType;
 			ITransformOp(openvdb::math::Transform::Ptr xformPtr) : GridXformPtr(xformPtr)
 			{
 				check(GridXformPtr != nullptr);
@@ -191,7 +194,11 @@ namespace Vdb
 
 		//Operator to fill a grid with Perlin noise values
 		template <typename OutTreeType, typename InTreeType = openvdb::BoolTree>
-		class PerlinNoiseFillOp : public ITransformOp<typename InTreeType::ValueOnCIter, OutTreeType, typename PerlinNoiseFillOp<OutTreeType, InTreeType>>
+		class PerlinNoiseFillOp :
+			public ITransformOp<typename InTreeType::ValueOnCIter,
+			                    OutTreeType,
+			                    typename PerlinNoiseFillOp<OutTreeType, InTreeType>,
+			                    openvdb::tree::ValueAccessor<OutTreeType>>
 		{
 		public:
 			PerlinNoiseFillOp(const openvdb::math::Transform::Ptr xformPtr, float frequency, float lacunarity, float persistence, int32 octaveCount) :
@@ -234,7 +241,11 @@ namespace Vdb
 
 		//Operator to extract an isosurface from a grid
 		template <typename OutTreeType, typename InTreeType = OutTreeType>
-		class ExtractSurfaceOp : public ITransformOp<typename InTreeType::ValueOnIter, OutTreeType, typename ExtractSurfaceOp<OutTreeType, InTreeType>>
+		class ExtractSurfaceOp :
+			public ITransformOp<typename InTreeType::ValueOnIter,
+			                    OutTreeType,
+			                    typename ExtractSurfaceOp<OutTreeType, InTreeType>,
+			                    openvdb::tree::ValueAccessor<OutTreeType>>
 		{
 		public:
 			typedef typename TSharedPtr<ExtractSurfaceOp<OutTreeType>> Ptr;
@@ -282,7 +293,11 @@ namespace Vdb
 		};
 
 		template <typename OutTreeType, typename InTreeType>
-		class MeshGeometryOp : public ITransformOp<typename InTreeType::ValueOnCIter, OutTreeType, typename MeshGeometryOp<OutTreeType, InTreeType>>
+		class MeshGeometryOp :
+			public ITransformOp<typename InTreeType::ValueOnCIter,
+			                    OutTreeType,
+			                    typename MeshGeometryOp<OutTreeType, InTreeType>,
+			                    openvdb::tree::ValueAccessor<OutTreeType, true, OutTreeType::DEPTH - 1, tbb::mutex>>
 		{
 		public:
 			typedef typename TSharedPtr<MeshGeometryOp<typename OutTreeType, typename InTreeType>> Ptr;
@@ -315,12 +330,12 @@ namespace Vdb
 
 			virtual inline void GetValue(const IterType& iter, OutAccessorType& acc, const openvdb::Coord &coord, OutValueType &outValue) override
 			{
+				FScopeLock lock(VertexCriticalSection.Get());
 				outValue = acc.getValue(coord);
 				if (outValue == acc.tree().background())
 				{
 					const openvdb::Vec3d vtx = GridXformPtr->indexToWorld(coord);
 					{
-						FScopeLock lock(VertexCriticalSection.Get());
 						outValue = (OutValueType)vertices.Add(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z()));
 					}
 				}
