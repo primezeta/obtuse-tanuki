@@ -21,12 +21,12 @@ UVdbHandle::UVdbHandle(const FObjectInitializer& ObjectInitializer)
 	PerlinOctaveCount = 8;
 }
 
-void UVdbHandle::InitVdb(TArray<TArray<FVector>> &VertexBuffers, TArray<TArray<int32>> &PolygonBuffers, TArray<TArray<FVector>> &NormalBuffers)
+void UVdbHandle::InitVdb()
 {
 #if WITH_ENGINE
 	if (!FilePath.IsEmpty() && FOpenVDBModule::IsAvailable())
 	{
-		FOpenVDBModule::Get().RegisterVdb(FilePath, EnableGridStats, EnableDelayLoad, VertexBuffers, PolygonBuffers, NormalBuffers);
+		FOpenVDBModule::Get().RegisterVdb(FilePath, EnableGridStats, EnableDelayLoad);
 	}
 #endif
 }
@@ -248,7 +248,7 @@ void UVdbHandle::ReadGridTreeIndex(const FString &gridID, FIntVector &startFill,
 //	}
 //}
 
-void UVdbHandle::MeshGrid(const FString &gridID, float surfaceValue)
+void UVdbHandle::MeshGrid(const FString &gridID, float surfaceValue, TSharedRef<TArray<FVector>> OutVertexBufferRef, TSharedRef<TArray<int32>> OutPolygonBufferRef, TSharedRef<TArray<FVector>> OutNormalBufferRef)
 {
 	if (!FOpenVDBModule::IsAvailable())
 	{
@@ -257,12 +257,13 @@ void UVdbHandle::MeshGrid(const FString &gridID, float surfaceValue)
 	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 	try
 	{
-		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->GetGridPtr(gridID);
+		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->GetGridPtrChecked(gridID);
 		openvdb::CoordBBox bbox = GridPtr->evalActiveVoxelBoundingBox();
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Pre mesh op: %s has %d active voxels with bbox %d,%d,%d %d,%d,%d"), *gridID, GridPtr->activeVoxelCount(), bbox.min().x(), bbox.min().y(), bbox.min().z(), bbox.max().x(), bbox.max().y(), bbox.max().z());
 		VdbPrivatePtr->MeshRegion(gridID, surfaceValue);
 		bbox = GridPtr->evalActiveVoxelBoundingBox();
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Post mesh op: %s has %d active voxels with bbox %d,%d,%d %d,%d,%d"), *gridID, GridPtr->activeVoxelCount(), bbox.min().x(), bbox.min().y(), bbox.min().z(), bbox.max().x(), bbox.max().y(), bbox.max().z());
+		VdbPrivatePtr->GetGridSectionBuffers(gridID, OutVertexBufferRef, OutPolygonBufferRef, OutNormalBufferRef);
 	}
 	catch (const openvdb::Exception &e)
 	{

@@ -2,11 +2,11 @@
 
 DEFINE_LOG_CATEGORY(LogOpenVDBModule)
 
-void FOpenVDBModule::RegisterVdb(const FString &FilePath, bool EnableGridStats, bool EnableDelayLoad, TArray<TArray<FVector>> &VertexBuffers, TArray<TArray<int32>> &PolygonBuffers, TArray<TArray<FVector>> &NormalBuffers)
+void FOpenVDBModule::RegisterVdb(const FString &FilePath, bool EnableGridStats, bool EnableDelayLoad)
 {
 	if (!VdbRegistry.Contains(FilePath))
 	{
-		VdbRegistry.Add(FilePath, TSharedPtr<VdbHandlePrivateType>(new VdbHandlePrivateType(FilePath, EnableGridStats, EnableDelayLoad, &VertexBuffers, &PolygonBuffers, &NormalBuffers)));
+		VdbRegistry.Add(FilePath, TSharedPtr<VdbHandlePrivateType>(new VdbHandlePrivateType(FilePath, EnableGridStats, EnableDelayLoad)));
 	}
 	else
 	{
@@ -14,14 +14,10 @@ void FOpenVDBModule::RegisterVdb(const FString &FilePath, bool EnableGridStats, 
 		if (vdb->EnableGridStats != EnableGridStats ||
 			vdb->EnableDelayLoad != EnableDelayLoad)
 		{
-			VdbRegistry.Add(FilePath, TSharedPtr<VdbHandlePrivateType>(new VdbHandlePrivateType(FilePath, EnableGridStats, EnableDelayLoad, &VertexBuffers, &PolygonBuffers, &NormalBuffers)));
-		}
-		else
-		{
-			vdb->InitBuffers(&VertexBuffers, &PolygonBuffers, &NormalBuffers);
+			VdbRegistry.Add(FilePath, TSharedPtr<VdbHandlePrivateType>(new VdbHandlePrivateType(FilePath, EnableGridStats, EnableDelayLoad)));
 		}
 	}
-	VdbRegistry.FindChecked(FilePath)->Init();
+	VdbRegistry.FindChecked(FilePath)->InitGrids();
 }
 
 IMPLEMENT_GAME_MODULE(FOpenVDBModule, OpenVDBModule);

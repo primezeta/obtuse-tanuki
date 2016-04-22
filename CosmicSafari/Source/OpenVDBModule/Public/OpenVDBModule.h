@@ -18,8 +18,8 @@ public:
 		return FModuleManager::Get().IsModuleLoaded("OpenVDBModule");
 	}
 
-	void RegisterVdb(const FString &FilePath, bool EnableGridStats, bool EnableDelayLoad, TArray<TArray<FVector>> &VertexBuffers, TArray<TArray<int32>> &PolygonBuffers, TArray<TArray<FVector>> &NormalBuffers);
-	void UnregisterVdb(const FString &FilePath);
+	void RegisterVdb(const FString &FilePath, bool EnableGridStats, bool EnableDelayLoad);
+	//void UnregisterVdb(const FString &FilePath);
 
 	static VdbRegistryType VdbRegistry;
 };

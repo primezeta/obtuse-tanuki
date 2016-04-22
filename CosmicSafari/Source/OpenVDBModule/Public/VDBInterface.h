@@ -22,5 +22,5 @@ public:
 	virtual void ReadGridTreeIndex(const FString &gridID, FIntVector &startFill, FIntVector &endFill, FIntVector &activeStart, FIntVector &activeEnd) = 0;
 	//TODO
 	//virtual void ReadGridTreeWorld(const FString &gridID, FVector &activeStart, FVector &activeEnd) = 0;
-	virtual void MeshGrid(const FString &gridID, float surfaceValue) = 0;
+	virtual void MeshGrid(const FString &gridID, float surfaceValue, TSharedRef<TArray<FVector>> OutVertexBufferRef, TSharedRef<TArray<int32>> OutPolygonBufferRef, TSharedRef<TArray<FVector>> OutNormalBufferRef) = 0;
 };

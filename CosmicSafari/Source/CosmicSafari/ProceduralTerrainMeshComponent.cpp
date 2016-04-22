@@ -5,10 +5,14 @@
 #include <sstream>
 #include "ProceduralTerrainMeshComponent.h"
 
-void UProceduralTerrainMeshComponent::CreateTerrainMeshSection(int32 SectionIndex, bool bCreateCollision,
-	                                                           const TArray<FVector>& Vertices, const TArray<int32>& Triangles,
-	                                                           const TArray<FVector2D> &UV0, const TArray<FVector> &Normals,
-	                                                           const TArray<FColor> &VertexColors, const TArray<FProcMeshTangent> &Tangents)
+void UProceduralTerrainMeshComponent::CreateTerrainMeshSection(int32 SectionIndex,
+															   bool bCreateCollision,
+	                                                           const TArray<FVector>& Vertices,
+															   const TArray<int32>& Triangles,
+	                                                           const TArray<FVector2D> &UV0,
+															   const TArray<FVector> &Normals,
+	                                                           const TArray<FColor> &VertexColors,
+															   const TArray<FProcMeshTangent> &Tangents)
 {
 	Super::CreateMeshSection(SectionIndex, Vertices, Triangles, Normals, UV0, VertexColors, Tangents, bCreateCollision);
 }

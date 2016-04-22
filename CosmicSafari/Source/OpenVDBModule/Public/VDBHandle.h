@@ -145,11 +145,11 @@ public:
 	//TODO
 	//UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 	//	virtual void ReadGridTreeWorld(const FString &gridID, FVector &activeStart, FVector &activeEnd) override;
-	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void MeshGrid(const FString &gridID, float surfaceValue) override;
+	//UFUNCTION(BlueprintCallable, Category = "VDB Handle")
+		virtual void MeshGrid(const FString &gridID, float surfaceValue, TSharedRef<TArray<FVector>> OutVertexBufferRef, TSharedRef<TArray<int32>> OutPolygonBufferRef, TSharedRef<TArray<FVector>> OutNormalBufferRef) override;
 
 	TArray<FString> GetAllGridIDs();
 	FIntVector GetRegionIndex(const FVector &worldLocation);
-	void InitVdb(TArray<TArray<FVector>> &VertexBuffers, TArray<TArray<int32>> &PolygonBuffers, TArray<TArray<FVector>> &NormalBuffers);
+	void InitVdb();
 	void WriteAllGrids();
 };

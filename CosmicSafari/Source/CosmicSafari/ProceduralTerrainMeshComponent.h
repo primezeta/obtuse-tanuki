@@ -14,9 +14,13 @@ class COSMICSAFARI_API UProceduralTerrainMeshComponent : public UProceduralMeshC
 	GENERATED_BODY()
 
 public:
-	void CreateTerrainMeshSection(int32 SectionIndex, bool bCreateCollision,
-		const TArray<FVector>& Vertices, const TArray<int32>& Triangles,
-		const TArray<FVector2D> &UV0, const TArray<FVector> &Normals,
-		const TArray<FColor> &VertexColors, const TArray<FProcMeshTangent> &Tangents);
+	void CreateTerrainMeshSection(int32 SectionIndex,
+		bool bCreateCollision,
+		const TArray<FVector>& Vertices,
+		const TArray<int32>& Triangles,
+		const TArray<FVector2D> &UV0,
+		const TArray<FVector> &Normals,
+		const TArray<FColor> &VertexColors,
+		const TArray<FProcMeshTangent> &Tangents);
 	
 };
