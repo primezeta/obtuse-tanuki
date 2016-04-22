@@ -132,7 +132,7 @@ namespace Vdb
 				check(GridXformPtr != nullptr);
 			}
 
-			static void transformValues(const InIterType &beginIter, OutGridType &outGrid, SelfOpType &op)
+			static void transformValues(const IterType &beginIter, OutGridType &outGrid, SelfOpType &op)
 			{
 				openvdb::tools::transformValues<IterType, OutGridType, SelfOpType, OutAccessorType>(beginIter, outGrid, op);
 			}
@@ -201,8 +201,8 @@ namespace Vdb
 			                    openvdb::tree::ValueAccessor<OutTreeType>>
 		{
 		public:
-			PerlinNoiseFillOp(const openvdb::math::Transform::Ptr xformPtr, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount) :
-				ITransformOp(xformPtr)
+			PerlinNoiseFillOp(const openvdb::math::Transform::Ptr xformPtr, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount)
+				: ITransformOp(xformPtr)
 			{
 				valueSource.SetSeed(seed);
 				valueSource.SetFrequency((double)frequency);
@@ -213,8 +213,8 @@ namespace Vdb
 			
 			virtual inline void DoTransform(const IterType& iter, OutAccessorType& acc, const openvdb::Coord &coord) override
 			{
-				OutValueType value;
-				bool isActive;
+				OutValueType value = acc.tree().background();
+				bool isActive = false;
 				ModifyValueAndActiveState(iter, acc, coord, value, isActive);
 			}
 
@@ -241,17 +241,13 @@ namespace Vdb
 		};
 
 		//Operator to extract an isosurface from a grid
-		template <typename OutTreeType, typename InTreeType = OutTreeType>
-		class ExtractSurfaceOp :
-			public ITransformOp<typename InTreeType::ValueOnIter,
-			                    OutTreeType,
-			                    typename ExtractSurfaceOp<OutTreeType, InTreeType>,
-			                    openvdb::tree::ValueAccessor<OutTreeType>>
+		template <typename OutTreeType, typename IterType>
+		class ExtractSurfaceOp
 		{
 		public:
-			typedef typename TSharedPtr<ExtractSurfaceOp<OutTreeType>> Ptr;
-			ExtractSurfaceOp(const openvdb::math::Transform::Ptr xformPtr)
-				: ITransformOp(xformPtr) {}
+			typedef typename TSharedPtr<ExtractSurfaceOp<OutTreeType, IterType>> Ptr;
+			typedef typename OutTreeType::ValueType InValueType;
+			ExtractSurfaceOp() {}
 			
 			inline void SetSurfaceValue(const InValueType &isovalue)
 			{
@@ -263,31 +259,22 @@ namespace Vdb
 				return surfaceValue;
 			}
 
-			virtual inline void DoTransform(const IterType& iter, OutAccessorType& acc, const openvdb::Coord &coord) override
+			inline void operator()(const IterType& iter) const
 			{
-				bool isActive;
-				ModifyActiveState(iter, acc, coord, isActive);
-			}
-
-			virtual inline void GetIsActive(const IterType& iter, OutAccessorType& acc, const openvdb::Coord &coord, bool &outIsActive) override
-			{
+				openvdb::Coord coord = iter.getCoord();
+				auto treePtr = iter.getTree();
 				//For each neighboring value set a bit if it is inside the surface (inside = positive value)
 				uint8 insideBits = 0;
-				if (acc.getValue(coord) > surfaceValue) { insideBits |= 1; }
-				if (acc.getValue(coord.offsetBy(1, 0, 0)) > surfaceValue) { insideBits |= 2; }
-				if (acc.getValue(coord.offsetBy(0, 1, 0)) > surfaceValue) { insideBits |= 4; }
-				if (acc.getValue(coord.offsetBy(0, 0, 1)) > surfaceValue) { insideBits |= 8; }
-				if (acc.getValue(coord.offsetBy(1, 1, 0)) > surfaceValue) { insideBits |= 16; }
-				if (acc.getValue(coord.offsetBy(1, 0, 1)) > surfaceValue) { insideBits |= 32; }
-				if (acc.getValue(coord.offsetBy(0, 1, 1)) > surfaceValue) { insideBits |= 64; }
-				if (acc.getValue(coord.offsetBy(1, 1, 1)) > surfaceValue) { insideBits |= 128; }
+				if (iter.getValue() > surfaceValue) { insideBits |= 1; }
+				if (treePtr->getValue(coord.offsetBy(1, 0, 0)) > surfaceValue) { insideBits |= 2; }
+				if (treePtr->getValue(coord.offsetBy(0, 1, 0)) > surfaceValue) { insideBits |= 4; }
+				if (treePtr->getValue(coord.offsetBy(0, 0, 1)) > surfaceValue) { insideBits |= 8; }
+				if (treePtr->getValue(coord.offsetBy(1, 1, 0)) > surfaceValue) { insideBits |= 16; }
+				if (treePtr->getValue(coord.offsetBy(1, 0, 1)) > surfaceValue) { insideBits |= 32; }
+				if (treePtr->getValue(coord.offsetBy(0, 1, 1)) > surfaceValue) { insideBits |= 64; }
+				if (treePtr->getValue(coord.offsetBy(1, 1, 1)) > surfaceValue) { insideBits |= 128; }
 				//If all vertices are inside the surface or all are outside the surface then set off in order to not mesh this voxel
-				outIsActive = insideBits > 0 && insideBits < 255;
-			}
-
-			virtual inline void GetValue(const IterType& iter, OutAccessorType& acc, const openvdb::Coord &coord, OutValueType &outValue) override
-			{
-				outValue = iter.getValue();
+				iter.setActiveState(insideBits > 0 && insideBits < 255);
 			}
 		private:
 			InValueType surfaceValue;
@@ -387,17 +374,17 @@ namespace Vdb
 			BasicMesher(typename GridType::Ptr grid, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer)
 				: gridPtr(grid),
 				  meshOp(new MeshGeometryOp<VertexIndexTreeType, TreeType>(gridPtr->transformPtr(), vertexBuffer, polygonBuffer, normalBuffer)),
-				  activateValuesOp(new ExtractSurfaceOp<TreeType>(gridPtr->transformPtr())),
+				  activateValuesOp(new ExtractSurfaceOp<TreeType, typename TreeType::ValueOnIter>()),
 				  isDirty(true) {}
 
-			inline void doActivateValuesOp(typename ExtractSurfaceOp<TreeType>::InValueType isovalue)
+			inline void doActivateValuesOp(typename ExtractSurfaceOp<TreeType, typename TreeType::ValueOnIter>::InValueType isovalue)
 			{
 				if (!openvdb::math::isApproxEqual(isovalue, activateValuesOp->GetSurfaceValue()))
 				{
 					isDirty = true;
 					activateValuesOp->SetSurfaceValue(isovalue);
 				}
-				ExtractSurfaceOp<TreeType>::transformValues(gridPtr->beginValueOn(), *gridPtr, *activateValuesOp);
+				openvdb::tools::foreach(gridPtr->beginValueOn(), *activateValuesOp);
 			}
 
 			inline void doMeshOp()
@@ -417,7 +404,7 @@ namespace Vdb
 			const typename MeshGeometryOp<VertexIndexTreeType, TreeType>::Ptr meshOp;
 			bool isDirty;
 		private:
-			typename ExtractSurfaceOp<TreeType>::Ptr activateValuesOp;
+			typename ExtractSurfaceOp<TreeType, typename TreeType::ValueOnIter>::Ptr activateValuesOp;
 			typename openvdb::Grid<VertexIndexTreeType>::Ptr visitedVertexIndices;
 		};
 	}
