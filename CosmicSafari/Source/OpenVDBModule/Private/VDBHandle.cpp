@@ -248,7 +248,14 @@ void UVdbHandle::ReadGridTreeIndex(const FString &gridID, FIntVector &startFill,
 //	}
 //}
 
-void UVdbHandle::MeshGrid(const FString &gridID, float surfaceValue, TSharedRef<TArray<FVector>> OutVertexBufferRef, TSharedRef<TArray<int32>> OutPolygonBufferRef, TSharedRef<TArray<FVector>> OutNormalBufferRef)
+void UVdbHandle::MeshGrid(const FString &gridID,
+						  float surfaceValue,
+						  TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,
+						  TSharedPtr<TArray<int32>> &OutPolygonBufferPtr,
+						  TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,
+						  TSharedPtr<TArray<FVector2D>> &OutUVMapBufferPtr,
+						  TSharedPtr<TArray<FColor>> &OutVertexColorsBufferPtr,
+						  TSharedPtr<TArray<FProcMeshTangent>> &OutTangentsBufferPtr)
 {
 	if (!FOpenVDBModule::IsAvailable())
 	{
@@ -263,7 +270,7 @@ void UVdbHandle::MeshGrid(const FString &gridID, float surfaceValue, TSharedRef<
 		VdbPrivatePtr->MeshRegion(gridID, surfaceValue);
 		bbox = GridPtr->evalActiveVoxelBoundingBox();
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Post mesh op: %s has %d active voxels with bbox %d,%d,%d %d,%d,%d"), *gridID, GridPtr->activeVoxelCount(), bbox.min().x(), bbox.min().y(), bbox.min().z(), bbox.max().x(), bbox.max().y(), bbox.max().z());
-		VdbPrivatePtr->GetGridSectionBuffers(gridID, OutVertexBufferRef, OutPolygonBufferRef, OutNormalBufferRef);
+		VdbPrivatePtr->GetGridSectionBuffers(gridID, OutVertexBufferPtr, OutPolygonBufferPtr, OutNormalBufferPtr, OutUVMapBufferPtr, OutVertexColorsBufferPtr, OutTangentsBufferPtr);
 	}
 	catch (const openvdb::Exception &e)
 	{

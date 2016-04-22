@@ -146,7 +146,14 @@ public:
 	//UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 	//	virtual void ReadGridTreeWorld(const FString &gridID, FVector &activeStart, FVector &activeEnd) override;
 	//UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void MeshGrid(const FString &gridID, float surfaceValue, TSharedRef<TArray<FVector>> OutVertexBufferRef, TSharedRef<TArray<int32>> OutPolygonBufferRef, TSharedRef<TArray<FVector>> OutNormalBufferRef) override;
+		virtual void MeshGrid(const FString &gridID,
+							  float surfaceValue,
+							  TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,
+							  TSharedPtr<TArray<int32>> &OutPolygonBufferPtr,
+							  TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,
+							  TSharedPtr<TArray<FVector2D>> &OutUVMapBufferPtr,
+							  TSharedPtr<TArray<FColor>> &OutVertexColorsBufferPtr,
+							  TSharedPtr<TArray<FProcMeshTangent>> &OutTangentsBufferPtr) override;
 
 	TArray<FString> GetAllGridIDs();
 	FIntVector GetRegionIndex(const FVector &worldLocation);

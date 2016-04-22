@@ -73,22 +73,22 @@ void AProceduralTerrain::BeginPlay()
 		const int32 &sectionIndex = *i;
 		if (!IsGridSectionMeshed[sectionIndex])
 		{
-			TSharedRef<TArray<FVector>> VertexBufferRef;
-			TSharedRef<TArray<int32>> PolygonBufferRef;
-			TSharedRef<TArray<FVector>> NormalBufferRef;
-			TSharedRef<TArray<FVector2D>> UVMapBufferRef;
-			TSharedRef<TArray<FColor>> VertexColorsBufferRef;
-			TSharedRef<TArray<FProcMeshTangent>> TangentsBufferRef;
-			VdbHandle->MeshGrid(MeshSectionIDs[sectionIndex], MeshSurfaceValue, VertexBufferRef, PolygonBufferRef, NormalBufferRef);
+			TSharedPtr<TArray<FVector>> VertexBufferPtr;
+			TSharedPtr<TArray<int32>> PolygonBufferPtr;
+			TSharedPtr<TArray<FVector>> NormalBufferPtr;
+			TSharedPtr<TArray<FVector2D>> UVMapBufferPtr;
+			TSharedPtr<TArray<FColor>> VertexColorsBufferPtr;
+			TSharedPtr<TArray<FProcMeshTangent>> TangentsBufferPtr;
+			VdbHandle->MeshGrid(MeshSectionIDs[sectionIndex], MeshSurfaceValue, VertexBufferPtr, PolygonBufferPtr, NormalBufferPtr, UVMapBufferPtr, VertexColorsBufferPtr, TangentsBufferPtr);
 			TerrainMeshComponent->CreateTerrainMeshSection(
 				sectionIndex,
 				bCreateCollision,
-				VertexBufferRef.Get(),
-				PolygonBufferRef.Get(),
-				UVMapBufferRef.Get(),
-				NormalBufferRef.Get(),
-				VertexColorsBufferRef.Get(),
-				TangentsBufferRef.Get());
+				*VertexBufferPtr,
+				*PolygonBufferPtr,
+				*UVMapBufferPtr,
+				*NormalBufferPtr,
+				*VertexColorsBufferPtr,
+				*TangentsBufferPtr);
 			TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
 			IsGridSectionMeshed[sectionIndex] = true;
 		}

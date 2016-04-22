@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Object.h"
+#include "ProceduralMeshComponent.h"
 #include "VdbInterface.generated.h"
 
 UINTERFACE(Blueprintable)
@@ -22,5 +23,12 @@ public:
 	virtual void ReadGridTreeIndex(const FString &gridID, FIntVector &startFill, FIntVector &endFill, FIntVector &activeStart, FIntVector &activeEnd) = 0;
 	//TODO
 	//virtual void ReadGridTreeWorld(const FString &gridID, FVector &activeStart, FVector &activeEnd) = 0;
-	virtual void MeshGrid(const FString &gridID, float surfaceValue, TSharedRef<TArray<FVector>> OutVertexBufferRef, TSharedRef<TArray<int32>> OutPolygonBufferRef, TSharedRef<TArray<FVector>> OutNormalBufferRef) = 0;
+	virtual void MeshGrid(const FString &gridID,
+						  float surfaceValue,
+						  TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,
+						  TSharedPtr<TArray<int32>> &OutPolygonBufferPtr,
+						  TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,
+						  TSharedPtr<TArray<FVector2D>> &OutUVMapBufferPtr,
+						  TSharedPtr<TArray<FColor>> &OutVertexColorsBufferPtr,
+						  TSharedPtr<TArray<FProcMeshTangent>> &OutTangentsBufferPtr) = 0;
 };

@@ -420,14 +420,26 @@ public:
 		}
 	}
 
-	void GetGridSectionBuffers(const FString &gridName, TSharedRef<TArray<FVector>> OutVertexBufferRef, TSharedRef<TArray<int32>> OutPolygonBufferRef, TSharedRef<TArray<FVector>> OutNormalBufferRef)
+	void GetGridSectionBuffers(const FString &gridName,
+							   TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,
+							   TSharedPtr<TArray<int32>> &OutPolygonBufferPtr,
+							   TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,
+							   TSharedPtr<TArray<FVector2D>> &OutUVMapBufferPtr,
+							   TSharedPtr<TArray<FColor>> &OutVertexColorsBufferPtr,
+							   TSharedPtr<TArray<FProcMeshTangent>> &OutTangentsBufferPtr)
 	{
 		check(VertexSectionBuffers.Contains(gridName));
 		check(PolygonSectionBuffers.Contains(gridName));
 		check(NormalSectionBuffers.Contains(gridName));
-		OutVertexBufferRef = VertexSectionBuffers[gridName];
-		OutPolygonBufferRef = PolygonSectionBuffers[gridName];
-		OutNormalBufferRef = NormalSectionBuffers[gridName];
+		check(UVMapSectionBuffers.Contains(gridName));
+		check(VertexColorsSectionBuffers.Contains(gridName));
+		check(TangentsSectionBuffers.Contains(gridName));
+		OutVertexBufferPtr = TSharedPtr<TArray<FVector>>(VertexSectionBuffers[gridName]);
+		OutPolygonBufferPtr = TSharedPtr<TArray<int32>>(PolygonSectionBuffers[gridName]);
+		OutNormalBufferPtr = TSharedPtr<TArray<FVector>>(NormalSectionBuffers[gridName]);
+		OutUVMapBufferPtr = TSharedPtr<TArray<FVector2D>>(UVMapSectionBuffers[gridName]);
+		OutVertexColorsBufferPtr = TSharedPtr<TArray<FColor>>(VertexColorsSectionBuffers[gridName]);
+		OutTangentsBufferPtr = TSharedPtr<TArray<FProcMeshTangent>>(TangentsSectionBuffers[gridName]);
 	}
 
 private:
@@ -439,11 +451,14 @@ private:
 	TMap<FString, TSharedRef<TArray<FVector>>> VertexSectionBuffers;
 	TMap<FString, TSharedRef<TArray<int32>>> PolygonSectionBuffers;
 	TMap<FString, TSharedRef<TArray<FVector>>> NormalSectionBuffers;
+	TMap<FString, TSharedRef<TArray<FVector2D>>> UVMapSectionBuffers;
+	TMap<FString, TSharedRef<TArray<FColor>>> VertexColorsSectionBuffers;
+	TMap<FString, TSharedRef<TArray<FProcMeshTangent>>> TangentsSectionBuffers;
 	TMap<FString, TSharedRef<Vdb::GridOps::BasicMesher<GridTreeType, IndexTreeType>>> MeshOps;
 
 	void SetIsFileInSync(bool isInSync)
 	{
-		isFileInSync = false;
+		isFileInSync = isInSync;
 	}
 
 	GridTypePtr GetGridPtr(const FString &gridName)
@@ -466,9 +481,12 @@ private:
 	{
 		const FString gridName = UTF8_TO_TCHAR(gridPtr->getName().c_str());
 		IsGridSectionChanged.Emplace(gridName, false);
-		auto VertexBufferRef = VertexSectionBuffers.Emplace(gridName, TSharedRef<TArray<FVector>>());
-		auto PolygonBufferRef = PolygonSectionBuffers.Emplace(gridName, TSharedRef<TArray<int32>>());
-		auto NormalBufferRef = NormalSectionBuffers.Emplace(gridName, TSharedRef<TArray<FVector>>());
+		auto VertexBufferRef = VertexSectionBuffers.Emplace(gridName, TSharedRef<TArray<FVector>>(new TArray<FVector>()));
+		auto PolygonBufferRef = PolygonSectionBuffers.Emplace(gridName, TSharedRef<TArray<int32>>(new TArray<int32>()));
+		auto NormalBufferRef = NormalSectionBuffers.Emplace(gridName, TSharedRef<TArray<FVector>>(new TArray<FVector>()));
+		auto UVMapBufferRef = UVMapSectionBuffers.Emplace(gridName, TSharedRef<TArray<FVector2D>>(new TArray<FVector2D>()));
+		auto VertexColorsBufferRef = VertexColorsSectionBuffers.Emplace(gridName, TSharedRef<TArray<FColor>>(new TArray<FColor>()));
+		auto TangentsBufferRef = TangentsSectionBuffers.Emplace(gridName, TSharedRef<TArray<FProcMeshTangent>>(new TArray<FProcMeshTangent>()));
 		MeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::BasicMesher<GridTreeType, IndexTreeType>>(new Vdb::GridOps::BasicMesher<GridTreeType, IndexTreeType>(gridPtr, VertexBufferRef.Get(), PolygonBufferRef.Get(), NormalBufferRef.Get())));
 	}
 
