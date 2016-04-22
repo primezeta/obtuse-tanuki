@@ -294,29 +294,32 @@ namespace Vdb
 
 			virtual inline void DoTransform(const IterType& iter, OutAccessorType& acc, const openvdb::Coord &coord) override
 			{
-				//Mesh the voxel as a simple cube with 6 equal sized quads
-				PrimitiveCube primitiveIndices(iter.getCoord());
-				for (uint32 i = 0; i < CUBE_VERTEX_COUNT; ++i)
+				if (iter.isVoxelValue())
 				{
-					const openvdb::Coord idxCoord = primitiveIndices.getCoord(i);
-					OutValueType vertexIndex;
+					//Mesh the voxel as a simple cube with 6 equal sized quads
+					PrimitiveCube primitiveIndices(iter.getCoord());
+					for (uint32 i = 0; i < CUBE_VERTEX_COUNT; ++i)
 					{
-						FScopeLock lock(VertexCriticalSection.Get());
-						ModifyValue(iter, acc, idxCoord, vertexIndex);
+						const openvdb::Coord idxCoord = primitiveIndices.getCoord(i);
+						OutValueType vertexIndex;
+						{
+							FScopeLock lock(VertexCriticalSection.Get());
+							ModifyValue(iter, acc, idxCoord, vertexIndex);
+						}
+						primitiveIndices[i] = vertexIndex;
 					}
-					primitiveIndices[i] = vertexIndex;
+					quads.Enqueue(primitiveIndices.getQuadXY0());
+					quads.Enqueue(primitiveIndices.getQuadXY1());
+					quads.Enqueue(primitiveIndices.getQuadXZ0());
+					quads.Enqueue(primitiveIndices.getQuadXZ1());
+					quads.Enqueue(primitiveIndices.getQuadYZ0());
+					quads.Enqueue(primitiveIndices.getQuadYZ1());
 				}
-				quads.Enqueue(primitiveIndices.getQuadXY0());
-				quads.Enqueue(primitiveIndices.getQuadXY1());
-				quads.Enqueue(primitiveIndices.getQuadXZ0());
-				quads.Enqueue(primitiveIndices.getQuadXZ1());
-				quads.Enqueue(primitiveIndices.getQuadYZ0());
-				quads.Enqueue(primitiveIndices.getQuadYZ1());
 			}
 
 			virtual inline void GetIsActive(const IterType& iter, OutAccessorType& acc, const openvdb::Coord &coord, bool &outIsActive) override
 			{
-				outIsActive = iter.isValueOn();
+				outIsActive = iter.isValueOn() && iter.isVoxelValue();
 			}
 
 			virtual inline void GetValue(const IterType& iter, OutAccessorType& acc, const openvdb::Coord &coord, OutValueType &outValue) override
