@@ -82,7 +82,7 @@ FString UVdbHandle::AddGrid(const FString &gridName, const FVector &worldLocatio
 			const FIntVector indexEnd = FIntVector(regionEnd.x(), regionEnd.y(), regionEnd.z());
 			
 			gridID = indexStart.ToString() + TEXT(",") + indexEnd.ToString();
-			VdbPrivatePtr->AddGrid<TreeType>(gridID, indexStart, indexEnd, voxelSize);
+			VdbPrivatePtr->AddGrid(gridID, indexStart, indexEnd, voxelSize);
 		}
 		catch (const openvdb::Exception &e)
 		{
@@ -205,9 +205,9 @@ void UVdbHandle::ReadGridTreeIndex(const FString &gridID, FIntVector &startFill,
 	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 	try
 	{
-		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->ReadGridTree<TreeType>(gridID, startFill, endFill);
+		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->ReadGridTree(gridID, startFill, endFill);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Pre Perlin op: %s has %d active voxels"), *gridID, GridPtr->activeVoxelCount());
-		VdbPrivatePtr->FillGrid_PerlinDensity<TreeType>(gridID, startFill, endFill, PerlinSeed, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, activeStart, activeEnd);
+		VdbPrivatePtr->FillGrid_PerlinDensity(gridID, startFill, endFill, PerlinSeed, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, activeStart, activeEnd);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Post Perlin op: %s has %d active voxels"), *gridID, GridPtr->activeVoxelCount());
 	}
 	catch (const openvdb::Exception &e)
@@ -257,10 +257,10 @@ void UVdbHandle::MeshGrid(const FString &gridID, float surfaceValue)
 	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 	try
 	{
-		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->GetGridPtr<TreeType>(gridID);
+		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->GetGridPtr(gridID);
 		openvdb::CoordBBox bbox = GridPtr->evalActiveVoxelBoundingBox();
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Pre mesh op: %s has %d active voxels with bbox %d,%d,%d %d,%d,%d"), *gridID, GridPtr->activeVoxelCount(), bbox.min().x(), bbox.min().y(), bbox.min().z(), bbox.max().x(), bbox.max().y(), bbox.max().z());
-		VdbPrivatePtr->MeshRegion<TreeType, Vdb::GridOps::IndexTreeType>(gridID, surfaceValue);
+		VdbPrivatePtr->MeshRegion(gridID, surfaceValue);
 		bbox = GridPtr->evalActiveVoxelBoundingBox();
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Post mesh op: %s has %d active voxels with bbox %d,%d,%d %d,%d,%d"), *gridID, GridPtr->activeVoxelCount(), bbox.min().x(), bbox.min().y(), bbox.min().z(), bbox.max().x(), bbox.max().y(), bbox.max().z());
 	}
