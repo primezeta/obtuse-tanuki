@@ -201,6 +201,8 @@ namespace Vdb
 			                    openvdb::tree::ValueAccessor<OutTreeType>>
 		{
 		public:
+			typedef typename OutValueType::DataType DataType;
+
 			PerlinNoiseFillOp(const openvdb::math::Transform::Ptr xformPtr, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount)
 				: ITransformOp(xformPtr)
 			{
@@ -232,9 +234,9 @@ namespace Vdb
 				//double warp = valueSource.GetValue(vec.x(), vec.y(), vec.z()) * 8;
 				//valueSource.SetLacunarity(prevLacunarity);
 				//valueSource.SetOctaveCount(prevOctaveCount);
-				//return (OutValueType)(warp + valueSource.GetValue(vec.x(), vec.y(), vec.z()) - vec.z());
+				//return (DataType)(warp + valueSource.GetValue(vec.x(), vec.y(), vec.z()) - vec.z());
 				const openvdb::Vec3d vec = GridXformPtr->indexToWorld(coord);
-				outValue = (OutValueType)(valueSource.GetValue(vec.x(), vec.y(), vec.z()) - vec.z());
+				outValue.Data = (DataType)(valueSource.GetValue(vec.x(), vec.y(), vec.z()) - vec.z());
 			}
 		private:
 			noise::module::Perlin valueSource;
@@ -247,14 +249,15 @@ namespace Vdb
 		public:
 			typedef typename TSharedPtr<ExtractSurfaceOp<OutTreeType, IterType>> Ptr;
 			typedef typename OutTreeType::ValueType InValueType;
+			typedef typename InValueType::DataType DataType;
 			ExtractSurfaceOp() {}
 			
-			inline void SetSurfaceValue(const InValueType &isovalue)
+			inline void SetSurfaceValue(const DataType &isovalue)
 			{
 				surfaceValue = isovalue;
 			}
 			
-			inline InValueType GetSurfaceValue()
+			inline DataType GetSurfaceValue()
 			{
 				return surfaceValue;
 			}
@@ -265,19 +268,19 @@ namespace Vdb
 				auto treePtr = iter.getTree();
 				//For each neighboring value set a bit if it is inside the surface (inside = positive value)
 				uint8 insideBits = 0;
-				if (iter.getValue() > surfaceValue) { insideBits |= 1; }
-				if (treePtr->getValue(coord.offsetBy(1, 0, 0)) > surfaceValue) { insideBits |= 2; }
-				if (treePtr->getValue(coord.offsetBy(0, 1, 0)) > surfaceValue) { insideBits |= 4; }
-				if (treePtr->getValue(coord.offsetBy(0, 0, 1)) > surfaceValue) { insideBits |= 8; }
-				if (treePtr->getValue(coord.offsetBy(1, 1, 0)) > surfaceValue) { insideBits |= 16; }
-				if (treePtr->getValue(coord.offsetBy(1, 0, 1)) > surfaceValue) { insideBits |= 32; }
-				if (treePtr->getValue(coord.offsetBy(0, 1, 1)) > surfaceValue) { insideBits |= 64; }
-				if (treePtr->getValue(coord.offsetBy(1, 1, 1)) > surfaceValue) { insideBits |= 128; }
+				if (iter.getValue().Data > surfaceValue) { insideBits |= 1; }
+				if (treePtr->getValue(coord.offsetBy(1, 0, 0)).Data > surfaceValue) { insideBits |= 2; }
+				if (treePtr->getValue(coord.offsetBy(0, 1, 0)).Data > surfaceValue) { insideBits |= 4; }
+				if (treePtr->getValue(coord.offsetBy(0, 0, 1)).Data > surfaceValue) { insideBits |= 8; }
+				if (treePtr->getValue(coord.offsetBy(1, 1, 0)).Data > surfaceValue) { insideBits |= 16; }
+				if (treePtr->getValue(coord.offsetBy(1, 0, 1)).Data > surfaceValue) { insideBits |= 32; }
+				if (treePtr->getValue(coord.offsetBy(0, 1, 1)).Data > surfaceValue) { insideBits |= 64; }
+				if (treePtr->getValue(coord.offsetBy(1, 1, 1)).Data > surfaceValue) { insideBits |= 128; }
 				//If all vertices are inside the surface or all are outside the surface then set off in order to not mesh this voxel
 				iter.setActiveState(insideBits > 0 && insideBits < 255);
 			}
 		private:
-			InValueType surfaceValue;
+			DataType surfaceValue;
 		};
 
 		template <typename OutTreeType, typename InTreeType>
@@ -329,7 +332,7 @@ namespace Vdb
 				{
 					const openvdb::Vec3d vtx = GridXformPtr->indexToWorld(coord);
 					{
-						outValue = (OutValueType)vertices.Add(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z()));
+						outValue = (OutValueType)(vertices.Add(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z())));
 					}
 				}
 			}
@@ -380,7 +383,7 @@ namespace Vdb
 				  activateValuesOp(new ExtractSurfaceOp<TreeType, typename TreeType::ValueOnIter>()),
 				  isDirty(true) {}
 
-			inline void doActivateValuesOp(typename ExtractSurfaceOp<TreeType, typename TreeType::ValueOnIter>::InValueType isovalue)
+			inline void doActivateValuesOp(const typename TreeType::ValueType::DataType &isovalue)
 			{
 				if (!openvdb::math::isApproxEqual(isovalue, activateValuesOp->GetSurfaceValue()))
 				{

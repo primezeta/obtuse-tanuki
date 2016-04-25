@@ -1,5 +1,6 @@
 #pragma once
 #include "OpenVDBModule.h"
+#include "VoxelData.h"
 #pragma warning(push)
 #pragma warning(1:4211 4800 4503 4146)
 #include <openvdb/openvdb.h>
@@ -7,8 +8,12 @@
 #include <openvdb/tools/Prune.h>
 #include "GridOps.h"
 #include "GridMetadata.h"
+#include <iostream>
 
 DECLARE_LOG_CATEGORY_EXTERN(LogOpenVDBModule, Log, All)
+
+//5,4,3 is the standard openvdb tree configuration
+typedef openvdb::tree::Tree4<FVoxelData, 5, 4, 3>::Type TreeType;
 
 struct AsyncIONotifier
 {
@@ -323,7 +328,7 @@ public:
 		}
 	}
 
-	void MeshRegion(const FString &gridName, float surfaceValue)
+	void MeshRegion(const FString &gridName, const FVoxelData::DataType &surfaceValue)
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		openvdb::CoordBBox bbox = gridPtr->evalActiveVoxelBoundingBox();
@@ -352,15 +357,6 @@ public:
 		openvdb::FloatMetadata::Ptr persistenceMeta = gridPtr->getMetadata<openvdb::FloatMetadata>("persistence");
 		openvdb::Int32Metadata::Ptr octaveCountMeta = gridPtr->getMetadata<openvdb::Int32Metadata>("octaveCount");
 		bool isEmpty = gridPtr->tree().empty();
-		std::string arg;
-		if (isEmpty)
-		{
-			arg = "empty";
-		}
-		else
-		{
-			arg = "full";
-		}
 		if (isEmpty ||
 			seedMeta == nullptr || !openvdb::math::isExactlyEqual(seed, seedMeta->value()) ||
 			frequencyMeta == nullptr || !openvdb::math::isApproxEqual(frequency, frequencyMeta->value()) ||
@@ -405,8 +401,6 @@ public:
 			UE_LOG(LogOpenVDBModule, Display, TEXT("Post noise fill op Mask bbox: %d,%d,%d  %d,%d,%d"), maskBBox.min().x(), maskBBox.min().y(), maskBBox.min().z(), maskBBox.max().x(), maskBBox.max().y(), maskBBox.max().z());
 			UE_LOG(LogOpenVDBModule, Display, TEXT("Post noise-fill op: %s has %d active voxels"), *gridName, gridPtr->activeVoxelCount());
 			UE_LOG(LogOpenVDBModule, Display, TEXT("Post noise-fill op: mask has %d active voxels"), mask->activeVoxelCount());
-			openvdb::tools::pruneTiles<GridTreeType>(gridPtr->tree());
-			openvdb::tools::pruneInactive<GridTreeType>(gridPtr->tree());
 			UE_LOG(LogOpenVDBModule, Display, TEXT("Post noise-fill op after prune: %s has %d active voxels"), *gridName, gridPtr->activeVoxelCount());
 		}
 		openvdb::CoordBBox activeBBox = gridPtr->evalActiveVoxelBoundingBox();
@@ -532,6 +526,16 @@ private:
 	}
 };
 
-typedef openvdb::FloatTree TreeType;
 typedef VdbHandlePrivate<TreeType, Vdb::GridOps::IndexTreeType, openvdb::math::ScaleMap> VdbHandlePrivateType;
-typedef TMap<FString, TSharedPtr<VdbHandlePrivateType>> VdbRegistryType;
+
+//The following non-class member operators are required by openvdb
+template<> OPENVDBMODULE_API inline FVoxelData openvdb::zeroVal<FVoxelData>();
+OPENVDBMODULE_API std::ostream& operator<<(std::ostream& os, const FVoxelData& voxelData);
+OPENVDBMODULE_API FVoxelData operator+(const FVoxelData &lhs, const float &rhs);
+OPENVDBMODULE_API FVoxelData operator+(const FVoxelData &lhs, const FVoxelData &rhs);
+OPENVDBMODULE_API FVoxelData operator-(const FVoxelData &lhs, const FVoxelData &rhs);
+OPENVDBMODULE_API bool operator<(const FVoxelData &lhs, const FVoxelData &rhs);
+OPENVDBMODULE_API bool operator>(const FVoxelData &lhs, const FVoxelData &rhs);
+OPENVDBMODULE_API bool operator==(const FVoxelData &lhs, const FVoxelData &rhs);
+OPENVDBMODULE_API inline FVoxelData Abs(const FVoxelData &voxelData);
+OPENVDBMODULE_API FVoxelData operator-(const FVoxelData &voxelData);

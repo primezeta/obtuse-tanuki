@@ -5,6 +5,8 @@
 #include "VdbHandle.h"
 #include "VDBHandlePrivate.h"
 
+typedef TMap<FString, TSharedPtr<VdbHandlePrivateType>> VdbRegistryType;
+
 class OPENVDBMODULE_API FOpenVDBModule : public IModuleInterface
 {
 public:

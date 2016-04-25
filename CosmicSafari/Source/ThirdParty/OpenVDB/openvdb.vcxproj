@@ -113,7 +113,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)\src;C:\Program Files\Epic Games\4.11\Engine\Source\ThirdParty\zlib\zlib-1.2.5\Inc;C:\Program Files\Epic Games\4.11\Engine\Source\ThirdParty\IntelTBB\IntelTBB-4.0\include;C:\Program Files\Epic Games\4.11\Engine\Source\ThirdParty\openexr\Deploy\include;C:\boost\boost_1_59_0</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>DEBUG;%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENEXR_DLL;OPENVDB_STATICLIB</PreprocessorDefinitions>
+      <PreprocessorDefinitions>DEBUG;%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENVDB_STATICLIB;OPENVDB_OPENEXR_STATICLIB</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <BufferSecurityCheck>true</BufferSecurityCheck>
       <StructMemberAlignment>Default</StructMemberAlignment>
@@ -172,7 +172,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)\src;C:\Program Files\Epic Games\4.11\Engine\Source\ThirdParty\zlib\zlib-1.2.5\Inc;C:\Program Files\Epic Games\4.11\Engine\Source\ThirdParty\IntelTBB\IntelTBB-4.0\include;C:\Program Files\Epic Games\4.11\Engine\Source\ThirdParty\openexr\Deploy\include;C:\boost\boost_1_59_0</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENEXR_DLL;OPENVDB_STATICLIB</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions);OPENVDB_PRIVATE;OPENVDB_STATICLIB;OPENVDB_OPENEXR_STATICLIB</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <BufferSecurityCheck>true</BufferSecurityCheck>
       <StructMemberAlignment>Default</StructMemberAlignment>
