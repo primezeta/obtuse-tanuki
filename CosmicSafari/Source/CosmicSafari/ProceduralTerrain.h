@@ -47,9 +47,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Dimensions of a single voxel"))
 		FVector VoxelSize;
 
+	UFUNCTION()
+		void OnOverlapBegin(class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+		void OnOverlapEnd(class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
 private:
-	TArray<int32> MeshSectionIndices;
-	TMap<int32, FString> MeshSectionIDs;
-	TMap<int32, bool> IsGridSectionMeshed;
 	//UMaterialInstanceDynamic * TerrainDynamicMaterial;
 };

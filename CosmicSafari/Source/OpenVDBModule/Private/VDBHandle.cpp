@@ -228,6 +228,35 @@ void UVdbHandle::ReadGridTree(const FString &gridID, FIntVector &startFill, FInt
 	}
 }
 
+void UVdbHandle::GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord)
+{
+	if (!FOpenVDBModule::IsAvailable())
+	{
+		return;
+	}
+	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
+	try
+	{
+		VdbPrivatePtr->GetIndexCoord(gridID, worldLocation, outVoxelCoord);
+	}
+	catch (const openvdb::Exception &e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("UVdbHandle OpenVDB exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::exception& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("UVdbHandle exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::string& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("UVdbHandle exception: %s"), UTF8_TO_TCHAR(e.c_str()));
+	}
+	catch (...)
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("UVdbHandle unexpected exception"));
+	}
+}
+
 void UVdbHandle::MeshGrid(const FString &gridID,
 						  float surfaceValue,
 						  TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,

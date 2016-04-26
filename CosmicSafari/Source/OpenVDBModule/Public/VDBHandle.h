@@ -142,6 +142,8 @@ public:
 		virtual void SetRegionScale(const FIntVector &regionScale) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void ReadGridTree(const FString &gridID, FIntVector &startFill, FIntVector &endFill, FIntVector &indexStart, FIntVector &indexEnd, FVector &worldStart, FVector &worldEnd, FVector &startLocation) override;
+	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
+		virtual void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord) override;
 	//UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 	//TODO: Can't use TSharedPtr as parameter for UFUNCTION. Maybe return the actual UProceduralTerrainMeshComponent and have that class hold the buffer pointers?
 		virtual void MeshGrid(const FString &gridID,

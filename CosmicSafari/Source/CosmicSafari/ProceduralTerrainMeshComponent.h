@@ -23,4 +23,7 @@ public:
 		const TArray<FColor> &VertexColors,
 		const TArray<FProcMeshTangent> &Tangents);
 	
+	TArray<int32> MeshSectionIndices;
+	TMap<int32, FString> MeshSectionIDs;
+	TMap<int32, bool> IsGridSectionMeshed;
 };

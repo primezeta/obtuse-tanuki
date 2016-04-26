@@ -116,7 +116,8 @@ public:
 		OpenFileGuard();
 		GridsPtr = FilePtr->readAllGridMetadata(); //Initially just read metadata but not tree data values
 		FileMetaPtr = FilePtr->getMetadata(); //Read file-level metadata
-		
+		CachedGrid = GridsPtr->end();
+
 		for (auto i = GridsPtr->begin(); i != GridsPtr->end(); ++i)
 		{
 			InitMeshSection(openvdb::gridPtrCast<GridType>(*i));
@@ -250,13 +251,13 @@ public:
 		{
 			if (gridName == UTF8_TO_TCHAR((*i)->getName().c_str()))
 			{
-				IsGridSectionChanged.Remove(gridName);
 				VertexSectionBuffers.Remove(gridName);
 				PolygonSectionBuffers.Remove(gridName);
 				NormalSectionBuffers.Remove(gridName);
 				MeshOps.Remove(gridName);
 				i->reset();
 				GridsPtr->erase(i);
+				CachedGrid = GridsPtr->end();
 				SetIsFileInSync(false);
 				return;
 			}
@@ -452,12 +453,71 @@ public:
 		OutTangentsBufferPtr = TSharedPtr<TArray<FProcMeshTangent>>(TangentsSectionBuffers[gridName]);
 	}
 
+	void GetIndexCoord(const FString &gridName, const FVector &location, FIntVector &outIndexCoord)
+	{
+		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
+		const openvdb::Coord coord = openvdb::Coord::floor(gridPtr->worldToIndex(openvdb::Vec3d(location.X, location.Y, location.Z)));
+		outIndexCoord.X = coord.x();
+		outIndexCoord.Y = coord.y();
+		outIndexCoord.Z = coord.z();
+	}
+
+	void GetVoxelValue(const FString &gridName, const FIntVector &indexCoord, typename GridType::ValueType &outValue)
+	{
+		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
+		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
+		GridType::ConstAccessor cacc = gridPtr->getConstAccessor();
+		outValue = cacc.getValue(coord);
+	}
+
+	bool GetVoxelActiveState(const FString &gridName, const FIntVector &indexCoord)
+	{
+		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
+		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
+		GridType::ConstAccessor cacc = gridPtr->getConstAccessor();
+		return cacc.isValueOn(coord);
+	}
+
+	bool GetVoxelValueAndActiveState(const FString &gridName, const FIntVector &indexCoord, typename GridType::ValueType &outValue)
+	{
+		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
+		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
+		GridType::ConstAccessor cacc = gridPtr->getConstAccessor();
+		outValue = cacc.getValue(coord);
+		return cacc.isValueOn(coord);
+	}
+
+	void SetVoxelValue(const FString &gridName, const FIntVector &indexCoord, const typename GridType::ValueType &value)
+	{
+		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
+		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
+		GridType::Accessor acc = gridPtr->getAccessor();
+		acc.setValueOnly(coord, value);
+	}
+
+	void SetVoxelActiveState(const FString &gridName, const FIntVector &indexCoord, const bool &isActive)
+	{
+		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
+		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
+		GridType::Accessor acc = gridPtr->getAccessor();
+		acc.setActiveState(coord, isActive);
+	}
+
+	void SetVoxelValueAndActiveState(const FString &gridName, const FIntVector &indexCoord, const typename GridType::ValueType &value, const bool &isActive)
+	{
+		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
+		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
+		GridType::Accessor acc = gridPtr->getAccessor();
+		acc.setValueOnly(coord, value);
+		acc.setActiveState(coord, isActive);
+	}
+
 private:
 	bool isFileInSync;
 	TSharedPtr<openvdb::io::File> FilePtr;
 	openvdb::GridPtrVecPtr GridsPtr;
 	openvdb::MetaMap::Ptr FileMetaPtr;
-	TMap<FString, bool> IsGridSectionChanged;
+	openvdb::GridPtrVec::iterator CachedGrid;
 	TMap<FString, TSharedRef<TArray<FVector>>> VertexSectionBuffers;
 	TMap<FString, TSharedRef<TArray<int32>>> PolygonSectionBuffers;
 	TMap<FString, TSharedRef<TArray<FVector>>> NormalSectionBuffers;
@@ -471,15 +531,19 @@ private:
 		isFileInSync = isInSync;
 	}
 
-	GridTypePtr GetGridPtr(const FString &gridName)
+	inline GridTypePtr GetGridPtr(const FString &gridName)
 	{
-		GridTypePtr gridPtr = nullptr;
-		auto i = GridsPtr->begin();
-		for (; i != GridsPtr->end(); ++i)
+		if (CachedGrid != GridsPtr->end() && gridName == UTF8_TO_TCHAR((*CachedGrid)->getName().c_str()))
 		{
-			if (gridName == UTF8_TO_TCHAR((*i)->getName().c_str()))
+			return openvdb::gridPtrCast<GridType>(*CachedGrid);
+		}
+		GridTypePtr gridPtr = nullptr;
+		CachedGrid = GridsPtr->begin();
+		for (; CachedGrid != GridsPtr->end(); ++CachedGrid)
+		{
+			if (gridName == UTF8_TO_TCHAR((*CachedGrid)->getName().c_str()))
 			{
-				gridPtr = openvdb::gridPtrCast<GridType>(*i);
+				gridPtr = openvdb::gridPtrCast<GridType>(*CachedGrid);
 				check(gridPtr != nullptr);
 				break;
 			}
@@ -490,7 +554,6 @@ private:
 	void InitMeshSection(GridTypePtr gridPtr)
 	{
 		const FString gridName = UTF8_TO_TCHAR(gridPtr->getName().c_str());
-		IsGridSectionChanged.Emplace(gridName, false);
 		auto VertexBufferRef = VertexSectionBuffers.Emplace(gridName, TSharedRef<TArray<FVector>>(new TArray<FVector>()));
 		auto PolygonBufferRef = PolygonSectionBuffers.Emplace(gridName, TSharedRef<TArray<int32>>(new TArray<int32>()));
 		auto NormalBufferRef = NormalSectionBuffers.Emplace(gridName, TSharedRef<TArray<FVector>>(new TArray<FVector>()));

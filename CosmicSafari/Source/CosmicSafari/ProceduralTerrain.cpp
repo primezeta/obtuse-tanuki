@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "CosmicSafari.h"
+#include "FirstPersonCPPCharacter.h"
 #include "ProceduralTerrain.h"
 
 // Sets default values
@@ -10,6 +11,8 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 	check(VdbHandle != nullptr);
 	TerrainMeshComponent = ObjectInitializer.CreateDefaultSubobject<UProceduralTerrainMeshComponent>(this, TEXT("GeneratedTerrain"));
 	check(TerrainMeshComponent != nullptr);
+
+	TerrainMeshComponent->bGenerateOverlapEvents = true;
 
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -40,7 +43,13 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-#if WITH_ENGINE
+
+	if (TerrainMeshComponent->bGenerateOverlapEvents)
+	{
+		TerrainMeshComponent->OnComponentBeginOverlap.AddDynamic(this, &AProceduralTerrain::OnOverlapBegin);
+		TerrainMeshComponent->OnComponentEndOverlap.AddDynamic(this, &AProceduralTerrain::OnOverlapEnd);
+	}
+
 	VdbHandle->InitVdb();
 	VdbHandle->SetRegionScale(RegionDimensions);
 	FString GridID = VdbHandle->AddGrid(TEXT("StartRegion"), FVector(0, 0, 0), VoxelSize);
@@ -59,12 +68,11 @@ void AProceduralTerrain::PostInitializeComponents()
 	TArray<FString> AllGridIDs = VdbHandle->GetAllGridIDs();
 	for (TArray<FString>::TConstIterator i = AllGridIDs.CreateConstIterator(); i; ++i)
 	{
-		MeshSectionIndices.Add(sectionIndex);
-		MeshSectionIDs.Add(sectionIndex, *i);
-		IsGridSectionMeshed.Add(sectionIndex, false);
+		TerrainMeshComponent->MeshSectionIndices.Add(sectionIndex);
+		TerrainMeshComponent->MeshSectionIDs.Add(sectionIndex, *i);
+		TerrainMeshComponent->IsGridSectionMeshed.Add(sectionIndex, false);
 		sectionIndex++;
 	}
-#endif
 }
 
 // Called when the game starts or when spawned
@@ -72,10 +80,10 @@ void AProceduralTerrain::BeginPlay()
 {
 	Super::BeginPlay();
 
-	for (auto i = MeshSectionIndices.CreateConstIterator(); i; ++i)
+	for (auto i = TerrainMeshComponent->MeshSectionIndices.CreateConstIterator(); i; ++i)
 	{
 		const int32 &sectionIndex = *i;
-		if (!IsGridSectionMeshed[sectionIndex])
+		if (!TerrainMeshComponent->IsGridSectionMeshed[sectionIndex])
 		{
 			TSharedPtr<TArray<FVector>> VertexBufferPtr;
 			TSharedPtr<TArray<int32>> PolygonBufferPtr;
@@ -83,7 +91,7 @@ void AProceduralTerrain::BeginPlay()
 			TSharedPtr<TArray<FVector2D>> UVMapBufferPtr;
 			TSharedPtr<TArray<FColor>> VertexColorsBufferPtr;
 			TSharedPtr<TArray<FProcMeshTangent>> TangentsBufferPtr;
-			VdbHandle->MeshGrid(MeshSectionIDs[sectionIndex], MeshSurfaceValue, VertexBufferPtr, PolygonBufferPtr, NormalBufferPtr, UVMapBufferPtr, VertexColorsBufferPtr, TangentsBufferPtr);
+			VdbHandle->MeshGrid(TerrainMeshComponent->MeshSectionIDs[sectionIndex], MeshSurfaceValue, VertexBufferPtr, PolygonBufferPtr, NormalBufferPtr, UVMapBufferPtr, VertexColorsBufferPtr, TangentsBufferPtr);
 			TerrainMeshComponent->CreateTerrainMeshSection(
 				sectionIndex,
 				bCreateCollision,
@@ -94,7 +102,7 @@ void AProceduralTerrain::BeginPlay()
 				*VertexColorsBufferPtr,
 				*TangentsBufferPtr);
 			TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
-			IsGridSectionMeshed[sectionIndex] = true;
+			TerrainMeshComponent->IsGridSectionMeshed[sectionIndex] = true;
 		}
 	}
 }
@@ -108,4 +116,29 @@ void AProceduralTerrain::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AProceduralTerrain::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+}
+
+void AProceduralTerrain::OnOverlapBegin(class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	AFirstPersonCPPCharacter * PlayerActor = Cast<AFirstPersonCPPCharacter>(OtherActor);
+	if (PlayerActor != nullptr)
+	{
+		static FIntVector PrevVoxelCoord;
+		FIntVector VoxelCoord;
+		VdbHandle->GetVoxelCoord(TerrainMeshComponent->MeshSectionIDs[0], SweepResult.Location, VoxelCoord);
+		if (PrevVoxelCoord != VoxelCoord)
+		{
+			PrevVoxelCoord = VoxelCoord;
+			UE_LOG(LogFlying, Display, TEXT("OnOverlapBegin %s"), *VoxelCoord.ToString());
+		}
+	}
+}
+
+void AProceduralTerrain::OnOverlapEnd(class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	AFirstPersonCPPCharacter * PlayerActor = Cast<AFirstPersonCPPCharacter>(OtherActor);
+	if (PlayerActor != nullptr)
+	{
+
+	}
 }
