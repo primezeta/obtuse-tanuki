@@ -196,7 +196,7 @@ void UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 	}
 }
 
-void UVdbHandle::ReadGridTreeIndex(const FString &gridID, FIntVector &startFill, FIntVector &endFill, FIntVector &activeStart, FIntVector &activeEnd)
+void UVdbHandle::ReadGridTree(const FString &gridID, FIntVector &startFill, FIntVector &endFill, FIntVector &indexStart, FIntVector &indexEnd, FVector &worldStart, FVector &worldEnd, FVector &startLocation)
 {
 	if (!FOpenVDBModule::IsAvailable())
 	{
@@ -205,9 +205,9 @@ void UVdbHandle::ReadGridTreeIndex(const FString &gridID, FIntVector &startFill,
 	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
 	try
 	{
-		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->ReadGridTree(gridID, startFill, endFill);
+		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->ReadGridTree(gridID, startFill, endFill, startLocation);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Pre Perlin op: %s has %d active voxels"), *gridID, GridPtr->activeVoxelCount());
-		VdbPrivatePtr->FillGrid_PerlinDensity(gridID, startFill, endFill, PerlinSeed, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, activeStart, activeEnd);
+		VdbPrivatePtr->FillGrid_PerlinDensity(gridID, startFill, endFill, PerlinSeed, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, indexStart, indexEnd, worldStart, worldEnd);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Post Perlin op: %s has %d active voxels"), *gridID, GridPtr->activeVoxelCount());
 	}
 	catch (const openvdb::Exception &e)
@@ -227,26 +227,6 @@ void UVdbHandle::ReadGridTreeIndex(const FString &gridID, FIntVector &startFill,
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("UVdbHandle unexpected exception"));
 	}
 }
-
-//TODO
-//void UVdbHandle::ReadGridTreeWorld(const FString &gridID, FVector &activeStart, FVector &activeEnd) //TODO
-//{
-//	TSharedPtr<VdbHandlePrivateType> VdbPrivatePtr = FOpenVDBModule::VdbRegistry.FindChecked(FilePath);
-//	VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->ReadGridTree<TreeType, Vdb::Metadata::RegionMetadata>(gridID, activeStart, activeEnd);
-//	if (!GridPtr.IsValid())
-//	{
-//		TSharedPtr<openvdb::CoordBBox> bboxMinPtr = VdbPrivatePtr->GetGridMetaValue<openvdb::CoordBBox>(gridID, openvdb::GridBase::META_FILE_BBOX_MIN);
-//		check(bboxMinPtr.IsValid());
-//		TSharedPtr<openvdb::CoordBBox> bboxMaxPtr = VdbPrivatePtr->GetGridMetaValue<openvdb::CoordBBox>(gridID, openvdb::GridBase::META_FILE_BBOX_MAX);
-//		check(bboxMaxPtr.IsValid());
-//		FIntVector startFill(bboxMinPtr->min().x(), bboxMinPtr->min().y(), bboxMinPtr->min().z());
-//		FIntVector endFill(bboxMaxPtr->min().x(), bboxMaxPtr->min().y(), bboxMaxPtr->min().z());
-//		FIntVector activeIndexStart;
-//		FIntVector activeIndexEnd;
-//		VdbPrivatePtr->FillGrid_PerlinDensity<TreeType, Vdb::Metadata::RegionMetadata>(gridID, startFill, endFill, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, activeIndexStart, activeIndexEnd);
-//		VdbPrivatePtr->WriteChangesAsync();
-//	}
-//}
 
 void UVdbHandle::MeshGrid(const FString &gridID,
 						  float surfaceValue,

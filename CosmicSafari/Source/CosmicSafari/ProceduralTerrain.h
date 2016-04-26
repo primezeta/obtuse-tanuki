@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "GameFramework/Actor.h"
+#include "GameFramework/PlayerStart.h"
 #include "VDBHandle.h"
 #include "ProceduralTerrainMeshComponent.h"
 #include "ProceduralTerrain.generated.h"
 
 UCLASS(Category = "OpenVDB|Procedural Terrain")
-class COSMICSAFARI_API AProceduralTerrain : public AActor
+class COSMICSAFARI_API AProceduralTerrain : public APlayerStart
 {
 	GENERATED_UCLASS_BODY()
 	

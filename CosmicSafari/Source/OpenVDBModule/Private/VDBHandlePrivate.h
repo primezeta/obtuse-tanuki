@@ -73,6 +73,10 @@ public:
 	{
 		WriteChanges();
 		openvdb::uninitialize();
+		if (GridType::isRegistered())
+		{
+			GridType::unregisterGrid();
+		}
 		if (IndexGridType::isRegistered())
 		{
 			IndexGridType::unregisterGrid();
@@ -83,6 +87,10 @@ public:
 	{
 		//Initialize OpenVDB, our metadata types, and the vdb file
 		openvdb::initialize();
+		if (!GridType::isRegistered())
+		{
+			GridType::registerGrid();
+		}
 		if (!IndexGridType::isRegistered())
 		{
 			IndexGridType::registerGrid();
@@ -164,7 +172,7 @@ public:
 		}
 	}
 
-	GridTypePtr ReadGridTree(const FString &gridName, FIntVector &boundsStart, FIntVector &boundsEnd)
+	GridTypePtr ReadGridTree(const FString &gridName, FIntVector &indexStart, FIntVector &indexEnd, FVector &firstActiveVoxelLocation)
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		if (gridPtr->activeVoxelCount() == 0)
@@ -178,30 +186,25 @@ public:
 				gridPtr->setTree(activeGrid->treePtr());
 			}
 		}
+		
+		openvdb::Coord coord = GetFirstInactiveVoxelFromActive(gridPtr);
+
+		//TODO: Properly handle when no such voxels are found in the entire grid
+		const openvdb::Vec3d location = gridPtr->indexToWorld(coord);
+		const openvdb::Vec3d voxelSize = gridPtr->voxelSize();
+		firstActiveVoxelLocation.X = openvdb::math::Round(location.x() + voxelSize.x()*0.5);
+		firstActiveVoxelLocation.Y = openvdb::math::Round(location.y() + voxelSize.y()*0.5);
+		firstActiveVoxelLocation.Z = openvdb::math::RoundUp(location.z() + voxelSize.z());
+
 		const auto metaMin = gridPtr->getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()));
 		const auto metaMax = gridPtr->getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()));
-		const openvdb::CoordBBox boundsBBox(openvdb::Coord(metaMin->value()), openvdb::Coord(metaMax->value()));
-		boundsStart.X = boundsBBox.min().x();
-		boundsStart.Y = boundsBBox.min().y();
-		boundsStart.Z = boundsBBox.min().z();
-		boundsEnd.X = boundsBBox.max().x();
-		boundsEnd.Y = boundsBBox.max().y();
-		boundsEnd.Z = boundsBBox.max().z();
-		return gridPtr;
-	}
-
-	GridTypePtr ReadGridTree(const FString &gridName, FVector &boundsStart, FVector &boundsEnd)
-	{
-		FIntVector indexBoundsStart;
-		FIntVector indexBoundsEnd;
-		GridTypePtr gridPtr = ReadGridTree(gridName, indexBoundsStart, indexBoundsEnd);
-		const openvdb::CoordBBoxd boundsBBoxd = gridPtr->indexToWorld(openvdb::CoordBBox(openvdb::Coord(indexBoundsStart.X, indexBoundsStart.Y, indexBoundsStart.Z), openvdb::Coord(indexBoundsEnd.X, indexBoundsEnd.Y, indexBoundsEnd.Z)));
-		boundsStart.X = boundsBBoxd.min().x();
-		boundsStart.Y = boundsBBoxd.min().y();
-		boundsStart.Z = boundsBBoxd.min().z();
-		boundsEnd.X = boundsBBoxd.max().x();
-		boundsEnd.Y = boundsBBoxd.max().y();
-		boundsEnd.Z = boundsBBoxd.max().z();
+		const openvdb::CoordBBox indexBBox(openvdb::Coord(metaMin->value()), openvdb::Coord(metaMax->value()));
+		indexStart.X = indexBBox.min().x();
+		indexStart.Y = indexBBox.min().y();
+		indexStart.Z = indexBBox.min().z();
+		indexEnd.X = indexBBox.max().x();
+		indexEnd.Y = indexBBox.max().y();
+		indexEnd.Z = indexBBox.max().z();
 		return gridPtr;
 	}
 
@@ -345,7 +348,7 @@ public:
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Post do mesh op: %s has %d active voxels with bbox %d,%d,%d %d,%d,%d"), *gridName, gridPtr->activeVoxelCount(), bbox.min().x(), bbox.min().y(), bbox.min().z(), bbox.max().x(), bbox.max().y(), bbox.max().z());
 	}
 
-	void FillGrid_PerlinDensity(const FString &gridName, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount, FIntVector &activeStart, FIntVector &activeEnd)
+	void FillGrid_PerlinDensity(const FString &gridName, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount, FIntVector &indexStart, FIntVector &indexEnd, FVector &worldStart, FVector &worldEnd)
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		const openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
@@ -403,13 +406,20 @@ public:
 			UE_LOG(LogOpenVDBModule, Display, TEXT("Post noise-fill op: mask has %d active voxels"), mask->activeVoxelCount());
 			UE_LOG(LogOpenVDBModule, Display, TEXT("Post noise-fill op after prune: %s has %d active voxels"), *gridName, gridPtr->activeVoxelCount());
 		}
-		openvdb::CoordBBox activeBBox = gridPtr->evalActiveVoxelBoundingBox();
-		activeStart.X = activeBBox.min().x();
-		activeStart.Y = activeBBox.min().y();
-		activeStart.Z = activeBBox.min().z();
-		activeEnd.X = activeBBox.max().x();
-		activeEnd.Y = activeBBox.max().y();
-		activeEnd.Z = activeBBox.max().z();
+		const openvdb::CoordBBox indexBBox = gridPtr->evalActiveVoxelBoundingBox();
+		const openvdb::BBoxd worldBBox = gridPtr->transform().indexToWorld(indexBBox);
+		indexStart.X = indexBBox.min().x();
+		indexStart.Y = indexBBox.min().y();
+		indexStart.Z = indexBBox.min().z();
+		indexEnd.X = indexBBox.max().x();
+		indexEnd.Y = indexBBox.max().y();
+		indexEnd.Z = indexBBox.max().z();
+		worldStart.X = worldBBox.min().x();
+		worldStart.Y = worldBBox.min().y();
+		worldStart.Z = worldBBox.min().z();
+		worldEnd.X = worldBBox.max().x();
+		worldEnd.Y = worldBBox.max().y();
+		worldEnd.Z = worldBBox.max().z();
 	}
 
 	void GetAllGridIDs(TArray<FString> &OutGridIDs)
@@ -523,6 +533,36 @@ private:
 		{
 			FilePtr->close();
 		}
+	}
+
+	openvdb::Coord GetFirstInactiveVoxelFromActive(GridTypePtr gridPtr)
+	{
+		openvdb::Coord coord;
+		const openvdb::CoordBBox gridBBox = gridPtr->evalActiveVoxelBoundingBox();
+		for (auto i = gridPtr->beginValueOn(); i; ++i)
+		{
+			if (i.isVoxelValue() && i.isValueOn())
+			{
+				//Find the first voxel above that is off
+				for (int32_t x = i.getCoord().x(); x <= gridBBox.max().x(); ++x)
+				{
+					coord.setX(x);
+					for (int32_t y = i.getCoord().y(); y <= gridBBox.max().y(); ++y)
+					{
+						coord.setY(y);
+						for (int32_t z = i.getCoord().z(); x <= gridBBox.max().z(); ++z)
+						{
+							coord.setZ(z);
+							if (i.getTree()->isValueOff(coord))
+							{
+								return coord;
+							}
+						}
+					}
+				}
+			}
+		}
+		return openvdb::Coord(0, 0, 0);
 	}
 };
 

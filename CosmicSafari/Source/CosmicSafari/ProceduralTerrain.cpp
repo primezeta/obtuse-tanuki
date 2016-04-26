@@ -40,33 +40,37 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+#if WITH_ENGINE
 	VdbHandle->InitVdb();
+	VdbHandle->SetRegionScale(RegionDimensions);
+	FString GridID = VdbHandle->AddGrid(TEXT("StartRegion"), FVector(0, 0, 0), VoxelSize);
+
+	FIntVector StartFill;
+	FIntVector EndFill;
+	FIntVector ActiveIndexStart;
+	FIntVector ActiveIndexEnd;
+	FVector ActiveWorldStart;
+	FVector ActiveWorldEnd;
+	FVector StartLocation;
+	VdbHandle->ReadGridTree(GridID, StartFill, EndFill, ActiveIndexStart, ActiveIndexEnd, ActiveWorldStart, ActiveWorldEnd, StartLocation);
+	TerrainMeshComponent->SetRelativeLocationAndRotation(-StartLocation, FRotator::ZeroRotator);
+
+	int32 sectionIndex = 0;
+	TArray<FString> AllGridIDs = VdbHandle->GetAllGridIDs();
+	for (TArray<FString>::TConstIterator i = AllGridIDs.CreateConstIterator(); i; ++i)
+	{
+		MeshSectionIndices.Add(sectionIndex);
+		MeshSectionIDs.Add(sectionIndex, *i);
+		IsGridSectionMeshed.Add(sectionIndex, false);
+		sectionIndex++;
+	}
+#endif
 }
 
 // Called when the game starts or when spawned
 void AProceduralTerrain::BeginPlay()
 {
 	Super::BeginPlay();
-
-	VdbHandle->SetRegionScale(RegionDimensions);
-
-	ACharacter* FirstPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-	FVector PlayerLocation = FVector(0,0,0);
-	if (FirstPlayerCharacter != nullptr)
-	{
-		PlayerLocation = FirstPlayerCharacter->GetActorLocation();
-	}
-	FString GridID = VdbHandle->AddGrid(TEXT("StartRegion"), PlayerLocation, VoxelSize);
-
-	FIntVector StartFill;
-	FIntVector EndFill;
-	FIntVector ActiveStart;
-	FIntVector ActiveEnd;
-	VdbHandle->ReadGridTreeIndex(GridID, StartFill, EndFill, ActiveStart, ActiveEnd);
-
-	MeshSectionIndices.Add(0);
-	MeshSectionIDs.Add(0, GridID);
-	IsGridSectionMeshed.Add(0, false);
 
 	for (auto i = MeshSectionIndices.CreateConstIterator(); i; ++i)
 	{
