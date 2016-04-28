@@ -2,10 +2,6 @@
 
 #include "OpenVDBModule.h"
 
-////The standard OpenVDB tree configuration in which leaf nodes contain ValueType
-//template<typename ValueType>
-//using TreeType = openvdb::tree::Tree4<ValueType, 5, 4, 3>::Type;
-
 VdbRegistryType FOpenVDBModule::VdbRegistry;
 
 UVdbHandle::UVdbHandle(const FObjectInitializer& ObjectInitializer)
@@ -196,7 +192,7 @@ void UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 	}
 }
 
-void UVdbHandle::ReadGridTree(const FString &gridID, FIntVector &startFill, FIntVector &endFill, FIntVector &indexStart, FIntVector &indexEnd, FVector &worldStart, FVector &worldEnd, FVector &startLocation)
+void UVdbHandle::ReadGridTree(const FString &gridID, const float &surfaceValue, FIntVector &startFill, FIntVector &endFill, FIntVector &indexStart, FIntVector &indexEnd, FVector &worldStart, FVector &worldEnd, FVector &startLocation)
 {
 	if (!FOpenVDBModule::IsAvailable())
 	{
@@ -206,9 +202,7 @@ void UVdbHandle::ReadGridTree(const FString &gridID, FIntVector &startFill, FInt
 	try
 	{
 		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->ReadGridTree(gridID, startFill, endFill, startLocation);
-		UE_LOG(LogOpenVDBModule, Display, TEXT("Pre Perlin op: %s has %d active voxels"), *gridID, GridPtr->activeVoxelCount());
-		VdbPrivatePtr->FillGrid_PerlinDensity(gridID, startFill, endFill, PerlinSeed, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, indexStart, indexEnd, worldStart, worldEnd);
-		UE_LOG(LogOpenVDBModule, Display, TEXT("Post Perlin op: %s has %d active voxels"), *gridID, GridPtr->activeVoxelCount());
+		VdbPrivatePtr->FillGrid_PerlinDensity(gridID, startFill, endFill, PerlinSeed, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, surfaceValue, indexStart, indexEnd, worldStart, worldEnd);
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -258,7 +252,6 @@ void UVdbHandle::GetVoxelCoord(const FString &gridID, const FVector &worldLocati
 }
 
 void UVdbHandle::MeshGrid(const FString &gridID,
-						  float surfaceValue,
 						  TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,
 						  TSharedPtr<TArray<int32>> &OutPolygonBufferPtr,
 						  TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,
@@ -274,11 +267,7 @@ void UVdbHandle::MeshGrid(const FString &gridID,
 	try
 	{
 		VdbHandlePrivateType::GridTypePtr GridPtr = VdbPrivatePtr->GetGridPtrChecked(gridID);
-		openvdb::CoordBBox bbox = GridPtr->evalActiveVoxelBoundingBox();
-		UE_LOG(LogOpenVDBModule, Display, TEXT("Pre mesh op: %s has %d active voxels with bbox %d,%d,%d %d,%d,%d"), *gridID, GridPtr->activeVoxelCount(), bbox.min().x(), bbox.min().y(), bbox.min().z(), bbox.max().x(), bbox.max().y(), bbox.max().z());
-		VdbPrivatePtr->MeshRegion(gridID, surfaceValue);
-		bbox = GridPtr->evalActiveVoxelBoundingBox();
-		UE_LOG(LogOpenVDBModule, Display, TEXT("Post mesh op: %s has %d active voxels with bbox %d,%d,%d %d,%d,%d"), *gridID, GridPtr->activeVoxelCount(), bbox.min().x(), bbox.min().y(), bbox.min().z(), bbox.max().x(), bbox.max().y(), bbox.max().z());
+		VdbPrivatePtr->MeshRegion(gridID);
 		VdbPrivatePtr->GetGridSectionBuffers(gridID, OutVertexBufferPtr, OutPolygonBufferPtr, OutNormalBufferPtr, OutUVMapBufferPtr, OutVertexColorsBufferPtr, OutTangentsBufferPtr);
 	}
 	catch (const openvdb::Exception &e)

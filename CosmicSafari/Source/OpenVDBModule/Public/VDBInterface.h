@@ -20,10 +20,9 @@ public:
 	virtual FString AddGrid(const FString &gridName, const FVector &worldLocation, const FVector &voxelSize) = 0;
 	virtual void RemoveGrid(const FString &gridID) = 0;
 	virtual void SetRegionScale(const FIntVector &regionScale) = 0;
-	virtual void ReadGridTree(const FString &gridID, FIntVector &startFill, FIntVector &endFill, FIntVector &indexStart, FIntVector &indexEnd, FVector &worldStart, FVector &worldEnd, FVector &startLocation) = 0;
+	virtual void ReadGridTree(const FString &gridID, const float &surfaceValue, FIntVector &startFill, FIntVector &endFill, FIntVector &indexStart, FIntVector &indexEnd, FVector &worldStart, FVector &worldEnd, FVector &startLocation) = 0;
 	virtual void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord) = 0;
 	virtual void MeshGrid(const FString &gridID,
-						  float surfaceValue,
 						  TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,
 						  TSharedPtr<TArray<int32>> &OutPolygonBufferPtr,
 						  TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,

@@ -61,7 +61,7 @@ void AProceduralTerrain::PostInitializeComponents()
 	FVector ActiveWorldStart;
 	FVector ActiveWorldEnd;
 	FVector StartLocation;
-	VdbHandle->ReadGridTree(GridID, StartFill, EndFill, ActiveIndexStart, ActiveIndexEnd, ActiveWorldStart, ActiveWorldEnd, StartLocation);
+	VdbHandle->ReadGridTree(GridID, MeshSurfaceValue, StartFill, EndFill, ActiveIndexStart, ActiveIndexEnd, ActiveWorldStart, ActiveWorldEnd, StartLocation);
 	TerrainMeshComponent->SetRelativeLocationAndRotation(-StartLocation, FRotator::ZeroRotator);
 
 	int32 sectionIndex = 0;
@@ -91,7 +91,7 @@ void AProceduralTerrain::BeginPlay()
 			TSharedPtr<TArray<FVector2D>> UVMapBufferPtr;
 			TSharedPtr<TArray<FColor>> VertexColorsBufferPtr;
 			TSharedPtr<TArray<FProcMeshTangent>> TangentsBufferPtr;
-			VdbHandle->MeshGrid(TerrainMeshComponent->MeshSectionIDs[sectionIndex], MeshSurfaceValue, VertexBufferPtr, PolygonBufferPtr, NormalBufferPtr, UVMapBufferPtr, VertexColorsBufferPtr, TangentsBufferPtr);
+			VdbHandle->MeshGrid(TerrainMeshComponent->MeshSectionIDs[sectionIndex], VertexBufferPtr, PolygonBufferPtr, NormalBufferPtr, UVMapBufferPtr, VertexColorsBufferPtr, TangentsBufferPtr);
 			TerrainMeshComponent->CreateTerrainMeshSection(
 				sectionIndex,
 				bCreateCollision,

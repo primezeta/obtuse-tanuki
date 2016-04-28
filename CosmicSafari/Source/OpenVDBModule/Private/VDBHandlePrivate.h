@@ -116,18 +116,19 @@ public:
 		OpenFileGuard();
 		GridsPtr = FilePtr->readAllGridMetadata(); //Initially just read metadata but not tree data values
 		FileMetaPtr = FilePtr->getMetadata(); //Read file-level metadata
-		CachedGrid = GridsPtr->end();
+		MasksPtr = openvdb::GridPtrVecPtr(new openvdb::GridPtrVec());
 
 		for (auto i = GridsPtr->begin(); i != GridsPtr->end(); ++i)
 		{
 			InitMeshSection(openvdb::gridPtrCast<GridType>(*i));
 		}
+		CachedGrid = GridsPtr->end();
 
 		//Start in a clean state
 		SetIsFileInSync(true);
 	}
 
-	GridTypePtr GetGridPtrChecked(const FString &gridName)
+	inline GridTypePtr GetGridPtrChecked(const FString &gridName) const
 	{
 		GridTypePtr gridPtr = GetGridPtr(gridName);
 		check(gridPtr != nullptr);
@@ -247,6 +248,13 @@ public:
 
 	void RemoveGridFromGridVec(const FString &gridName)
 	{
+		if (CachedGrid != GridsPtr->end() && gridName == UTF8_TO_TCHAR((*CachedGrid)->getName().c_str()))
+		{
+			//TODO: Remove mask grid
+			GridsPtr->erase(CachedGrid);
+			CachedGrid = GridsPtr->end();
+			return;
+		}
 		for (auto i = GridsPtr->begin(); i != GridsPtr->end(); ++i)
 		{
 			if (gridName == UTF8_TO_TCHAR((*i)->getName().c_str()))
@@ -256,6 +264,7 @@ public:
 				NormalSectionBuffers.Remove(gridName);
 				MeshOps.Remove(gridName);
 				i->reset();
+				//TODO: Remove mask grid
 				GridsPtr->erase(i);
 				CachedGrid = GridsPtr->end();
 				SetIsFileInSync(false);
@@ -332,27 +341,16 @@ public:
 		}
 	}
 
-	void MeshRegion(const FString &gridName, const FVoxelData::DataType &surfaceValue)
+	void MeshRegion(const FString &gridName) const
 	{
-		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
-		openvdb::CoordBBox bbox = gridPtr->evalActiveVoxelBoundingBox();
-		UE_LOG(LogOpenVDBModule, Display, TEXT("Pre activate values op: %s has %d active voxels with bbox %d,%d,%d %d,%d,%d"), *gridName, gridPtr->activeVoxelCount(), bbox.min().x(), bbox.min().y(), bbox.min().z(), bbox.max().x(), bbox.max().y(), bbox.max().z());
-		
+		GridTypePtr gridPtr = GetGridPtrChecked(gridName);		
 		TSharedPtr<Vdb::GridOps::BasicMesher<GridTreeType, IndexTreeType>> mesherOp = MeshOps.FindChecked(gridName);
-		mesherOp->doActivateValuesOp(surfaceValue);
-		SetIsFileInSync(false); //Assume values were changed by the extraction because otherwise we'd have to somehow compare them all
-		bbox = gridPtr->evalActiveVoxelBoundingBox();
-		UE_LOG(LogOpenVDBModule, Display, TEXT("Post activate values op: %s has %d active voxels with bbox %d,%d,%d %d,%d,%d"), *gridName, gridPtr->activeVoxelCount(), bbox.min().x(), bbox.min().y(), bbox.min().z(), bbox.max().x(), bbox.max().y(), bbox.max().z());
-
 		mesherOp->doMeshOp();
-		bbox = gridPtr->evalActiveVoxelBoundingBox();
-		UE_LOG(LogOpenVDBModule, Display, TEXT("Post do mesh op: %s has %d active voxels with bbox %d,%d,%d %d,%d,%d"), *gridName, gridPtr->activeVoxelCount(), bbox.min().x(), bbox.min().y(), bbox.min().z(), bbox.max().x(), bbox.max().y(), bbox.max().z());
 	}
 
-	void FillGrid_PerlinDensity(const FString &gridName, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount, FIntVector &indexStart, FIntVector &indexEnd, FVector &worldStart, FVector &worldEnd)
+	void FillGrid_PerlinDensity(const FString &gridName, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount, const FVoxelData::DataType &surfaceValue, FIntVector &indexStart, FIntVector &indexEnd, FVector &worldStart, FVector &worldEnd)
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
-		const openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
 
 		//Noise module parameters are at the grid-level metadata
 		openvdb::Int32Metadata::Ptr seedMeta = gridPtr->getMetadata<openvdb::Int32Metadata>("seed");
@@ -377,35 +375,33 @@ public:
 			gridPtr->insertMeta("persistence", openvdb::FloatMetadata(persistence));
 			gridPtr->insertMeta("octaveCount", openvdb::Int32Metadata(octaveCount));
 
-			//Activate mask values such that there is a single padded region along the outer edge with
-			//values on and false and all other values within the padded region have values on and true.
-			check(!fillBBox.empty());
-			openvdb::CoordBBox bboxPadded = fillBBox;
-			bboxPadded.expand(1);
-
-			//Create a mask enclosing the region such that the outer edge voxels have value false
-			openvdb::BoolGrid::Ptr mask = openvdb::BoolGrid::create(false);
-			mask->fill(bboxPadded, /*value*/false, /*state*/true);
-			mask->fill(fillBBox, /*value*/true, /*state*/true);
-			UE_LOG(LogOpenVDBModule, Display, TEXT("BBox padded: %d,%d,%d  %d,%d,%d"), bboxPadded.min().x(), bboxPadded.min().y(), bboxPadded.min().z(), bboxPadded.max().x(), bboxPadded.max().y(), bboxPadded.max().z());
-			UE_LOG(LogOpenVDBModule, Display, TEXT("BBox fill: %d,%d,%d  %d,%d,%d"), fillBBox.min().x(), fillBBox.min().y(), fillBBox.min().z(), fillBBox.max().x(), fillBBox.max().y(), fillBBox.max().z());
-			openvdb::CoordBBox maskBBox = mask->evalActiveVoxelBoundingBox();
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Pre noise fill op Mask bbox: %d,%d,%d  %d,%d,%d"), maskBBox.min().x(), maskBBox.min().y(), maskBBox.min().z(), maskBBox.max().x(), maskBBox.max().y(), maskBBox.max().z());
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Pre noise-fill op: %s has %d active voxels"), *gridName, gridPtr->activeVoxelCount());
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Pre noise-fill op: mask has %d active voxels"), mask->activeVoxelCount());
-
 			//NOTE: This appears to make the iters only step into voxel values, but needs more investigation
 			//    Vdb::GridOps::PerlinNoiseFillOp<GridTreeType>::IterType beginIter = mask->cbeginValueOn();
 			//    beginIter.setMinDepth(Vdb::GridOps::PerlinNoiseFillOp<GridTreeType>::IterType::ROOT_LEVEL);
 			//    Vdb::GridOps::PerlinNoiseFillOp<GridTreeType>::transformValues(beginIter, *gridPtr, noiseFillOp);
 
-			Vdb::GridOps::PerlinNoiseFillOp<GridTreeType> noiseFillOp(gridPtr->transformPtr(), seed, frequency, lacunarity, persistence, octaveCount);
-			Vdb::GridOps::PerlinNoiseFillOp<GridTreeType>::transformValues(mask->cbeginValueOn(), *gridPtr, noiseFillOp);
-			maskBBox = mask->evalActiveVoxelBoundingBox();
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Post noise fill op Mask bbox: %d,%d,%d  %d,%d,%d"), maskBBox.min().x(), maskBBox.min().y(), maskBBox.min().z(), maskBBox.max().x(), maskBBox.max().y(), maskBBox.max().z());
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Post noise-fill op: %s has %d active voxels"), *gridName, gridPtr->activeVoxelCount());
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Post noise-fill op: mask has %d active voxels"), mask->activeVoxelCount());
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Post noise-fill op after prune: %s has %d active voxels"), *gridName, gridPtr->activeVoxelCount());
+			openvdb::BoolGrid::Ptr valuesMaskPtr;
+			for (openvdb::GridPtrVec::const_iterator i = MasksPtr->begin(); i != MasksPtr->end(); ++i)
+			{
+				if (gridPtr->getName() == (*i)->getName())
+				{
+					valuesMaskPtr = openvdb::gridPtrCast<openvdb::BoolGrid>(*i);
+					break;
+				}
+			}
+			
+			check(valuesMaskPtr != nullptr);
+			if (valuesMaskPtr->tree().empty())
+			{
+				//Activate mask values to define the region that is filled with values
+				const openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
+				check(!fillBBox.empty());
+				valuesMaskPtr->fill(fillBBox, /*value*/false, /*state*/true);
+				valuesMaskPtr->topologyUnion(*gridPtr);
+			}
+
+			Vdb::GridOps::PerlinNoiseFillOp<openvdb::BoolTree, GridTreeType> noiseFillOp(valuesMaskPtr, surfaceValue, seed, frequency, lacunarity, persistence, octaveCount);
+			Vdb::GridOps::PerlinNoiseFillOp<openvdb::BoolTree, GridTreeType>::doTransformValues(valuesMaskPtr->beginValueOn(), *gridPtr, noiseFillOp);
 		}
 		const openvdb::CoordBBox indexBBox = gridPtr->evalActiveVoxelBoundingBox();
 		const openvdb::BBoxd worldBBox = gridPtr->transform().indexToWorld(indexBBox);
@@ -423,7 +419,7 @@ public:
 		worldEnd.Z = worldBBox.max().z();
 	}
 
-	void GetAllGridIDs(TArray<FString> &OutGridIDs)
+	void GetAllGridIDs(TArray<FString> &OutGridIDs) const
 	{
 		for (auto i = GridsPtr->begin(); i != GridsPtr->end(); ++i)
 		{
@@ -453,7 +449,7 @@ public:
 		OutTangentsBufferPtr = TSharedPtr<TArray<FProcMeshTangent>>(TangentsSectionBuffers[gridName]);
 	}
 
-	void GetIndexCoord(const FString &gridName, const FVector &location, FIntVector &outIndexCoord)
+	void GetIndexCoord(const FString &gridName, const FVector &location, FIntVector &outIndexCoord) const
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		const openvdb::Coord coord = openvdb::Coord::floor(gridPtr->worldToIndex(openvdb::Vec3d(location.X, location.Y, location.Z)));
@@ -462,7 +458,7 @@ public:
 		outIndexCoord.Z = coord.z();
 	}
 
-	void GetVoxelValue(const FString &gridName, const FIntVector &indexCoord, typename GridType::ValueType &outValue)
+	void GetVoxelValue(const FString &gridName, const FIntVector &indexCoord, typename GridType::ValueType &outValue) const
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
@@ -470,7 +466,7 @@ public:
 		outValue = cacc.getValue(coord);
 	}
 
-	bool GetVoxelActiveState(const FString &gridName, const FIntVector &indexCoord)
+	bool GetVoxelActiveState(const FString &gridName, const FIntVector &indexCoord) const
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
@@ -478,7 +474,7 @@ public:
 		return cacc.isValueOn(coord);
 	}
 
-	bool GetVoxelValueAndActiveState(const FString &gridName, const FIntVector &indexCoord, typename GridType::ValueType &outValue)
+	bool GetVoxelValueAndActiveState(const FString &gridName, const FIntVector &indexCoord, typename GridType::ValueType &outValue) const
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
@@ -492,7 +488,7 @@ public:
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
 		GridType::Accessor acc = gridPtr->getAccessor();
-		acc.setValueOnly(coord, value);
+		acc.modifyValueAndActiveState<Vdb::GridOps::BasicModifyOp<typename GridType::ValueType>>(coord, Vdb::GridOps::BasicModifyOp<typename GridType::ValueType>>(value));
 	}
 
 	void SetVoxelActiveState(const FString &gridName, const FIntVector &indexCoord, const bool &isActive)
@@ -508,16 +504,16 @@ public:
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
 		GridType::Accessor acc = gridPtr->getAccessor();
-		acc.setValueOnly(coord, value);
-		acc.setActiveState(coord, isActive);
+		acc.modifyValueAndActiveState<Vdb::GridOps::BasicModifyActiveOp<typename GridType::ValueType>>(coord, Vdb::GridOps::BasicModifyActiveOp<typename GridType::ValueType>>(value, isActive));
 	}
 
 private:
 	bool isFileInSync;
 	TSharedPtr<openvdb::io::File> FilePtr;
 	openvdb::GridPtrVecPtr GridsPtr;
+	openvdb::GridPtrVecPtr MasksPtr;
 	openvdb::MetaMap::Ptr FileMetaPtr;
-	openvdb::GridPtrVec::iterator CachedGrid;
+	mutable openvdb::GridPtrVec::iterator CachedGrid;
 	TMap<FString, TSharedRef<TArray<FVector>>> VertexSectionBuffers;
 	TMap<FString, TSharedRef<TArray<int32>>> PolygonSectionBuffers;
 	TMap<FString, TSharedRef<TArray<FVector>>> NormalSectionBuffers;
@@ -526,12 +522,12 @@ private:
 	TMap<FString, TSharedRef<TArray<FProcMeshTangent>>> TangentsSectionBuffers;
 	TMap<FString, TSharedRef<Vdb::GridOps::BasicMesher<GridTreeType, IndexTreeType>>> MeshOps;
 
-	void SetIsFileInSync(bool isInSync)
+	inline void SetIsFileInSync(bool isInSync)
 	{
 		isFileInSync = isInSync;
 	}
 
-	inline GridTypePtr GetGridPtr(const FString &gridName)
+	inline GridTypePtr GetGridPtr(const FString &gridName) const
 	{
 		if (CachedGrid != GridsPtr->end() && gridName == UTF8_TO_TCHAR((*CachedGrid)->getName().c_str()))
 		{
@@ -561,6 +557,10 @@ private:
 		auto VertexColorsBufferRef = VertexColorsSectionBuffers.Emplace(gridName, TSharedRef<TArray<FColor>>(new TArray<FColor>()));
 		auto TangentsBufferRef = TangentsSectionBuffers.Emplace(gridName, TSharedRef<TArray<FProcMeshTangent>>(new TArray<FProcMeshTangent>()));
 		MeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::BasicMesher<GridTreeType, IndexTreeType>>(new Vdb::GridOps::BasicMesher<GridTreeType, IndexTreeType>(gridPtr, VertexBufferRef.Get(), PolygonBufferRef.Get(), NormalBufferRef.Get())));
+		MasksPtr->empty();
+		openvdb::BoolGrid::Ptr valuesMask = openvdb::BoolGrid::create(false);
+		valuesMask->setName(gridPtr->getName());
+		MasksPtr->push_back(valuesMask);
 	}
 
 	GridTypePtr CreateGrid(const FString &gridName, const FIntVector &indexStart, const FIntVector &indexEnd, const FVector &voxelSize)
@@ -569,12 +569,16 @@ private:
 		gridPtr->setName(TCHAR_TO_UTF8(*gridName));
 		InitMeshSection(gridPtr);
 		GridsPtr->push_back(gridPtr);
+		CachedGrid = GridsPtr->end();
+		openvdb::BoolGrid::Ptr valuesMask = openvdb::BoolGrid::create(false);
+		valuesMask->setName(gridPtr->getName());
+		MasksPtr->push_back(valuesMask);
 		SetIsFileInSync(false);
 		return gridPtr;
 	}
 
 	template<typename MetadataType>
-	void InitializeMetadata()
+	inline void InitializeMetadata() const
 	{
 		if (!openvdb::TypedMetadata<MetadataType>::isRegisteredType())
 		{
@@ -582,7 +586,7 @@ private:
 		}
 	}
 
-	void OpenFileGuard()
+	inline void OpenFileGuard()
 	{
 		if (FilePtr.IsValid() && !FilePtr->isOpen())
 		{
@@ -590,7 +594,7 @@ private:
 		}
 	}
 
-	void CloseFileGuard()
+	inline void CloseFileGuard()
 	{
 		if (FilePtr.IsValid() && FilePtr->isOpen())
 		{
@@ -598,7 +602,7 @@ private:
 		}
 	}
 
-	openvdb::Coord GetFirstInactiveVoxelFromActive(GridTypePtr gridPtr)
+	openvdb::Coord GetFirstInactiveVoxelFromActive(GridTypePtr gridPtr) const
 	{
 		openvdb::Coord coord;
 		const openvdb::CoordBBox gridBBox = gridPtr->evalActiveVoxelBoundingBox();
