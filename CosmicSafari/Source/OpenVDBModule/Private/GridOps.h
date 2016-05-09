@@ -16,78 +16,6 @@ namespace Vdb
 		typedef int32 IndexType;
 		typedef openvdb::tree::Tree4<IndexType, 5, 4, 3>::Type IndexTreeType; //Same tree configuration (5,4,3) as openvdb::FloatTree (see openvdb.h)
 		const static IndexType UNVISITED_VERTEX_INDEX = -1;
-		const static int32 CUBE_VERTEX_COUNT = 8;
-
-		//Helper class that holds coordinates of a cube
-		struct PrimitiveCube
-		{
-			PrimitiveCube(const openvdb::Coord &cubeStart)
-			{
-				const openvdb::CoordBBox bbox = openvdb::CoordBBox::createCube(cubeStart, 1);
-				primitiveVertices.push_back(bbox.getStart());
-				primitiveVertices.push_back(bbox.getStart().offsetBy(1, 0, 0));
-				primitiveVertices.push_back(bbox.getStart().offsetBy(0, 1, 0));
-				primitiveVertices.push_back(bbox.getStart().offsetBy(0, 0, 1));
-				primitiveVertices.push_back(bbox.getEnd().offsetBy(-1, 0, 0));
-				primitiveVertices.push_back(bbox.getEnd().offsetBy(0, -1, 0));
-				primitiveVertices.push_back(bbox.getEnd().offsetBy(0, 0, -1));
-				primitiveVertices.push_back(bbox.getEnd());
-			}
-
-			IndexType& operator[](const int32 &v) { return primitiveIndices[v]; }
-			const openvdb::Coord& operator()(const int32 &v) const { return primitiveVertices[v]; }
-			//Add the vertex indices in counterclockwise order on each quad face
-			openvdb::Vec4i getQuadXY0() const { return openvdb::Vec4i(primitiveIndices[3], primitiveIndices[4], primitiveIndices[7], primitiveIndices[5]); }
-			openvdb::Vec4i getQuadXY1() const { return openvdb::Vec4i(primitiveIndices[6], primitiveIndices[2], primitiveIndices[0], primitiveIndices[1]); }
-			openvdb::Vec4i getQuadXZ0() const { return openvdb::Vec4i(primitiveIndices[7], primitiveIndices[4], primitiveIndices[2], primitiveIndices[6]); }
-			openvdb::Vec4i getQuadXZ1() const { return openvdb::Vec4i(primitiveIndices[5], primitiveIndices[1], primitiveIndices[0], primitiveIndices[3]); }
-			openvdb::Vec4i getQuadYZ0() const { return openvdb::Vec4i(primitiveIndices[7], primitiveIndices[6], primitiveIndices[1], primitiveIndices[5]); }
-			openvdb::Vec4i getQuadYZ1() const { return openvdb::Vec4i(primitiveIndices[0], primitiveIndices[2], primitiveIndices[4], primitiveIndices[3]); }
-			
-			std::vector<openvdb::Coord> primitiveVertices;
-			IndexType primitiveIndices[CUBE_VERTEX_COUNT];
-		};
-
-		//Helper class that holds vertex indices of the quad-face of a cube
-		class OvdbQuad
-		{
-		public:
-			OvdbQuad() {}
-			OvdbQuad(openvdb::Vec4i idxs) : indices(idxs), isMerged(false) {}
-			OvdbQuad(const OvdbQuad &rhs) : indices(rhs.indices), isMerged(rhs.isMerged) {}
-			OvdbQuad& operator=(const OvdbQuad &rhs)
-			{
-				indices = rhs.indices;
-				isMerged = rhs.isMerged;
-				return *this;
-			}
-			const openvdb::Vec4i& quad() const { return indices; }
-			openvdb::Vec2i quadU() const { return openvdb::Vec2i(indices[0], indices[1]); }
-			openvdb::Vec2i quadV() const { return openvdb::Vec2i(indices[0], indices[3]); }
-			openvdb::Vec3i quadPoly1() const { return openvdb::Vec3i(indices[0], indices[1], indices[2]); }
-			openvdb::Vec3i quadPoly2() const { return openvdb::Vec3i(indices[0], indices[2], indices[3]); }
-			bool quadIsMerged() const { return isMerged; }
-			void setIsMerged() { isMerged = true; }
-			void mergeU(OvdbQuad &rhs)
-			{
-				if (!rhs.quadIsMerged())
-				{
-					rhs.setIsMerged();
-					indices = openvdb::Vec4i(indices[0], rhs.indices[1], rhs.indices[2], indices[3]);
-				}
-			}
-			void mergeV(OvdbQuad &rhs)
-			{
-				if (!rhs.quadIsMerged())
-				{
-					rhs.setIsMerged();
-					indices = openvdb::Vec4i(indices[0], indices[1], rhs.indices[2], rhs.indices[3]);
-				}
-			}
-		private:
-			openvdb::Vec4i indices;
-			bool isMerged;
-		};
 
 		template<typename ValueType>
 		struct BasicModifyOp
@@ -119,6 +47,7 @@ namespace Vdb
 			     typename OutTreeType,
 			     typename SelfOpType,
 				 bool ModifyTiles = true,
+				 bool Threaded = true,
 				 bool InIsSafe = true,
 				 openvdb::Index InCacheLevels = InTreeType::DEPTH - 1,
 				 typename InMutexType = tbb::null_mutex,
@@ -137,227 +66,122 @@ namespace Vdb
 			typedef typename openvdb::Grid<DestTreeType>::Ptr DestGridTypePtr;
 			typedef typename SourceGridType::ConstPtr SourceGridTypeCPtr;
 			typedef typename openvdb::Grid<DestTreeType>::ConstPtr DestGridTypeCPtr;
-			typedef typename openvdb::tree::ValueAccessor<SourceTreeType, OutIsSafe, OutCacheLevels, InMutexType> SourceAccessorType;
-			typedef typename openvdb::tree::ValueAccessor<const SourceTreeType, OutIsSafe, OutCacheLevels, InMutexType> SourceCAccessorType;
+			typedef typename openvdb::tree::ValueAccessor<SourceTreeType, InIsSafe, InCacheLevels, InMutexType> SourceAccessorType;
+			typedef typename openvdb::tree::ValueAccessor<const SourceTreeType, InIsSafe, InCacheLevels, InMutexType> SourceCAccessorType;
 			typedef typename openvdb::tree::ValueAccessor<DestTreeType, OutIsSafe, OutCacheLevels, OutMutexType> DestAccessorType;
 			typedef typename openvdb::tree::ValueAccessor<const DestTreeType, OutIsSafe, OutCacheLevels, OutMutexType> DestCAccessorType;
 			typedef typename SourceTreeType::ValueType SourceValueType;
 			typedef typename DestTreeType::ValueType DestValueType;
 			typedef typename TSharedPtr<SelfOpType> Ptr;
 
-			ITransformOp(const SourceGridTypePtr sourceGridPtr)
-				: SourceGridPtr(sourceGridPtr)
+			ITransformOp(const SourceGridTypePtr sourceGridPtr, const DestGridTypePtr destGridPtr)
+				: SourceGridPtr(sourceGridPtr), SourceAcc(sourceGridPtr->tree()), DestGridPtr(destGridPtr)
 			{
-				check(SourceGridPtr != nullptr);
+				if (ModifyTiles == false)
+				{
+					SourceGridPtr->tree().voxelizeActiveTiles();
+					DestGridPtr->tree().voxelizeActiveTiles();
+				}
 			}
 
-			static void doTransformValues(const SourceIterType &beginIter, DestGridType &outGrid, SelfOpType &op, bool threaded = true)
+			bool IsThreaded()
+			{
+				return Threaded;
+			}
+
+			static void DoTransformValues(const SourceIterType &beginIter, DestGridType &outGrid, SelfOpType &op)
 			{
 				//openvdb transformValues requires that ops are copyable even if shared = true, so instead call only the shared op applier here (code adapted from openvdb transformValues() in ValueTransformer.h)
 				typedef openvdb::TreeAdapter<DestGridType> Adapter;
 				typedef typename Adapter::TreeType OutTreeType;
 				typedef typename openvdb::tools::valxform::SharedOpTransformer<SourceIterType, OutTreeType, SelfOpType, DestAccessorType> Processor;
 				Processor proc(beginIter, Adapter::tree(outGrid), op, openvdb::MERGE_ACTIVE_STATES);
-				proc.process(threaded);
+				UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre transform) %d active voxels"), UTF8_TO_TCHAR(outGrid.getName().c_str()), outGrid.activeVoxelCount()));
+				proc.process(op.IsThreaded());
+				UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post transform) %d active voxels"), UTF8_TO_TCHAR(outGrid.getName().c_str()), outGrid.activeVoxelCount()));
 			}
 
 			inline void operator()(const SourceIterType& iter, DestAccessorType& acc)
 			{
 				if (iter.isVoxelValue())
 				{
-					//Do the transformation operation for a single voxel according to the source iter
-					DoVoxelTransform(iter, acc);
-				}
-				else if(ModifyTiles == true)
-				{
-					//Do the transformation operation for the destination according to the source tile bounding box
-					openvdb::CoordBBox bbox;
-					iter.getBoundingBox(bbox);
-					DoTileTransform(iter, acc, bbox);
+					//Do the transformation operation for any coord as a single voxel
+					TransformCoord(iter, acc);
 				}
 				else
 				{
-					//Not modifying tiles so set the destination tile off according to the source coord
-					acc.setValueOff(iter.getCoord());
+					//Do the transformation operation for each voxel in the tile
+					SourceIterType tileIter = iter;
+					while (tileIter.next())
+					{
+						if (tileIter.isVoxelValue())
+						{
+							TransformCoord(tileIter, acc);
+						}
+					}
 				}
 			}
 
 		protected:
-			FCriticalSection CriticalSection;
 			const SourceGridTypePtr SourceGridPtr;
+			const DestGridTypePtr DestGridPtr;
+			SourceAccessorType SourceAcc;
 
-			//In override call ModifyValue[AndActiveState]
-			virtual inline void DoVoxelTransform(const SourceIterType& iter, DestAccessorType& acc) = 0;
-			//In override call ModifyValue[AndActiveState]
-			virtual inline void DoTileTransform(const SourceIterType& iter, DestAccessorType& acc, const openvdb::CoordBBox &tileBBox) = 0;			
-			//Override the active/inactive logic used by ModifyValue[AndActiveState]
-			virtual inline bool GetIsActive(const SourceIterType& iter, DestAccessorType& acc, const openvdb::Coord &coord, bool &outIsActive) const = 0;
+			virtual inline void TransformCoord(const SourceIterType& iter, DestAccessorType& acc) = 0;
 			//Override the value production used by ModifyValue[AndActiveState]
-			virtual inline bool GetValue(const SourceIterType& iter, DestAccessorType& acc, const openvdb::Coord &coord, DestValueType &outValue) const = 0;
+			virtual inline bool GetValue(DestAccessorType& acc, const openvdb::Coord &coord, DestValueType &outValue) = 0;
 
-			//Modify the value and active state and return both value and active state
-			inline void ModifyValueAndActiveState(const SourceIterType& iter, DestAccessorType& acc, const openvdb::Coord &coord, DestValueType &outValue, bool &isActive)
+			//Modify the value without changing active state and return the value
+			inline void ModifyValueOnly(DestAccessorType& acc, const openvdb::Coord &coord, DestValueType &outValue)
 			{
-				//If the value or active state changed then modify both otherwise just return the value and active state without calling the modify op
-				FScopeLock lock(&CriticalSection);
-				bool isValueChanged = GetValue(iter, acc, coord, outValue);
-				bool isStateChanged = GetIsActive(iter, acc, coord, isActive);
-				if (isValueChanged || isStateChanged)
+				if (Threaded)
 				{
-					//According to openvdb ValueTransformer.h modify-in-place operations:
-					//"are typically significantly faster than calling getValue() followed by setValue()."
-					acc.modifyValueAndActiveState<BasicModifyActiveOp<DestValueType>>(coord, BasicModifyActiveOp<DestValueType>(outValue, isActive));
+					FScopeLock lock(&CriticalSection);
+					DoModifyValueOnly(acc, coord, outValue);
+				}
+				else
+				{
+					DoModifyValueOnly(acc, coord, outValue);
 				}
 			}
 
-			inline bool ModifyValuesRange(const SourceIterType& iter, DestAccessorType& acc, std::vector<openvdb::Coord>::iterator begin, std::vector<openvdb::Coord>::iterator end, std::vector<DestValueType> &outValues)
+			//Modify the value, set active, and return the value
+			inline void ModifyValue(DestAccessorType& acc, const openvdb::Coord &coord, DestValueType &outValue)
 			{
-				FScopeLock lock(&CriticalSection);
-				bool isAnyValueChanged = false;
-				for (std::vector<openvdb::Coord>::iterator i = begin; i != end; ++i)
+				if (Threaded)
 				{
-					const openvdb::Coord &coord = *i;
-					DestValueType outValue;
-					bool isValueChanged = GetValue(iter, acc, coord, outValue);
-					outValues.push_back(outValue);
-					if (isValueChanged)
-					{
-						//According to openvdb ValueTransformer.h modify-in-place operations:
-						//"are typically significantly faster than calling getValue() followed by setValue()."
-						acc.modifyValue<BasicModifyOp<DestValueType>>(coord, BasicModifyOp<DestValueType>(outValue));
-						isAnyValueChanged = true;
-					}
+					FScopeLock lock(&CriticalSection);
+					DoModifyValue(acc, coord, outValue);
 				}
-				return isAnyValueChanged;
+				else
+				{
+					DoModifyValue(acc, coord, outValue);
+				}
 			}
 
-			inline bool ModifyValuesRange(const SourceIterType& iter, DestAccessorType& acc, std::vector<openvdb::Coord>::iterator begin, std::vector<openvdb::Coord>::iterator end)
-			{
-				FScopeLock lock(&CriticalSection);
-				bool isAnyValueChanged = false;
-				for (std::vector<openvdb::Coord>::iterator i = begin; i != end; ++i)
-				{
-					const openvdb::Coord &coord = *i;
-					DestValueType outValue;
-					bool isValueChanged = GetValue(iter, acc, coord, outValue);
-					if (isValueChanged)
-					{
-						//According to openvdb ValueTransformer.h modify-in-place operations:
-						//"are typically significantly faster than calling getValue() followed by setValue()."
-						acc.modifyValue<BasicModifyOp<DestValueType>>(coord, BasicModifyOp<DestValueType>(outValue));
-						isAnyValueChanged = true;
-					}
-				}
-				return isAnyValueChanged;
-			}
-
-			inline bool ModifyValuesAndActiveStateRange(const SourceIterType& iter, DestAccessorType& acc, std::vector<openvdb::Coord>::iterator begin, std::vector<openvdb::Coord>::iterator end, std::vector<DestValueType> &outValues, std::vector<bool> &outActiveStates)
-			{
-				FScopeLock lock(&CriticalSection);
-				bool isAnyValueChanged = false;
-				for (std::vector<openvdb::Coord>::iterator i = begin; i != end; ++i)
-				{
-					const openvdb::Coord &coord = *i;
-					DestValueType outValue;
-					bool isActive;
-					bool isValueChanged = GetValue(iter, acc, coord, outValue);
-					bool isStateChanged = GetIsActive(iter, acc, coord, isActive);
-					outValues.push_back(outValue);
-					outActiveStates.push_back(isActive);
-					if (isValueChanged || isStateChanged)
-					{
-						//According to openvdb ValueTransformer.h modify-in-place operations:
-						//"are typically significantly faster than calling getValue() followed by setValue()."
-						acc.modifyValueAndActiveState<BasicModifyActiveOp<DestValueType>>(coord, BasicModifyActiveOp<DestValueType>(outValue, isActive));
-						isAnyValueChanged = true;
-					}
-				}
-				return isAnyValueChanged;
-			}
-
-			inline bool ModifyValuesAndActiveStateRange(const SourceIterType& iter, DestAccessorType& acc, std::vector<openvdb::Coord>::iterator begin, std::vector<openvdb::Coord>::iterator end)
-			{
-				FScopeLock lock(&CriticalSection);
-				bool isAnyValueChanged = false;
-				for (std::vector<openvdb::Coord>::iterator i = begin; i != end; ++i)
-				{
-					const openvdb::Coord &coord = *i;
-					DestValueType outValue;
-					bool isActive;
-					bool isValueChanged = GetValue(iter, acc, coord, outValue);
-					bool isStateChanged = GetIsActive(iter, acc, coord, isActive);
-					if (isValueChanged || isStateChanged)
-					{
-						//According to openvdb ValueTransformer.h modify-in-place operations:
-						//"are typically significantly faster than calling getValue() followed by setValue()."
-						acc.modifyValueAndActiveState<BasicModifyActiveOp<DestValueType>>(coord, BasicModifyActiveOp<DestValueType>(outValue, isActive));
-						isAnyValueChanged = true;
-					}
-				}
-				return isAnyValueChanged;
-			}
+		private:
+			FCriticalSection CriticalSection;
 
 			//Modify the value and return the value
-			inline void ModifyValue(const SourceIterType& iter, DestAccessorType& acc, const openvdb::Coord &coord, DestValueType &outValue)
+			inline void DoModifyValueOnly(DestAccessorType& acc, const openvdb::Coord &coord, DestValueType &outValue)
 			{
-				//If the value changed then modify the value otherwise just return the existing value without calling the modify op
-				FScopeLock lock(&CriticalSection);
-				bool isValueChanged = GetValue(iter, acc, coord, outValue);
+				bool isValueChanged = GetValue(acc, coord, outValue);
+				if (isValueChanged)
+				{
+					acc.setValueOnly(coord, outValue);
+				}
+			}
+
+			//Modify the value, set active, and return the value
+			inline void DoModifyValue(DestAccessorType& acc, const openvdb::Coord &coord, DestValueType &outValue)
+			{
+				bool isValueChanged = GetValue(acc, coord, outValue);
 				if (isValueChanged)
 				{
 					//According to openvdb ValueTransformer.h modify-in-place operations:
 					//"are typically significantly faster than calling getValue() followed by setValue()."
 					acc.modifyValue<BasicModifyOp<DestValueType>>(coord, BasicModifyOp<DestValueType>(outValue));
 				}
-			}
-
-			//Modify active state and return the active state value
-			inline void ModifyActiveState(const SourceIterType& iter, DestAccessorType& acc, const openvdb::Coord &coord, bool &isActive)
-			{
-				//If state changed then modify the active state otherwise just return the existing value without calling the modify op
-				FScopeLock lock(&CriticalSection);
-				bool isStateChanged = GetIsActive(iter, acc, coord, isActive);
-				if (isStateChanged)
-				{
-					//There is no in-place modify function for just active state so use the iter
-					acc.setActiveState(coord, isActive);
-				}
-			}
-
-			//Modify value and active state without returning value and active state
-			inline void ModifyValueAndActiveState(const SourceIterType& iter, DestAccessorType& acc, const openvdb::Coord &coord)
-			{
-				DestValueType outValue;
-				bool isActive;
-				ModifyValueAndActiveState(iter, acc, coord, outValue, isActive);
-			}
-			
-			//Modify value and active state and return only the value
-			inline void ModifyValueAndActiveState(const SourceIterType& iter, DestAccessorType& acc, const openvdb::Coord &coord, DestValueType &outValue)
-			{
-				bool isActive;
-				ModifyValueAndActiveState(iter, acc, coord, outValue, isActive);
-			}
-
-			//Modify value and active state and return only the active state
-			inline void ModifyValueAndActiveState(const SourceIterType& iter, DestAccessorType& acc, const openvdb::Coord &coord, bool &isActive)
-			{
-				DestValueType outValue;
-				ModifyValueAndActiveState(iter, acc, coord, outValue, isActive);
-			}
-
-			//Modify value only
-			inline void ModifyValue(const SourceIterType& iter, DestAccessorType& acc, const openvdb::Coord &coord)
-			{
-				DestValueType outValue;
-				ModifyValue(iter, acc, coord, outValue);
-			}
-
-			//Modify active state only
-			inline void ModifyActiveState(const SourceIterType& iter, DestAccessorType& acc, const openvdb::Coord &coord)
-			{
-				bool isActive;
-				ModifyActiveState(iter, acc, coord, isActive);
 			}
 		};
 
@@ -371,60 +195,60 @@ namespace Vdb
 			                    false>
 		{
 		public:
-			typedef typename DestValueType::DataType DataType;
-
-			PerlinNoiseFillOp(const SourceGridTypePtr sourceGridPtr, const DataType &isovalue, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount)
-				: ITransformOp(sourceGridPtr), surfaceValue(isovalue)
+			PerlinNoiseFillOp(const SourceGridTypePtr sourceGridPtr, const DestGridTypePtr destGridPtr, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount)
+				: ITransformOp(sourceGridPtr, destGridPtr)
 			{
 				valueSource.SetSeed(seed);
 				valueSource.SetFrequency((double)frequency);
 				valueSource.SetLacunarity((double)lacunarity);
 				valueSource.SetPersistence((double)persistence);
 				valueSource.SetOctaveCount(octaveCount);
+				UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (source pre perlin op) %d active voxels"), UTF8_TO_TCHAR(SourceGridPtr->getName().c_str()), SourceGridPtr->activeVoxelCount()));
+				UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (dest pre perlin op) %d active voxels"), UTF8_TO_TCHAR(DestGridPtr->getName().c_str()), DestGridPtr->activeVoxelCount()));
 			}
 
-			virtual inline void DoVoxelTransform(const SourceIterType& iter, DestAccessorType& acc) override
+			virtual inline void TransformCoord(const SourceIterType& iter, DestAccessorType& acc) override
 			{
-				//First set the density value of this voxel and all surrounding voxels since active state depends on surrounding values
-				const openvdb::Coord coord = iter.getCoord();
-				PrimitiveCube surroundingCoords(coord);
-
-				//Change the value of all vertices atomically
-				ModifyValuesRange(iter, acc, surroundingCoords.primitiveVertices.begin(), surroundingCoords.primitiveVertices.end());
-
-				//Change active state of only this voxel
-				ModifyActiveState(iter, acc, coord);
-			}
-
-			virtual inline void DoTileTransform(const SourceIterType& iter, DestAccessorType& acc, const openvdb::CoordBBox &tileBBox) override
-			{
-				//Do nothing for tiles
-			}
-
-			virtual inline bool GetIsActive(const SourceIterType& iter, DestAccessorType& acc, const openvdb::Coord &coord, bool &outIsActive) const override
-			{
-				//A voxel will only ever be visited once here, (i.e. coord will always be the same as iter.getCoord()) therefore always assume the active state was changed
-				const static bool isChanged = true;
-
+				//Set the density value of this voxel and values of each voxel that correspond to vertices of the cube with origin at this voxel
+				const openvdb::Coord &coord = iter.getCoord();
+				const DestValueType backgroundValue = DestGridPtr->background();
+				const openvdb::CoordBBox bbox = openvdb::CoordBBox::createCube(coord, 2);
+				std::vector<DestValueType> outValues;
+				openvdb::Coord vertexCoord;
+				for (int32 x = bbox.min().x(); x <= bbox.max().x(); ++x)
+				{
+					vertexCoord.setX(x);
+					for (int32 y = bbox.min().y(); y <= bbox.max().y(); ++y)
+					{
+						vertexCoord.setY(y);
+						for (int32 z = bbox.min().z(); z <= bbox.max().z(); ++z)
+						{
+							vertexCoord.setZ(z);
+							//Modify the value without changing the active state
+							DestValueType outValue;
+							ModifyValueOnly(acc, vertexCoord, outValue);
+							outValues.push_back(outValue);
+						}
+					}
+				}
+				
 				//A voxel is active if it is on the surface:
 				//i.e. use the values of each vertex of the cube to check if the voxel is partially inside and partially outside the surface
-				PrimitiveCube surroundingCoords(coord);
 				uint8 bitValue = 1;
 				uint8 insideBits = 0;
-				for (int32 i = 0; i < CUBE_VERTEX_COUNT; ++i)
+				for (std::vector<DestValueType>::const_iterator i = outValues.begin(); i != outValues.end(); ++i)
 				{
-					if (acc.getValue(surroundingCoords(i)).Data < surfaceValue) //Convention of positive => above surface
+					if (i->Data < backgroundValue.Data) //Convention of positive => above surface
 					{
 						insideBits |= bitValue;
 						bitValue = bitValue << 1;
 					}
 				}
-				//If all vertices are inside the surface or all are outside the surface then set off in order to not mesh this voxel
-				outIsActive = insideBits > 0 && insideBits < 255;
-				return isChanged;
+				bool isOnSurface = insideBits > 0 && insideBits < 255;
+				acc.setActiveState(coord, isOnSurface);
 			}
 
-			virtual inline bool GetValue(const SourceIterType& iter, DestAccessorType& acc, const openvdb::Coord &coord, DestValueType &outValue) const override
+			virtual inline bool GetValue(DestAccessorType& acc, const openvdb::Coord &coord, DestValueType &outValue) override
 			{
 				//double prevLacunarity = valueSource.GetLacunarity();
 				//int32 prevOctaveCount = valueSource.GetOctaveCount();
@@ -437,22 +261,21 @@ namespace Vdb
 
 				bool isChanged = false;
 				//If the value was already set during this operation use that value
-				if (iter.getTree()->getValue(coord) == true)
+				if (SourceAcc.getValue(coord) == true)
 				{
-					outValue.Data = (DataType)acc.getValue(coord).Data;
+					outValue.Data = acc.getValue(coord).Data;
 				}
 				else
 				{
 					isChanged = true;
-					iter.getTree()->setValueOnly(coord, true);
-					const openvdb::Vec3d vec = SourceGridPtr->transform().indexToWorld(coord);
-					outValue.Data = (DataType)(valueSource.GetValue(vec.x(), vec.y(), vec.z()) + vec.z());
+					SourceAcc.setValueOnly(coord, true);
+					const openvdb::Vec3d vec = DestGridPtr->transform().indexToWorld(coord);
+					outValue.Data = (OutTreeType::ValueType::DataType)(valueSource.GetValue(vec.x(), vec.y(), vec.z()) + vec.z());
 				}
 				return isChanged;
 			}
 		private:
 			noise::module::Perlin valueSource;
-			const DataType surfaceValue;
 		};
 
 		//Operator to generate geometry from active voxels (no tiles)
@@ -465,54 +288,50 @@ namespace Vdb
 			                    false>
 		{
 		public:
-			MeshGeometryOp(const SourceGridTypePtr sourceGridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer)
-				: ITransformOp(sourceGridPtr), vertices(vertexBuffer), polygons(polygonBuffer), normals(normalBuffer)
+			MeshGeometryOp(const SourceGridTypePtr sourceGridPtr, const DestGridTypePtr destGridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer, TArray<FVector2D> &uvBuffer, TArray<FColor> &colorBuffer, TArray<FProcMeshTangent> &tangentBuffer)
+				: ITransformOp(sourceGridPtr, destGridPtr), vertices(vertexBuffer), polygons(polygonBuffer), normals(normalBuffer), uvs(uvBuffer), colors(colorBuffer), tangents(tangentBuffer)
 			{
 			}
 
-			virtual inline void DoVoxelTransform(const SourceIterType& iter, DestAccessorType& acc) override
+			virtual inline void TransformCoord(const SourceIterType& iter, DestAccessorType& acc) override
 			{
 				//Mesh the voxel as a simple cube with 6 equal sized quads
-				PrimitiveCube primitiveIndices(iter.getCoord());
-				
-				//Change the value of all vertex indices atomically
+				const openvdb::Coord &coord = iter.getCoord();
+				const openvdb::CoordBBox bbox = openvdb::CoordBBox::createCube(coord, 2);
 				std::vector<DestValueType> outValues;
-				std::vector<bool> outActiveStates;
-				ModifyValuesAndActiveStateRange(iter, acc, primitiveIndices.primitiveVertices.begin(), primitiveIndices.primitiveVertices.end(), outValues, outActiveStates);
-
-				//Set the active state of each and build the quad from vertex indices
-				int32 v = 0;
-				for (std::vector<DestValueType>::iterator i = outValues.begin(); i != outValues.end(); ++i)
+				openvdb::Coord vertex;
+				for (int32 x = bbox.min().x(); x <= bbox.max().x(); ++x)
 				{
-					primitiveIndices[v] = *i;
+					vertex.setX(x);
+					for (int32 y = bbox.min().y(); y <= bbox.max().y(); ++y)
+					{
+						vertex.setY(y);
+						for (int32 z = bbox.min().z(); z <= bbox.max().z(); ++z)
+						{
+							vertex.setZ(z);
+							DestValueType outValue;
+							//Modify the value and set to active
+							ModifyValue(acc, vertex, outValue);
+							outValues.push_back(outValue);
+						}
+					}
 				}
-				quads.Enqueue(primitiveIndices.getQuadXY0());
-				quads.Enqueue(primitiveIndices.getQuadXY1());
-				quads.Enqueue(primitiveIndices.getQuadXZ0());
-				quads.Enqueue(primitiveIndices.getQuadXZ1());
-				quads.Enqueue(primitiveIndices.getQuadYZ0());
-				quads.Enqueue(primitiveIndices.getQuadYZ1());
-			}
-			
-			virtual inline void DoTileTransform(const SourceIterType& iter, DestAccessorType& acc, const openvdb::CoordBBox &tileBBox) override
-			{
-				//Do nothing for tiles
+
+				//Add the vertex indices in counterclockwise order on each quad face
+				quads.Enqueue(openvdb::Vec4i(outValues[1], outValues[3], outValues[7], outValues[5])); //Upper XY
+				quads.Enqueue(openvdb::Vec4i(outValues[6], outValues[2], outValues[0], outValues[4])); //Lower XY
+				quads.Enqueue(openvdb::Vec4i(outValues[7], outValues[3], outValues[2], outValues[6])); //Back XZ
+				quads.Enqueue(openvdb::Vec4i(outValues[5], outValues[4], outValues[0], outValues[1])); //Front XZ
+				quads.Enqueue(openvdb::Vec4i(outValues[7], outValues[6], outValues[4], outValues[5])); //Right YZ
+				quads.Enqueue(openvdb::Vec4i(outValues[0], outValues[2], outValues[3], outValues[1])); //Left YZ
 			}
 
-			virtual inline bool GetIsActive(const SourceIterType& iter, DestAccessorType& acc, const openvdb::Coord &coord, bool &outIsActive) const override
+			virtual inline bool GetValue(DestAccessorType& acc, const openvdb::Coord &coord, DestValueType &outValue) override
 			{
-				//A voxel will only ever be visited once here, (i.e. coord will always be the same as iter.getCoord()) therefore always assume the active state was changed
-				const static DestValueType backgroundValue = acc.tree().background(); //The background value does not change during the course of this operation
-				bool isChanged = acc.isValueOn(coord) == true;
-				outIsActive = acc.getValue(coord) != backgroundValue;
-				return isChanged;
-			}
-
-			virtual inline bool GetValue(const SourceIterType& iter, DestAccessorType& acc, const openvdb::Coord &coord, DestValueType &outValue) const override
-			{
+				const DestValueType backgroundValue = DestGridPtr->background();
 				bool isChanged = false;
 				//The vertex value may have already been calculated by someone else since voxels share vertices so first check if the vertex exists
-				if (acc.isValueOn(coord) == true)
+				if (acc.getValue(coord) != backgroundValue)
 				{
 					//Get the saved vertex index
 					outValue = acc.getValue(coord);
@@ -521,7 +340,7 @@ namespace Vdb
 				{
 					//Add to the vertex array and save the index of the new vertex
 					isChanged = true;
-					const openvdb::Vec3d vtx = SourceGridPtr->transform().indexToWorld(coord);
+					const openvdb::Vec3d vtx = DestGridPtr->transform().indexToWorld(coord);
 					outValue = (DestValueType)(vertices.Add(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z())));
 				}
 				return isChanged;
@@ -550,37 +369,44 @@ namespace Vdb
 			TArray<FVector> &vertices;
 			TArray<int32> &polygons;
 			TArray<FVector> &normals;
+			TArray<FVector2D> &uvs;
+			TArray<FColor> &colors;
+			TArray<FProcMeshTangent> &tangents;
 		};
 
 		//Helper struct to hold the associated grid meshing info
-		template <typename TreeType, typename VertexIndexTreeType>
+		template <typename TreeType>
 		class BasicMesher :
-			public MeshGeometryOp<TreeType, VertexIndexTreeType>
+			public MeshGeometryOp<TreeType, IndexTreeType>
 		{
 		public:
-			BasicMesher(const SourceGridTypePtr sourceGridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer)
-				: MeshGeometryOp(sourceGridPtr, vertexBuffer, polygonBuffer, normalBuffer),
-				  isDirty(true)
+			BasicMesher(const SourceGridTypePtr sourceGridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer, TArray<FVector2D> &uvBuffer, TArray<FColor> &colorBuffer, TArray<FProcMeshTangent> &tangentBuffer)
+				: MeshGeometryOp(sourceGridPtr, DestGridType::create(UNVISITED_VERTEX_INDEX), vertexBuffer, polygonBuffer, normalBuffer, uvBuffer, colorBuffer, tangentBuffer)
 			{
+				DestGridPtr->setName(SourceGridPtr->getName() + ".indices");
+				DestGridPtr->setTransform(SourceGridPtr->transformPtr());
+				UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (source pre mesh op) %d active voxels"), UTF8_TO_TCHAR(SourceGridPtr->getName().c_str()), SourceGridPtr->activeVoxelCount()));
+				UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (dest pre mesh op) %d active voxels"), UTF8_TO_TCHAR(DestGridPtr->getName().c_str()), DestGridPtr->activeVoxelCount()));
+			}
+
+			inline void clearBuffers()
+			{
+				vertices.Empty();
+				polygons.Empty();
+				normals.Empty();
+				uvs.Empty();
+				colors.Empty();
+				tangents.Empty();
 			}
 
 			inline void doMeshOp()
 			{
-				if (isDirty)
-				{
-					VisitedVertexIndices = DestGridType::create(UNVISITED_VERTEX_INDEX);
-					vertices.Empty();
-					polygons.Empty();
-					normals.Empty();
-					isDirty = false;
-					BasicMesher<TreeType, VertexIndexTreeType>::doTransformValues(SourceGridPtr->cbeginValueOn(), *VisitedVertexIndices, *this);
-					collectPolygons();
-				}
+				clearBuffers();
+				BasicMesher<TreeType>::DoTransformValues(SourceGridPtr->cbeginValueOn(), *DestGridPtr, *this);
+				UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (source post mesh op) %d active voxels"), UTF8_TO_TCHAR(SourceGridPtr->getName().c_str()), SourceGridPtr->activeVoxelCount()));
+				UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (dest post mesh op) %d active voxels"), UTF8_TO_TCHAR(DestGridPtr->getName().c_str()), DestGridPtr->activeVoxelCount()));
+				collectPolygons();
 			}
-
-		protected:
-			DestGridTypePtr VisitedVertexIndices;
-			bool isDirty;
 		};
 	}
 }
