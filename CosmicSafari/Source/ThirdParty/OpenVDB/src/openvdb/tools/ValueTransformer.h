@@ -160,7 +160,7 @@ inline void foreach(const IterT& iter, const XformOp& op,
 /// @note For more complex operations that require finer control over threading,
 /// consider using @c tbb::parallel_for() or @c tbb::parallel_reduce() in conjunction
 /// with a tree::IteratorRange that wraps a grid or tree iterator.
-template<typename InIterT, typename OutGridT, typename XformOp, typename AccessorType = tree::ValueAccessor<OutTreeT>>
+template<typename InIterT, typename OutGridT, typename XformOp>
 inline void transformValues(const InIterT& inIter, OutGridT& outGrid,
     XformOp& op, bool threaded = true, bool shareOp = true,
     MergePolicy merge = MERGE_ACTIVE_STATES);
@@ -416,7 +416,7 @@ foreach(const IterT& iter, const XformOp& op, bool threaded, bool /*shared*/)
 
 namespace valxform {
 
-template<typename InIterT, typename OutTreeT, typename OpT, typename AccessorType = tree::ValueAccessor<OutTreeT>>
+template<typename InIterT, typename OutTreeT, typename OpT>
 class SharedOpTransformer
 {
 public:
@@ -477,7 +477,7 @@ public:
     void operator()(IterRange& range) const
     {
         if (!mOutputTree) return;
-        typename AccessorType outAccessor(*mOutputTree);
+		typename tree::ValueAccessor<OutTreeT> outAccessor(*mOutputTree);
         for ( ; range; ++range) {
             mOp(range.iterator(), outAccessor);
         }
@@ -500,7 +500,7 @@ private:
 }; // class SharedOpTransformer
 
 
-template<typename InIterT, typename OutTreeT, typename OpT, typename AccessorType = tree::ValueAccessor<OutTreeT>>
+template<typename InIterT, typename OutTreeT, typename OpT>
 class CopyableOpTransformer
 {
 public:
@@ -565,7 +565,7 @@ public:
     void operator()(IterRange& range)
     {
         if (!mOutputTree) return;
-        typename AccessorType outAccessor(*mOutputTree);
+		typename tree::ValueAccessor<OutTreeT> outAccessor(*mOutputTree);
         for ( ; range; ++range) {
             mOp(range.iterator(), outAccessor);
         }
@@ -594,7 +594,7 @@ private:
 ////////////////////////////////////////
 
 
-template<typename InIterT, typename OutGridT, typename XformOp, typename AccessorType>
+template<typename InIterT, typename OutGridT, typename XformOp>
 inline void
 transformValues(const InIterT& inIter, OutGridT& outGrid, XformOp& op,
     bool threaded, bool shared, MergePolicy merge)
@@ -602,11 +602,11 @@ transformValues(const InIterT& inIter, OutGridT& outGrid, XformOp& op,
     typedef TreeAdapter<OutGridT> Adapter;
     typedef typename Adapter::TreeType OutTreeT;
     if (shared) {
-        typedef typename valxform::SharedOpTransformer<InIterT, OutTreeT, XformOp, AccessorType> Processor;
+		typedef typename valxform::SharedOpTransformer<InIterT, OutTreeT, XformOp> Processor;
         Processor proc(inIter, Adapter::tree(outGrid), op, merge);
         proc.process(threaded);
     } else {
-        typedef typename valxform::CopyableOpTransformer<InIterT, OutTreeT, XformOp, AccessorType> Processor;
+		typedef typename valxform::CopyableOpTransformer<InIterT, OutTreeT, XformOp> Processor;
         Processor proc(inIter, Adapter::tree(outGrid), op, merge);
         proc.process(threaded);
     }

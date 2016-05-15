@@ -128,7 +128,8 @@ public:
 		int32 PerlinOctaveCount;
 
 	UVdbHandle(const FObjectInitializer& ObjectInitializer);
-
+	
+	virtual void InitializeComponent() override;
 	virtual void BeginDestroy() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -141,7 +142,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void SetRegionScale(const FIntVector &regionScale) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void ReadGridTree(const FString &gridID, const float &surfaceValue, FIntVector &startFill, FIntVector &endFill, FIntVector &indexStart, FIntVector &indexEnd, FVector &worldStart, FVector &worldEnd, FVector &startLocation) override;
+		virtual void ReadGridTree(const FString &gridID, FIntVector &startFill, FIntVector &endFill) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord) override;
 	//UFUNCTION(BlueprintCallable, Category = "VDB Handle")
@@ -152,10 +153,12 @@ public:
 							  TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,
 							  TSharedPtr<TArray<FVector2D>> &OutUVMapBufferPtr,
 							  TSharedPtr<TArray<FColor>> &OutVertexColorsBufferPtr,
-							  TSharedPtr<TArray<FProcMeshTangent>> &OutTangentsBufferPtr) override;
+							  TSharedPtr<TArray<FProcMeshTangent>> &OutTangentsBufferPtr,
+			                  FVector &worldStart,
+			                  FVector &worldEnd,
+			                  FVector &firstActive) override;
 
 	TArray<FString> GetAllGridIDs();
 	FIntVector GetRegionIndex(const FVector &worldLocation);
-	void InitVdb();
 	void WriteAllGrids();
 };

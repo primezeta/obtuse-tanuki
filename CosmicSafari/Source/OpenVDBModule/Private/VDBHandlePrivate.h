@@ -174,7 +174,7 @@ public:
 		}
 	}
 
-	GridTypePtr ReadGridTree(const FString &gridName, FIntVector &indexStart, FIntVector &indexEnd, FVector &firstActiveVoxelLocation)
+	GridTypePtr ReadGridTree(const FString &gridName, FIntVector &indexStart, FIntVector &indexEnd)
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		if (gridPtr->activeVoxelCount() == 0)
@@ -188,15 +188,6 @@ public:
 				gridPtr->setTree(activeGrid->treePtr());
 			}
 		}
-		
-		openvdb::Coord coord = GetFirstInactiveVoxelFromActive(gridPtr);
-
-		//TODO: Properly handle when no such voxels are found in the entire grid
-		const openvdb::Vec3d location = gridPtr->indexToWorld(coord);
-		const openvdb::Vec3d voxelSize = gridPtr->voxelSize();
-		firstActiveVoxelLocation.X = openvdb::math::Round(location.x() + voxelSize.x()*0.5);
-		firstActiveVoxelLocation.Y = openvdb::math::Round(location.y() + voxelSize.y()*0.5);
-		firstActiveVoxelLocation.Z = openvdb::math::RoundUp(location.z() + voxelSize.z());
 
 		const auto metaMin = gridPtr->getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()));
 		const auto metaMax = gridPtr->getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()));
@@ -341,14 +332,28 @@ public:
 		}
 	}
 
-	void MeshRegion(const FString &gridName) const
+	void MeshRegion(const FString &gridName, FVector &worldStart, FVector &worldEnd, FVector &firstActive) const
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);		
-		TSharedPtr<Vdb::GridOps::BasicMesher<GridTreeType, IndexTreeType>> mesherOp = MeshOps.FindChecked(gridName);
-		mesherOp->doMeshOp();
+		TSharedPtr<Vdb::GridOps::BasicMesher<GridTreeType>> mesherOp = MeshOps.FindChecked(gridName);
+
+		openvdb::BBoxd activeWorldBBox;
+		openvdb::Vec3d startWorldCoord;
+		openvdb::Vec3d voxelSize;
+		mesherOp->doMeshOp(activeWorldBBox, startWorldCoord, voxelSize);
+
+		worldStart.X = activeWorldBBox.min().x();
+		worldStart.Y = activeWorldBBox.min().y();
+		worldStart.Z = activeWorldBBox.min().z();
+		worldEnd.X = activeWorldBBox.max().x();
+		worldEnd.Y = activeWorldBBox.max().y();
+		worldEnd.Z = activeWorldBBox.max().z();
+		firstActive.X = openvdb::math::Round(startWorldCoord.x() + voxelSize.x()*0.5);
+		firstActive.Y = openvdb::math::Round(startWorldCoord.y() + voxelSize.y()*0.5);
+		firstActive.Z = openvdb::math::RoundUp(startWorldCoord.z() + voxelSize.z());
 	}
 
-	void FillGrid_PerlinDensity(const FString &gridName, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount, const FVoxelData::DataType &surfaceValue, FIntVector &indexStart, FIntVector &indexEnd, FVector &worldStart, FVector &worldEnd)
+	void FillGrid_PerlinDensity(const FString &gridName, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount)
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 
@@ -383,40 +388,56 @@ public:
 			openvdb::BoolGrid::Ptr valuesMaskPtr;
 			for (openvdb::GridPtrVec::const_iterator i = MasksPtr->begin(); i != MasksPtr->end(); ++i)
 			{
-				if (gridPtr->getName() == (*i)->getName())
+				const std::string name = gridPtr->getName() + ".mask";
+				if (name == (*i)->getName())
 				{
 					valuesMaskPtr = openvdb::gridPtrCast<openvdb::BoolGrid>(*i);
 					break;
 				}
-			}
-			
+			}			
 			check(valuesMaskPtr != nullptr);
-			if (valuesMaskPtr->tree().empty())
+
+			//Activate mask values to define the region that is filled with values
+			valuesMaskPtr->setTransform(gridPtr->transformPtr());
+			if (!valuesMaskPtr->tree().empty())
 			{
-				//Activate mask values to define the region that is filled with values
-				const openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
-				check(!fillBBox.empty());
-				valuesMaskPtr->fill(fillBBox, /*value*/false, /*state*/true);
-				valuesMaskPtr->topologyUnion(*gridPtr);
+				valuesMaskPtr->clear();
+				gridPtr->clear();
+				MeshOps.FindChecked(gridName)->markChanged();
 			}
 
-			Vdb::GridOps::PerlinNoiseFillOp<openvdb::BoolTree, GridTreeType> noiseFillOp(valuesMaskPtr, surfaceValue, seed, frequency, lacunarity, persistence, octaveCount);
-			Vdb::GridOps::PerlinNoiseFillOp<openvdb::BoolTree, GridTreeType>::doTransformValues(valuesMaskPtr->beginValueOn(), *gridPtr, noiseFillOp);
+			openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
+			check(!fillBBox.empty());
+			valuesMaskPtr->fill(fillBBox, /*value*/false, /*state*/true);
+			fillBBox.expand(-1);
+			check(!fillBBox.empty());
+			valuesMaskPtr->fill(fillBBox, /*value*/true, /*state*/true);
+			valuesMaskPtr->tree().voxelizeActiveTiles();
+			//gridPtr->topologyUnion(*valuesMaskPtr);
+
+			//openvdb transformValues requires that ops are copyable even if shared = true, so instead call only the shared op applier here (code adapted from openvdb transformValues() in ValueTransformer.h)
+			typedef typename Vdb::GridOps::PerlinNoiseFillOp<openvdb::BoolTree, openvdb::BoolTree::ValueOnIter, GridTreeType> NoiseFillOpType;
+			typedef typename Vdb::GridOps::ExtractSurfaceOp<GridTreeType, GridTreeType::ValueOnIter> ExtractSurfaceOpType;
+			typedef typename openvdb::TreeAdapter<GridType> Adapter;
+			typedef typename openvdb::tools::valxform::SharedOpTransformer<openvdb::BoolTree::ValueOnIter, Adapter::TreeType, NoiseFillOpType> NoiseFillProcessor;
+			typedef typename openvdb::tools::valxform::SharedOpApplier<GridTreeType::ValueOnIter, ExtractSurfaceOpType> ExtractSurfaceProcessor;
+
+			const bool threaded = true;
+
+			NoiseFillOpType noiseFillOp(gridPtr, seed, frequency, lacunarity, persistence, octaveCount);
+			NoiseFillProcessor NoiseFillProc(valuesMaskPtr->beginValueOn(), Adapter::tree(*gridPtr), noiseFillOp, openvdb::MERGE_ACTIVE_STATES);
+			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(valuesMaskPtr->getName().c_str()), valuesMaskPtr->activeVoxelCount()));
+			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
+			NoiseFillProc.process(threaded);
+			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(valuesMaskPtr->getName().c_str()), valuesMaskPtr->activeVoxelCount()));
+			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post perlin op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
+
+			ExtractSurfaceOpType extractSurfaceOp(gridPtr);
+			ExtractSurfaceProcessor ExtractSurfaceProc(gridPtr->beginValueOn(), extractSurfaceOp);
+			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
+			ExtractSurfaceProc.process(threaded);
+			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		}
-		const openvdb::CoordBBox indexBBox = gridPtr->evalActiveVoxelBoundingBox();
-		const openvdb::BBoxd worldBBox = gridPtr->transform().indexToWorld(indexBBox);
-		indexStart.X = indexBBox.min().x();
-		indexStart.Y = indexBBox.min().y();
-		indexStart.Z = indexBBox.min().z();
-		indexEnd.X = indexBBox.max().x();
-		indexEnd.Y = indexBBox.max().y();
-		indexEnd.Z = indexBBox.max().z();
-		worldStart.X = worldBBox.min().x();
-		worldStart.Y = worldBBox.min().y();
-		worldStart.Z = worldBBox.min().z();
-		worldEnd.X = worldBBox.max().x();
-		worldEnd.Y = worldBBox.max().y();
-		worldEnd.Z = worldBBox.max().z();
 	}
 
 	void GetAllGridIDs(TArray<FString> &OutGridIDs) const
@@ -489,6 +510,7 @@ public:
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
 		GridType::Accessor acc = gridPtr->getAccessor();
 		acc.modifyValueAndActiveState<Vdb::GridOps::BasicModifyOp<typename GridType::ValueType>>(coord, Vdb::GridOps::BasicModifyOp<typename GridType::ValueType>>(value));
+		MeshOps.FindChecked(gridName)->markChanged();
 	}
 
 	void SetVoxelActiveState(const FString &gridName, const FIntVector &indexCoord, const bool &isActive)
@@ -497,6 +519,7 @@ public:
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
 		GridType::Accessor acc = gridPtr->getAccessor();
 		acc.setActiveState(coord, isActive);
+		MeshOps.FindChecked(gridName)->markChanged();
 	}
 
 	void SetVoxelValueAndActiveState(const FString &gridName, const FIntVector &indexCoord, const typename GridType::ValueType &value, const bool &isActive)
@@ -505,6 +528,7 @@ public:
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
 		GridType::Accessor acc = gridPtr->getAccessor();
 		acc.modifyValueAndActiveState<Vdb::GridOps::BasicModifyActiveOp<typename GridType::ValueType>>(coord, Vdb::GridOps::BasicModifyActiveOp<typename GridType::ValueType>>(value, isActive));
+		MeshOps.FindChecked(gridName)->markChanged();
 	}
 
 private:
@@ -520,7 +544,7 @@ private:
 	TMap<FString, TSharedRef<TArray<FVector2D>>> UVMapSectionBuffers;
 	TMap<FString, TSharedRef<TArray<FColor>>> VertexColorsSectionBuffers;
 	TMap<FString, TSharedRef<TArray<FProcMeshTangent>>> TangentsSectionBuffers;
-	TMap<FString, TSharedRef<Vdb::GridOps::BasicMesher<GridTreeType, IndexTreeType>>> MeshOps;
+	TMap<FString, TSharedRef<Vdb::GridOps::BasicMesher<GridTreeType>>> MeshOps;
 
 	inline void SetIsFileInSync(bool isInSync)
 	{
@@ -556,10 +580,9 @@ private:
 		auto UVMapBufferRef = UVMapSectionBuffers.Emplace(gridName, TSharedRef<TArray<FVector2D>>(new TArray<FVector2D>()));
 		auto VertexColorsBufferRef = VertexColorsSectionBuffers.Emplace(gridName, TSharedRef<TArray<FColor>>(new TArray<FColor>()));
 		auto TangentsBufferRef = TangentsSectionBuffers.Emplace(gridName, TSharedRef<TArray<FProcMeshTangent>>(new TArray<FProcMeshTangent>()));
-		MeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::BasicMesher<GridTreeType, IndexTreeType>>(new Vdb::GridOps::BasicMesher<GridTreeType, IndexTreeType>(gridPtr, VertexBufferRef.Get(), PolygonBufferRef.Get(), NormalBufferRef.Get())));
-		MasksPtr->empty();
+		MeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::BasicMesher<GridTreeType>>(new Vdb::GridOps::BasicMesher<GridTreeType>(gridPtr, VertexBufferRef.Get(), PolygonBufferRef.Get(), NormalBufferRef.Get(), UVMapBufferRef.Get(), VertexColorsBufferRef.Get(), TangentsBufferRef.Get())));
 		openvdb::BoolGrid::Ptr valuesMask = openvdb::BoolGrid::create(false);
-		valuesMask->setName(gridPtr->getName());
+		valuesMask->setName(gridPtr->getName() + ".mask");
 		MasksPtr->push_back(valuesMask);
 	}
 
@@ -570,9 +593,6 @@ private:
 		InitMeshSection(gridPtr);
 		GridsPtr->push_back(gridPtr);
 		CachedGrid = GridsPtr->end();
-		openvdb::BoolGrid::Ptr valuesMask = openvdb::BoolGrid::create(false);
-		valuesMask->setName(gridPtr->getName());
-		MasksPtr->push_back(valuesMask);
 		SetIsFileInSync(false);
 		return gridPtr;
 	}
@@ -600,36 +620,6 @@ private:
 		{
 			FilePtr->close();
 		}
-	}
-
-	openvdb::Coord GetFirstInactiveVoxelFromActive(GridTypePtr gridPtr) const
-	{
-		openvdb::Coord coord;
-		const openvdb::CoordBBox gridBBox = gridPtr->evalActiveVoxelBoundingBox();
-		for (auto i = gridPtr->beginValueOn(); i; ++i)
-		{
-			if (i.isVoxelValue() && i.isValueOn())
-			{
-				//Find the first voxel above that is off
-				for (int32_t x = i.getCoord().x(); x <= gridBBox.max().x(); ++x)
-				{
-					coord.setX(x);
-					for (int32_t y = i.getCoord().y(); y <= gridBBox.max().y(); ++y)
-					{
-						coord.setY(y);
-						for (int32_t z = i.getCoord().z(); x <= gridBBox.max().z(); ++z)
-						{
-							coord.setZ(z);
-							if (i.getTree()->isValueOff(coord))
-							{
-								return coord;
-							}
-						}
-					}
-				}
-			}
-		}
-		return openvdb::Coord(0, 0, 0);
 	}
 };
 

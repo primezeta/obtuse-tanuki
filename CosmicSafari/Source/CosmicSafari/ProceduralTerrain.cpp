@@ -7,11 +7,10 @@
 // Sets default values
 AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializer)
 {
-	VdbHandle = ObjectInitializer.CreateDefaultSubobject<UVdbHandle>(this, TEXT("VDB Handle"));
+	UVdbHandle * VdbHandle = ObjectInitializer.CreateDefaultSubobject<UVdbHandle>(this, TEXT("VDBHandle"));
 	check(VdbHandle != nullptr);
 	TerrainMeshComponent = ObjectInitializer.CreateDefaultSubobject<UProceduralTerrainMeshComponent>(this, TEXT("GeneratedTerrain"));
 	check(TerrainMeshComponent != nullptr);
-
 	TerrainMeshComponent->bGenerateOverlapEvents = true;
 
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
@@ -50,19 +49,12 @@ void AProceduralTerrain::PostInitializeComponents()
 		TerrainMeshComponent->OnComponentEndOverlap.AddDynamic(this, &AProceduralTerrain::OnOverlapEnd);
 	}
 
-	VdbHandle->InitVdb();
 	VdbHandle->SetRegionScale(RegionDimensions);
 	FString GridID = VdbHandle->AddGrid(TEXT("StartRegion"), FVector(0, 0, 0), VoxelSize);
 
 	FIntVector StartFill;
 	FIntVector EndFill;
-	FIntVector ActiveIndexStart;
-	FIntVector ActiveIndexEnd;
-	FVector ActiveWorldStart;
-	FVector ActiveWorldEnd;
-	FVector StartLocation;
-	VdbHandle->ReadGridTree(GridID, MeshSurfaceValue, StartFill, EndFill, ActiveIndexStart, ActiveIndexEnd, ActiveWorldStart, ActiveWorldEnd, StartLocation);
-	TerrainMeshComponent->SetRelativeLocationAndRotation(-StartLocation, FRotator::ZeroRotator);
+	VdbHandle->ReadGridTree(GridID, StartFill, EndFill);
 
 	int32 sectionIndex = 0;
 	TArray<FString> AllGridIDs = VdbHandle->GetAllGridIDs();
@@ -91,7 +83,19 @@ void AProceduralTerrain::BeginPlay()
 			TSharedPtr<TArray<FVector2D>> UVMapBufferPtr;
 			TSharedPtr<TArray<FColor>> VertexColorsBufferPtr;
 			TSharedPtr<TArray<FProcMeshTangent>> TangentsBufferPtr;
-			VdbHandle->MeshGrid(TerrainMeshComponent->MeshSectionIDs[sectionIndex], VertexBufferPtr, PolygonBufferPtr, NormalBufferPtr, UVMapBufferPtr, VertexColorsBufferPtr, TangentsBufferPtr);
+			FVector ActiveWorldStart;
+			FVector ActiveWorldEnd;
+			FVector StartLocation;
+			VdbHandle->MeshGrid(TerrainMeshComponent->MeshSectionIDs[sectionIndex],
+				                VertexBufferPtr,
+				                PolygonBufferPtr,
+				                NormalBufferPtr,
+				                UVMapBufferPtr,
+				                VertexColorsBufferPtr,
+				                TangentsBufferPtr,
+				                ActiveWorldStart,
+				                ActiveWorldEnd,
+				                StartLocation);
 			TerrainMeshComponent->CreateTerrainMeshSection(
 				sectionIndex,
 				bCreateCollision,
@@ -101,6 +105,7 @@ void AProceduralTerrain::BeginPlay()
 				*NormalBufferPtr,
 				*VertexColorsBufferPtr,
 				*TangentsBufferPtr);
+			TerrainMeshComponent->SetRelativeLocationAndRotation(-StartLocation, FRotator::ZeroRotator);
 			TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
 			TerrainMeshComponent->IsGridSectionMeshed[sectionIndex] = true;
 		}

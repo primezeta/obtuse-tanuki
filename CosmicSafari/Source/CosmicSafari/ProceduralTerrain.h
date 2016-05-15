@@ -36,9 +36,6 @@ public:
 		FString VolumeName;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "OpenVDB|Procedural Terrain")
-		float MeshSurfaceValue;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "OpenVDB|Procedural Terrain")
 		bool bCreateCollision;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Voxels per dimension of a meshable terrain region"))
