@@ -18,7 +18,7 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 	SetActorEnableCollision(true);
 	//RootComponent = TerrainMeshComponent;
 	TerrainMeshComponent->AttachTo(RootComponent);
-	TerrainMeshComponent->SetWorldScale3D(FVector(100.0f, 100.0f, 100.0f));
+	TerrainMeshComponent->SetWorldScale3D(FVector(1.0f, 1.0f, 1.0f));
 	//TerrainMeshComponent->SetMaterial(0, TerrainMaterial);
 
 	//static ConstructorHelpers::FObjectFinder<UMaterial> TerrainMaterialObject(TEXT("Material'/Engine/EngineMaterials/DefaultDeferredDecalMaterial.DefaultDeferredDecalMaterial'"));
@@ -105,7 +105,17 @@ void AProceduralTerrain::BeginPlay()
 				*NormalBufferPtr,
 				*VertexColorsBufferPtr,
 				*TangentsBufferPtr);
-			TerrainMeshComponent->SetRelativeLocationAndRotation(-StartLocation, FRotator::ZeroRotator);
+
+			ACharacter* Character = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+			FVector PlayerLocation;
+			if (Character)
+			{
+				PlayerLocation = Character->GetActorLocation();
+			}
+			FVector TerrainScale = TerrainMeshComponent->GetComponentScale();
+			StartLocation = TerrainScale*(PlayerLocation - StartLocation);
+			TerrainMeshComponent->SetWorldLocation(PlayerLocation);
+			TerrainMeshComponent->SetRelativeLocationAndRotation(StartLocation, FRotator::ZeroRotator);
 			TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
 			TerrainMeshComponent->IsGridSectionMeshed[sectionIndex] = true;
 		}

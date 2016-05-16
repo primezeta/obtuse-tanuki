@@ -348,9 +348,10 @@ public:
 		worldEnd.X = activeWorldBBox.max().x();
 		worldEnd.Y = activeWorldBBox.max().y();
 		worldEnd.Z = activeWorldBBox.max().z();
-		firstActive.X = openvdb::math::Round(startWorldCoord.x() + voxelSize.x()*0.5);
-		firstActive.Y = openvdb::math::Round(startWorldCoord.y() + voxelSize.y()*0.5);
-		firstActive.Z = openvdb::math::RoundUp(startWorldCoord.z() + voxelSize.z());
+		//Set start location to the center of the voxel surface
+		firstActive.X = startWorldCoord.x() + voxelSize.x()*0.5;
+		firstActive.Y = startWorldCoord.y() + voxelSize.y()*0.5;
+		firstActive.Z = startWorldCoord.z() + voxelSize.z();
 	}
 
 	void FillGrid_PerlinDensity(const FString &gridName, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount)
@@ -429,7 +430,7 @@ public:
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(valuesMaskPtr->getName().c_str()), valuesMaskPtr->activeVoxelCount()));
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 			NoiseFillProc.process(threaded);
-			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(valuesMaskPtr->getName().c_str()), valuesMaskPtr->activeVoxelCount()));
+			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post perlin op) %d active voxels"), UTF8_TO_TCHAR(valuesMaskPtr->getName().c_str()), valuesMaskPtr->activeVoxelCount()));
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post perlin op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 
 			ExtractSurfaceOpType extractSurfaceOp(gridPtr);

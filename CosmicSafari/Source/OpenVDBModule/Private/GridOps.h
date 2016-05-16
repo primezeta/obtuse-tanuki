@@ -6,10 +6,6 @@
 #include <openvdb/tools/ValueTransformer.h>
 #include <noise.h>
 #include <noiseutils.h>
-#include <boost/utility.hpp>
-#include <tbb/mutex.h>
-
-PRAGMA_DISABLE_OPTIMIZATION
 
 namespace Vdb
 {
@@ -315,23 +311,16 @@ namespace Vdb
 				activeIndexBBox = GridPtr->evalActiveVoxelBoundingBox();
 				for (auto i = GridPtr->cbeginValueOn(); i; ++i)
 				{
-					if (i.isVoxelValue() && i.isValueOn())
+					if (i.isVoxelValue())
 					{
+						coord = i.getCoord();
 						//Find the first voxel above that is off
-						for (int32_t x = i.getCoord().x(); x <= activeIndexBBox.max().x(); ++x)
+						for (int32_t z = i.getCoord().z(); z <= activeIndexBBox.max().z(); ++z)
 						{
-							coord.setX(x);
-							for (int32_t y = i.getCoord().y(); y <= activeIndexBBox.max().y(); ++y)
+							coord.setZ(z);
+							if (i.getTree()->isValueOff(coord))
 							{
-								coord.setY(y);
-								for (int32_t z = i.getCoord().z(); z <= activeIndexBBox.max().z(); ++z)
-								{
-									coord.setZ(z);
-									if (i.getTree()->isValueOff(coord))
-									{
-										return;
-									}
-								}
+								return;
 							}
 						}
 					}
