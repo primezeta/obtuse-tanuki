@@ -139,7 +139,7 @@ public:
 #endif
 
 	UFUNCTION(BlueprintCallable, Category="VDB Handle")
-		virtual FString AddGrid(const FString &gridName, const FVector &worldLocation, const FVector &voxelSize) override;
+		virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void RemoveGrid(const FString &gridID) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")

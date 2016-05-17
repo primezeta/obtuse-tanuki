@@ -50,16 +50,23 @@ void AProceduralTerrain::PostInitializeComponents()
 	}
 
 	VdbHandle->SetRegionScale(RegionDimensions);
-	FString GridID = VdbHandle->AddGrid(TEXT("StartRegion"), FVector(0, 0, 0), VoxelSize);
+	VdbHandle->AddGrid(TEXT("Region[0,0,0]"), FIntVector(0, 0, 0), VoxelSize);
+	//VdbHandle->AddGrid(TEXT("Region[1,0,0]"), FIntVector(1, 0, 0), VoxelSize);
+	//VdbHandle->AddGrid(TEXT("Region[1,-1,0]"), FIntVector(1, -1, 0), VoxelSize);
+	//VdbHandle->AddGrid(TEXT("Region[0,-1,0]"), FIntVector(0, -1, 0), VoxelSize);
+	//VdbHandle->AddGrid(TEXT("Region[-1,-1,0]"), FIntVector(-1, -1, 0), VoxelSize);
+	//VdbHandle->AddGrid(TEXT("Region[-1,0,0]"), FIntVector(-1, 0, 0), VoxelSize);
+	//VdbHandle->AddGrid(TEXT("Region[-1,1,0]"), FIntVector(-1, 1, 0), VoxelSize);
+	//VdbHandle->AddGrid(TEXT("Region[0,1,0]"), FIntVector(0, 1, 0), VoxelSize);
+	//VdbHandle->AddGrid(TEXT("Region[1,1,0]"), FIntVector(1, 1, 0), VoxelSize);
 
-	FIntVector StartFill;
-	FIntVector EndFill;
-	VdbHandle->ReadGridTree(GridID, StartFill, EndFill);
-
+	FIntVector StartFill; //dummy value (not used)
+	FIntVector EndFill; //dummy value (not used)
 	int32 sectionIndex = 0;
 	TArray<FString> AllGridIDs = VdbHandle->GetAllGridIDs();
 	for (TArray<FString>::TConstIterator i = AllGridIDs.CreateConstIterator(); i; ++i)
 	{
+		VdbHandle->ReadGridTree(*i, StartFill, EndFill);
 		TerrainMeshComponent->MeshSectionIndices.Add(sectionIndex);
 		TerrainMeshComponent->MeshSectionIDs.Add(sectionIndex, *i);
 		TerrainMeshComponent->IsGridSectionMeshed.Add(sectionIndex, false);
@@ -105,18 +112,21 @@ void AProceduralTerrain::BeginPlay()
 				*NormalBufferPtr,
 				*VertexColorsBufferPtr,
 				*TangentsBufferPtr);
-
-			ACharacter* Character = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-			FVector PlayerLocation;
-			if (Character)
-			{
-				PlayerLocation = Character->GetActorLocation();
-				StartLocation = TerrainMeshComponent->GetComponentScale()*(PlayerLocation - StartLocation);
-				TerrainMeshComponent->SetRelativeLocationAndRotation(StartLocation, FRotator::ZeroRotator);
-			}
-			TerrainMeshComponent->SetWorldLocation(PlayerLocation);
-			TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
 			TerrainMeshComponent->IsGridSectionMeshed[sectionIndex] = true;
+
+			if (sectionIndex == 0)
+			{
+				ACharacter* Character = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+				FVector PlayerLocation;
+				if (Character)
+				{
+					PlayerLocation = Character->GetActorLocation();
+					StartLocation = TerrainMeshComponent->GetComponentScale()*(PlayerLocation - StartLocation);
+					TerrainMeshComponent->SetRelativeLocationAndRotation(StartLocation, FRotator::ZeroRotator);
+				}
+				TerrainMeshComponent->SetWorldLocation(PlayerLocation);
+				TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
+			}
 		}
 	}
 }

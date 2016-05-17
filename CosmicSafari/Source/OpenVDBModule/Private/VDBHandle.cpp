@@ -35,12 +35,12 @@ void UVdbHandle::BeginDestroy()
 	Super::BeginDestroy();
 }
 
-FString UVdbHandle::AddGrid(const FString &gridName, const FVector &worldLocation, const FVector &voxelSize)
+FString UVdbHandle::AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize)
 {
 	FString gridID;
 	if (FOpenVDBModule::IsAvailable())
 	{
-		gridID = FOpenVDBModule::AddGrid(this, gridName, worldLocation, voxelSize);
+		gridID = FOpenVDBModule::AddGrid(this, gridName, regionIndex, voxelSize);
 	}
 	return gridID;
 }

@@ -20,7 +20,7 @@ public:
 
 	static void RegisterVdb(UVdbHandle const * VdbHandle);
 	static void UnregisterVdb(UVdbHandle const * VdbHandle);
-	static FString AddGrid(UVdbHandle const * VdbHandle, const FString &gridName, const FVector &worldLocation, const FVector &voxelSize);
+	static FString AddGrid(UVdbHandle const * VdbHandle, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize);
 	static TArray<FString> GetAllGridIDs(UVdbHandle const * VdbHandle);
 	static void RemoveGrid(UVdbHandle const * VdbHandle, const FString &gridID);
 	static void SetRegionScale(UVdbHandle const * VdbHandle, const FIntVector &regionScale);

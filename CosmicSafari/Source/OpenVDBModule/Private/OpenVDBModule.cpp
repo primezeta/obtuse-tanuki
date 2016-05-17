@@ -62,7 +62,7 @@ void FOpenVDBModule::UnregisterVdb(UVdbHandle const * VdbHandle)
 	}
 }
 
-FString FOpenVDBModule::AddGrid(UVdbHandle const * VdbHandle, const FString &gridName, const FVector &worldLocation, const FVector &voxelSize)
+FString FOpenVDBModule::AddGrid(UVdbHandle const * VdbHandle, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize)
 {
 	FString gridID;
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(VdbHandle->GetReadableName());
@@ -71,11 +71,12 @@ FString FOpenVDBModule::AddGrid(UVdbHandle const * VdbHandle, const FString &gri
 		TSharedPtr<openvdb::TypedMetadata<openvdb::math::ScaleMap>> regionSizeMetaValue = VdbHandlePrivatePtr->GetFileMetaValue<openvdb::math::ScaleMap>(VdbHandlePrivateType::MetaName_RegionScale());
 		check(regionSizeMetaValue.IsValid());
 
-		const openvdb::Vec3d regionStart = regionSizeMetaValue->value().applyInverseMap(openvdb::Vec3d((double)worldLocation.X, (double)worldLocation.Y, (double)worldLocation.Z));
-		const openvdb::Coord endIndexCoord = openvdb::Coord((int32)regionStart.x() + 1, (int32)regionStart.y() + 1, (int32)regionStart.z() + 1);
+		const openvdb::Coord startIndexCoord = openvdb::Coord((int32)regionIndex.X, (int32)regionIndex.Y, (int32)regionIndex.Z);
+		const openvdb::Coord endIndexCoord = openvdb::Coord((int32)regionIndex.X + 1, (int32)regionIndex.Y + 1, (int32)regionIndex.Z + 1);
+		const openvdb::Vec3d regionStart = regionSizeMetaValue->value().applyMap(openvdb::Vec3d((double)startIndexCoord.x(), (double)startIndexCoord.y(), (double)startIndexCoord.z()));
 		const openvdb::Vec3d regionEnd = regionSizeMetaValue->value().applyMap(openvdb::Vec3d((double)endIndexCoord.x(), (double)endIndexCoord.y(), (double)endIndexCoord.z()));
 		const FIntVector indexStart = FIntVector(regionStart.x(), regionStart.y(), regionStart.z());
-		const FIntVector indexEnd = FIntVector(regionEnd.x(), regionEnd.y(), regionEnd.z());
+		const FIntVector indexEnd = FIntVector(((int32)regionEnd.x())-1, ((int32)regionEnd.y())-1, ((int32)regionEnd.z())-1);
 
 		gridID = indexStart.ToString() + TEXT(",") + indexEnd.ToString();
 		VdbHandlePrivatePtr->AddGrid(gridID, indexStart, indexEnd, voxelSize);
