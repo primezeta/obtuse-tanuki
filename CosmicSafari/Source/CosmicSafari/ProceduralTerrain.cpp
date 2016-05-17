@@ -4,6 +4,8 @@
 #include "FirstPersonCPPCharacter.h"
 #include "ProceduralTerrain.h"
 
+PRAGMA_DISABLE_OPTIMIZATION
+
 // Sets default values
 AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializer)
 {
@@ -54,7 +56,7 @@ void AProceduralTerrain::PostInitializeComponents()
 
 	FIntVector StartFill;
 	FIntVector EndFill;
-	VdbHandle->ReadGridTree(GridID, StartFill, EndFill);
+	VdbHandle->ReadGridTree(GridID, EMeshType::MESH_TYPE_CUBES, StartFill, EndFill);
 
 	int32 sectionIndex = 0;
 	TArray<FString> AllGridIDs = VdbHandle->GetAllGridIDs();
@@ -87,6 +89,7 @@ void AProceduralTerrain::BeginPlay()
 			FVector ActiveWorldEnd;
 			FVector StartLocation;
 			VdbHandle->MeshGrid(TerrainMeshComponent->MeshSectionIDs[sectionIndex],
+				                EMeshType::MESH_TYPE_CUBES,
 				                VertexBufferPtr,
 				                PolygonBufferPtr,
 				                NormalBufferPtr,
@@ -111,11 +114,10 @@ void AProceduralTerrain::BeginPlay()
 			if (Character)
 			{
 				PlayerLocation = Character->GetActorLocation();
+				StartLocation = TerrainMeshComponent->GetComponentScale()*(PlayerLocation - StartLocation);
+				TerrainMeshComponent->SetRelativeLocationAndRotation(StartLocation, FRotator::ZeroRotator);
 			}
-			FVector TerrainScale = TerrainMeshComponent->GetComponentScale();
-			StartLocation = TerrainScale*(PlayerLocation - StartLocation);
 			TerrainMeshComponent->SetWorldLocation(PlayerLocation);
-			TerrainMeshComponent->SetRelativeLocationAndRotation(StartLocation, FRotator::ZeroRotator);
 			TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
 			TerrainMeshComponent->IsGridSectionMeshed[sectionIndex] = true;
 		}

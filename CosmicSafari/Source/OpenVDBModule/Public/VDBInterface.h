@@ -6,6 +6,13 @@
 #include "ProceduralMeshComponent.h"
 #include "VdbInterface.generated.h"
 
+UENUM(BlueprintType)		//"BlueprintType" is essential to include
+enum class EMeshType : uint8
+{
+	MESH_TYPE_CUBES 		 UMETA(DisplayName = "Mesh as basic cubes"),
+	MESH_TYPE_MARCHING_CUBES UMETA(DisplayName = "Mesh with marching cubes"),
+};
+
 UINTERFACE(Blueprintable)
 class OPENVDBMODULE_API UVdbInterface : public UInterface
 {
@@ -20,9 +27,10 @@ public:
 	virtual FString AddGrid(const FString &gridName, const FVector &worldLocation, const FVector &voxelSize) = 0;
 	virtual void RemoveGrid(const FString &gridID) = 0;
 	virtual void SetRegionScale(const FIntVector &regionScale) = 0;
-	virtual void ReadGridTree(const FString &gridID, FIntVector &startFill, FIntVector &endFill) = 0;
+	virtual void ReadGridTree(const FString &gridID, EMeshType MeshMethod, FIntVector &startFill, FIntVector &endFill) = 0;
 	virtual void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord) = 0;
 	virtual void MeshGrid(const FString &gridID,
+		EMeshType MeshMethod,
 		TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,
 		TSharedPtr<TArray<int32>> &OutPolygonBufferPtr,
 		TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,

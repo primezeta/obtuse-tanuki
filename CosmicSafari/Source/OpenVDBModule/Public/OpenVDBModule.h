@@ -24,10 +24,11 @@ public:
 	static TArray<FString> GetAllGridIDs(UVdbHandle const * VdbHandle);
 	static void RemoveGrid(UVdbHandle const * VdbHandle, const FString &gridID);
 	static void SetRegionScale(UVdbHandle const * VdbHandle, const FIntVector &regionScale);
-	static void ReadGridTree(UVdbHandle const * VdbHandle, const FString &gridID, FIntVector &startFill, FIntVector &endFill);
+	static void ReadGridTree(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod, FIntVector &startFill, FIntVector &endFill);
 	static void GetVoxelCoord(UVdbHandle const * VdbHandle, const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord);
 	static void MeshGrid(UVdbHandle const * VdbHandle,
 						 const FString &gridID,
+		                 EMeshType MeshMethod,
 						 TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,
 						 TSharedPtr<TArray<int32>> &OutPolygonBufferPtr,
 						 TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,

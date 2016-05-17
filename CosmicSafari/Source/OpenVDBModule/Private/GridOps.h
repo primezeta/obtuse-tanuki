@@ -6,38 +6,17 @@
 #include <openvdb/tools/ValueTransformer.h>
 #include <noise.h>
 #include <noiseutils.h>
+#include "MarchingCubes.h"
 
 namespace Vdb
 {
 	namespace GridOps
 	{
 		typedef int32 IndexType;
+		typedef uint8 BitType;
 		typedef openvdb::tree::Tree4<IndexType, 5, 4, 3>::Type IndexTreeType; //Same tree configuration (5,4,3) as openvdb::FloatTree (see openvdb.h)
+		typedef openvdb::tree::Tree4<BitType, 5, 4, 3>::Type BitTreeType; //Same tree configuration (5,4,3) as openvdb::FloatTree (see openvdb.h)
 		const static IndexType UNVISITED_VERTEX_INDEX = -1;
-
-		template<typename ValueType>
-		struct BasicModifyOp
-		{
-			const ValueType val;
-			BasicModifyOp(const ValueType &v) : val(v) {}
-			inline void BasicModifyOp<ValueType>::operator()(ValueType &v) const
-			{
-				v = val;
-			}
-		};
-
-		template<typename ValueType>
-		struct BasicModifyActiveOp
-		{
-			const ValueType val;
-			const bool isActive;
-			BasicModifyActiveOp(const ValueType& v, const bool &active) : val(v), isActive(active) {}
-			inline void operator()(ValueType& v, bool &activeState) const
-			{
-				v = val;
-				activeState = isActive;
-			}
-		};
 
 		//Operator to fill a grid with Perlin noise values (no tiles)
 		template <typename InTreeType, typename InIterType, typename OutTreeType>
@@ -97,26 +76,25 @@ namespace Vdb
 
 		//Operator to extract an isosurface from a grid
 		template <typename TreeType, typename IterType>
-		class ExtractSurfaceOp
+		class BasicExtractSurfaceOp
 		{
 		public:
 			typedef typename openvdb::Grid<TreeType> GridType;
 			typedef typename GridType::Ptr GridTypePtr;
-			typedef typename GridType::ConstAccessor AccessorType;
-			typedef typename GridType::ValueType ValueType;
-			typedef typename IterType SourceIterType;
+			typedef typename GridType::Accessor AccessorType;
+			typedef typename TreeType::ValueType ValueType;
 
-			ExtractSurfaceOp(const GridTypePtr gridPtr)
-				: GridPtr(gridPtr), GridAcc(gridPtr->getConstAccessor()), SurfaceValue(GridPtr->tree().background())
+			BasicExtractSurfaceOp(const GridTypePtr gridPtr)
+				: GridPtr(gridPtr), SurfaceValue(gridPtr->tree().background())
 			{
 			}
 
-			inline void operator()(const SourceIterType& iter)
+			inline void operator()(const IterType& iter)
 			{
 				//Note that no special consideration is done for tile voxels, so the grid tiles must be voxelized prior to this op [tree().voxelizeActiveTiles()]
 				uint8 insideBits = 0;
 				const openvdb::Coord &coord = iter.getCoord();
-				auto acc = GridPtr->getAccessor();
+				auto acc = GridPtr->getConstAccessor();
 				if (acc.getValue(coord).Data < SurfaceValue.Data) { insideBits |= 1; }
 				if (acc.getValue(coord.offsetBy(1, 0, 0)).Data < SurfaceValue.Data) { insideBits |= 2; }
 				if (acc.getValue(coord.offsetBy(0, 1, 0)).Data < SurfaceValue.Data) { insideBits |= 4; }
@@ -128,19 +106,251 @@ namespace Vdb
 				//Turn the voxel off if it is completely outside or completely inside the surface
 				if (insideBits == 0 || insideBits == 255)
 				{
-					acc.setValueOff(coord);
+					iter.setValueOff();
 				}
 			}
 
 		private:
-			const GridTypePtr GridPtr;
-			AccessorType GridAcc;
+			GridTypePtr GridPtr;
 			const ValueType &SurfaceValue;
+		};
+
+		//Operator to extract an isosurface from a grid
+		template <typename InTreeType, typename InIterType, typename OutTreeType>
+		class ExtractSurfaceOp
+		{
+		public:
+			typedef typename openvdb::Grid<InTreeType> SourceGridType;
+			typedef typename SourceGridType::Ptr SourceGridTypePtr;
+			typedef typename SourceGridType::Accessor SourceAccessorType;
+			typedef typename SourceGridType::ValueType SourceValueType;
+			typedef typename InIterType SourceIterType;
+			typedef typename openvdb::Grid<OutTreeType> DestGridType;
+			typedef typename DestGridType::Ptr DestGridTypePtr;
+			typedef typename DestGridType::Accessor DestAccessorType;
+			typedef typename OutTreeType::ValueType DestValueType;
+
+			ExtractSurfaceOp(const SourceGridTypePtr sourceGridPtr)
+				: SourceGridPtr(sourceGridPtr), SurfaceValue(sourceGridPtr->tree().background())
+			{
+			}
+
+			inline void operator()(const SourceIterType& iter, DestAccessorType& acc)
+			{
+				//Note that no special consideration is done for tile voxels, so the grid tiles must be voxelized prior to this op [tree().voxelizeActiveTiles()]
+				uint8 insideBits = 0;
+				const openvdb::Coord &coord = iter.getCoord();
+				auto acc = SourceGridPtr->getAccessor();
+				if (acc.getValue(coord).Data < SurfaceValue.Data) { insideBits |= 1; }
+				if (acc.getValue(coord.offsetBy(1, 0, 0)).Data < SurfaceValue.Data) { insideBits |= 2; }
+				if (acc.getValue(coord.offsetBy(0, 1, 0)).Data < SurfaceValue.Data) { insideBits |= 4; }
+				if (acc.getValue(coord.offsetBy(0, 0, 1)).Data < SurfaceValue.Data) { insideBits |= 8; }
+				if (acc.getValue(coord.offsetBy(1, 1, 0)).Data < SurfaceValue.Data) { insideBits |= 16; }
+				if (acc.getValue(coord.offsetBy(1, 0, 1)).Data < SurfaceValue.Data) { insideBits |= 32; }
+				if (acc.getValue(coord.offsetBy(0, 1, 1)).Data < SurfaceValue.Data) { insideBits |= 64; }
+				if (acc.getValue(coord.offsetBy(1, 1, 1)).Data < SurfaceValue.Data) { insideBits |= 128; }
+				//Turn the voxel off if it is completely outside or completely inside the surface
+				if (insideBits == 0 || insideBits == 255)
+				{
+					acc.setValueOff(coord, insideBits);
+				}
+				else
+				{
+					acc.setValueOn(coord, insideBits);
+				}
+			}
+
+		private:
+			SourceGridTypePtr SourceGridPtr;
+			const SourceValueType &SurfaceValue;
+		};
+
+		//Operator to extract an isosurface from a grid via the Marching Cubes algorithm
+		template <typename TreeType, typename IterType, typename DataTreeType>
+		class MarchingCubesMeshOp
+		{
+		public:
+			typedef typename openvdb::Grid<TreeType> GridType;
+			typedef typename GridType::Ptr GridTypePtr;
+			typedef typename GridType::Accessor AccessorType;
+			typedef typename GridType::ValueType ValueType;
+			typedef typename IterType SourceIterType;
+			typedef typename openvdb::Grid<DataTreeType> DataGridType;
+			typedef typename DataGridType::Ptr DataGridTypePtr;
+			typedef typename DataGridType::Accessor DataAccessorType;
+			typedef typename DataGridType::ValueType::DataType DataType;
+
+			MarchingCubesMeshOp(const GridTypePtr gridPtr, const DataGridTypePtr dataGridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer, TArray<FVector2D> &uvBuffer, TArray<FColor> &colorBuffer, TArray<FProcMeshTangent> &tangentBuffer)
+				: GridPtr(gridPtr), DataGridPtr(dataGridPtr), Acc(gridPtr->getAccessor()), Xform(dataGridPtr->transform()), SurfaceValue(dataGridPtr->tree().background().Data), DataAcc(dataGridPtr->getAccessor()), vertices(vertexBuffer), polygons(polygonBuffer), normals(normalBuffer), uvs(uvBuffer), colors(colorBuffer), tangents(tangentBuffer)
+			{
+			}
+
+			inline void operator()(const IterType& iter)
+			{
+				const openvdb::Coord &coord = iter.getCoord();
+				const openvdb::Coord p[8] =
+				{
+					coord,
+					coord.offsetBy(1, 0, 0),
+					coord.offsetBy(0, 1, 0),
+					coord.offsetBy(0, 0, 1),
+					coord.offsetBy(1, 1, 0),
+					coord.offsetBy(1, 0, 1),
+					coord.offsetBy(0, 1, 1),
+					coord.offsetBy(1, 1, 1)
+				};
+				const openvdb::Vec3d vec[8] =
+				{
+					Xform.indexToWorld(p[0]),
+					Xform.indexToWorld(p[1]),
+					Xform.indexToWorld(p[2]),
+					Xform.indexToWorld(p[3]),
+					Xform.indexToWorld(p[4]),
+					Xform.indexToWorld(p[5]),
+					Xform.indexToWorld(p[6]),
+					Xform.indexToWorld(p[7])
+				};
+				const DataType val[8] =
+				{
+					DataAcc.getValue(p[0]).Data,
+					DataAcc.getValue(p[1]).Data,
+					DataAcc.getValue(p[2]).Data,
+					DataAcc.getValue(p[3]).Data,
+					DataAcc.getValue(p[4]).Data,
+					DataAcc.getValue(p[5]).Data,
+					DataAcc.getValue(p[6]).Data,
+					DataAcc.getValue(p[7]).Data
+				};
+
+				//Find the vertices where the surface intersects the cube
+				openvdb::Vec3d vertlist[12];
+				const uint8 &insideBits = iter.getValue();
+				if (MC_EdgeTable[insideBits] & 1)
+				{
+					VertexInterp(vec[0], vec[1], val[0], val[1], vertlist[0]);
+				}
+				if (MC_EdgeTable[insideBits] & 2)
+				{
+					VertexInterp(vec[1], vec[2], val[1], val[2], vertlist[1]);
+				}
+				if (MC_EdgeTable[insideBits] & 4)
+				{
+					VertexInterp(vec[2], vec[3], val[2], val[3], vertlist[2]);
+				}
+				if (MC_EdgeTable[insideBits] & 8)
+				{
+					VertexInterp(vec[3], vec[0], val[3], val[0], vertlist[3]);
+				}
+				if (MC_EdgeTable[insideBits] & 16)
+				{
+					VertexInterp(vec[4], vec[5], val[4], val[5], vertlist[4]);
+				}
+				if (MC_EdgeTable[insideBits] & 32)
+				{
+					VertexInterp(vec[5], vec[6], val[5], val[6], vertlist[5]);
+				}
+				if (MC_EdgeTable[insideBits] & 64)
+				{
+					VertexInterp(vec[6], vec[7], val[6], val[7], vertlist[6]);
+				}
+				if (MC_EdgeTable[insideBits] & 128)
+				{
+					VertexInterp(vec[7], vec[4], val[7], val[4], vertlist[7]);
+				}
+				if (MC_EdgeTable[insideBits] & 256)
+				{
+					VertexInterp(vec[0], vec[4], val[0], val[4], vertlist[8]);
+				}
+				if (MC_EdgeTable[insideBits] & 512)
+				{
+					VertexInterp(vec[1], vec[5], val[1], val[5], vertlist[9]);
+				}
+				if (MC_EdgeTable[insideBits] & 1024)
+				{
+					VertexInterp(vec[2], vec[6], val[2], val[6], vertlist[10]);
+				}
+				if (MC_EdgeTable[insideBits] & 2048)
+				{
+					VertexInterp(vec[3], vec[7], val[3], val[7], vertlist[11]);
+				}
+
+				// Create the triangle
+				int32_t ntriangle = 0;
+				for (int32_t i = 0; MC_TriTable[insideBits][i] != -1; i += 3)
+				{
+					openvdb::Vec3d triangle[3];
+					triangle[0] = vertlist[MC_TriTable[insideBits][i]];
+					triangle[1] = vertlist[MC_TriTable[insideBits][i + 1]];
+					triangle[2] = vertlist[MC_TriTable[insideBits][i + 2]];
+					ntriangle++;
+					{
+						FScopeLock lock(&CriticalSection);
+						FVector triPolys[3];
+						triPolys[0].X = triangle[0].x();
+						triPolys[0].Y = triangle[0].y();
+						triPolys[0].Z = triangle[0].z();
+						triPolys[1].X = triangle[1].x();
+						triPolys[1].Y = triangle[1].y();
+						triPolys[1].Z = triangle[1].z();
+						triPolys[2].X = triangle[2].x();
+						triPolys[2].Y = triangle[2].y();
+						triPolys[2].Z = triangle[2].z();
+						polygons.Add(vertices.Add(triPolys[0]));
+						polygons.Add(vertices.Add(triPolys[1]));
+						polygons.Add(vertices.Add(triPolys[2]));
+						//Add dummy values for now TODO
+						normals.Add(FVector());
+						uvs.Add(FVector2D());
+						colors.Add(FColor());
+						tangents.Add(FProcMeshTangent());
+					}
+				}
+			}
+
+			void VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, openvdb::Vec3d &outVertex)
+			{
+				if (openvdb::math::isApproxEqual(valp1, SurfaceValue))
+				{
+					outVertex = vec1;
+					return;
+				}
+				if (openvdb::math::isApproxEqual(valp2, SurfaceValue))
+				{
+					outVertex = vec2;
+					return;
+				}
+				if (openvdb::math::isApproxEqual(valp1, valp2))
+				{
+					outVertex = vec1;
+					return;
+				}
+				const double mu = (SurfaceValue - valp1) / (valp2 - valp1);
+				outVertex.x() = vec1.x() + mu * (vec2.x() - vec1.x());
+				outVertex.y() = vec1.y() + mu * (vec2.y() - vec1.y());
+				outVertex.z() = vec1.z() + mu * (vec2.z() - vec1.z());
+				return;
+			}
+			
+			const GridTypePtr GridPtr;
+
+		protected:
+			FCriticalSection CriticalSection;
+			AccessorType Acc;
+			const openvdb::math::Transform Xform;
+			const DataType &SurfaceValue;
+			const DataGridTypePtr DataGridPtr;
+			DataAccessorType DataAcc;
+			TArray<FVector> &vertices;
+			TArray<int32> &polygons;
+			TArray<FVector> &normals;
+			TArray<FVector2D> &uvs;
+			TArray<FColor> &colors;
+			TArray<FProcMeshTangent> &tangents;
 		};
 
 		//Operator to generate geometry from active voxels (no tiles)
 		template <typename TreeType, typename IterType>
-		class MeshGeometryOp
+		class CubesMeshOp
 		{
 		public:
 			typedef typename openvdb::Grid<TreeType> GridType;
@@ -149,7 +359,7 @@ namespace Vdb
 			typedef typename GridType::ValueType ValueType;
 			typedef typename IterType SourceIterType;
 
-			MeshGeometryOp(const GridTypePtr gridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer, TArray<FVector2D> &uvBuffer, TArray<FColor> &colorBuffer, TArray<FProcMeshTangent> &tangentBuffer)
+			CubesMeshOp(const GridTypePtr gridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer, TArray<FVector2D> &uvBuffer, TArray<FColor> &colorBuffer, TArray<FProcMeshTangent> &tangentBuffer)
 				: GridPtr(gridPtr), GridAcc(gridPtr->tree()), UnvisitedVertexIndex(GridPtr->tree().background()), vertices(vertexBuffer), polygons(polygonBuffer), normals(normalBuffer), uvs(uvBuffer), colors(colorBuffer), tangents(tangentBuffer)
 			{
 			}
@@ -252,16 +462,16 @@ namespace Vdb
 
 		//Helper struct to hold the associated grid meshing info
 		template <typename SourceTreeType>
-		class BasicMesher :
-			public MeshGeometryOp<IndexTreeType, typename SourceTreeType::ValueOnCIter>
+		class CubeMesher :
+			public CubesMeshOp<IndexTreeType, typename SourceTreeType::ValueOnCIter>
 		{
 		public:
 			typedef typename openvdb::Grid<SourceTreeType> SourceGridType;
 			typedef typename SourceGridType::Ptr SourceGridTypePtr;
 			const SourceGridTypePtr SourceGridPtr;
 
-			BasicMesher(const SourceGridTypePtr sourceGridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer, TArray<FVector2D> &uvBuffer, TArray<FColor> &colorBuffer, TArray<FProcMeshTangent> &tangentBuffer)
-				: SourceGridPtr(sourceGridPtr), MeshGeometryOp(GridType::create(UNVISITED_VERTEX_INDEX), vertexBuffer, polygonBuffer, normalBuffer, uvBuffer, colorBuffer, tangentBuffer), isChanged(true)
+			CubeMesher(const SourceGridTypePtr sourceGridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer, TArray<FVector2D> &uvBuffer, TArray<FColor> &colorBuffer, TArray<FProcMeshTangent> &tangentBuffer)
+				: SourceGridPtr(sourceGridPtr), CubesMeshOp(GridType::create(UNVISITED_VERTEX_INDEX), vertexBuffer, polygonBuffer, normalBuffer, uvBuffer, colorBuffer, tangentBuffer), isChanged(true)
 			{
 				GridPtr->setName(SourceGridPtr->getName() + ".indices");
 				GridPtr->setTransform(SourceGridPtr->transformPtr());
@@ -284,11 +494,87 @@ namespace Vdb
 					clearBuffers();
 					GridPtr->clear();
 					GridPtr->topologyUnion(*SourceGridPtr);
-					openvdb::tools::valxform::SharedOpApplier<SourceIterType, BasicMesher<SourceTreeType>> proc(SourceGridPtr->cbeginValueOn(), *this);
+					openvdb::tools::valxform::SharedOpApplier<SourceIterType, CubeMesher<SourceTreeType>> proc(SourceGridPtr->cbeginValueOn(), *this);
 					const bool threaded = true;
 					UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre mesh op) %d active voxels"), UTF8_TO_TCHAR(GridPtr->getName().c_str()), GridPtr->activeVoxelCount()));
 					proc.process(threaded);
 					collectPolygons();
+				}
+				UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post mesh op) %d active voxels"), UTF8_TO_TCHAR(GridPtr->getName().c_str()), GridPtr->activeVoxelCount()));
+
+				openvdb::Coord coord;
+				openvdb::CoordBBox activeIndexBBox;
+				GetFirstInactiveVoxelFromActive(coord, activeIndexBBox); //TODO: Properly handle when no such voxels are found in the entire grid
+				activeWorldBBox = GridPtr->transform().indexToWorld(activeIndexBBox);
+				startWorldCoord = GridPtr->indexToWorld(coord);
+				voxelSize = GridPtr->voxelSize();
+				isChanged = false;
+			}
+
+			inline void markChanged()
+			{
+				isChanged = true;
+			}
+
+			void GetFirstInactiveVoxelFromActive(openvdb::Coord &coord, openvdb::CoordBBox &activeIndexBBox) const
+			{
+				activeIndexBBox = GridPtr->evalActiveVoxelBoundingBox();
+				for (auto i = GridPtr->cbeginValueOn(); i; ++i)
+				{
+					if (i.isVoxelValue())
+					{
+						coord = i.getCoord();
+						//Find the first voxel above that is off
+						for (int32_t z = i.getCoord().z(); z <= activeIndexBBox.max().z(); ++z)
+						{
+							coord.setZ(z);
+							if (i.getTree()->isValueOff(coord))
+							{
+								return;
+							}
+						}
+					}
+				}
+				coord = openvdb::Coord(0, 0, 0);
+			}
+
+			bool isChanged;
+		};
+
+		//Helper struct to hold the associated grid meshing info
+		template <typename SourceTreeType>
+		class MarchingCubesMesher :
+			public MarchingCubesMeshOp<BitTreeType, typename BitTreeType::ValueOnCIter, SourceTreeType>
+		{
+		public:
+			MarchingCubesMesher(const DataGridTypePtr dataGridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer, TArray<FVector2D> &uvBuffer, TArray<FColor> &colorBuffer, TArray<FProcMeshTangent> &tangentBuffer)
+				: MarchingCubesMeshOp(GridType::create(0), dataGridPtr, vertexBuffer, polygonBuffer, normalBuffer, uvBuffer, colorBuffer, tangentBuffer), isChanged(true)
+			{
+				GridPtr->setName(DataGridPtr->getName() + ".bits");
+				GridPtr->setTransform(DataGridPtr->transformPtr());
+			}
+
+			inline void clearBuffers()
+			{
+				vertices.Empty();
+				polygons.Empty();
+				normals.Empty();
+				uvs.Empty();
+				colors.Empty();
+				tangents.Empty();
+			}
+
+			inline void doMeshOp(openvdb::BBoxd &activeWorldBBox, openvdb::Vec3d &startWorldCoord, openvdb::Vec3d &voxelSize)
+			{
+				if (isChanged)
+				{
+					clearBuffers();
+					GridPtr->clear();
+					GridPtr->topologyUnion(*DataGridPtr);
+					openvdb::tools::valxform::SharedOpApplier<SourceIterType, MarchingCubesMesher<SourceTreeType>> proc(GridPtr->cbeginValueOn(), *this);
+					const bool threaded = true;
+					UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre mesh op) %d active voxels"), UTF8_TO_TCHAR(GridPtr->getName().c_str()), GridPtr->activeVoxelCount()));
+					proc.process(threaded);
 				}
 				UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post mesh op) %d active voxels"), UTF8_TO_TCHAR(GridPtr->getName().c_str()), GridPtr->activeVoxelCount()));
 

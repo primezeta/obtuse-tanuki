@@ -180,13 +180,26 @@ void FOpenVDBModule::SetRegionScale(UVdbHandle const * VdbHandle, const FIntVect
 	}
 }
 
-void FOpenVDBModule::ReadGridTree(UVdbHandle const * VdbHandle, const FString &gridID, FIntVector &startFill, FIntVector &endFill)
+void FOpenVDBModule::ReadGridTree(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod, FIntVector &startFill, FIntVector &endFill)
 {
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(VdbHandle->GetReadableName());
 	try
 	{
+		const bool threaded = true;
 		VdbHandlePrivateType::GridTypePtr GridPtr = VdbHandlePrivatePtr->ReadGridTree(gridID, startFill, endFill);
-		VdbHandlePrivatePtr->FillGrid_PerlinDensity(gridID, startFill, endFill, VdbHandle->PerlinSeed, VdbHandle->PerlinFrequency, VdbHandle->PerlinLacunarity, VdbHandle->PerlinPersistence, VdbHandle->PerlinOctaveCount);
+		VdbHandlePrivatePtr->FillGrid_PerlinDensity(gridID, threaded, startFill, endFill, VdbHandle->PerlinSeed, VdbHandle->PerlinFrequency, VdbHandle->PerlinLacunarity, VdbHandle->PerlinPersistence, VdbHandle->PerlinOctaveCount);
+		if (MeshMethod == EMeshType::MESH_TYPE_CUBES)
+		{
+			VdbHandlePrivatePtr->ExtractGridSurface_Cubes(gridID, threaded);
+		}
+		else if(MeshMethod == EMeshType::MESH_TYPE_MARCHING_CUBES)
+		{
+			VdbHandlePrivatePtr->ExtractGridSurface_MarchingCubes(gridID, threaded);
+		}
+		else
+		{
+			throw(std::string("Invalid mesh type!"));
+		}
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -233,6 +246,7 @@ void FOpenVDBModule::GetVoxelCoord(UVdbHandle const * VdbHandle, const FString &
 
 void FOpenVDBModule::MeshGrid(UVdbHandle const * VdbHandle,
 	const FString &gridID,
+	EMeshType MeshMethod,
 	TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,
 	TSharedPtr<TArray<int32>> &OutPolygonBufferPtr,
 	TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,
@@ -247,7 +261,18 @@ void FOpenVDBModule::MeshGrid(UVdbHandle const * VdbHandle,
 	try
 	{
 		VdbHandlePrivateType::GridTypePtr GridPtr = VdbHandlePrivatePtr->GetGridPtrChecked(gridID);
-		VdbHandlePrivatePtr->MeshRegion(gridID, worldStart, worldEnd, firstActive);
+		if (MeshMethod == EMeshType::MESH_TYPE_CUBES)
+		{
+			VdbHandlePrivatePtr->MeshRegionCubes(gridID, worldStart, worldEnd, firstActive);
+		}
+		else if (MeshMethod == EMeshType::MESH_TYPE_MARCHING_CUBES)
+		{
+			VdbHandlePrivatePtr->MeshRegionMarchingCubes(gridID, worldStart, worldEnd, firstActive);
+		}
+		else
+		{
+			throw(std::string("Invalid mesh type!"));
+		}
 		VdbHandlePrivatePtr->GetGridSectionBuffers(gridID, OutVertexBufferPtr, OutPolygonBufferPtr, OutNormalBufferPtr, OutUVMapBufferPtr, OutVertexColorsBufferPtr, OutTangentsBufferPtr);
 	}
 	catch (const openvdb::Exception &e)
