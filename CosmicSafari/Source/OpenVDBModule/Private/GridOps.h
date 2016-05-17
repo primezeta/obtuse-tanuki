@@ -140,15 +140,15 @@ namespace Vdb
 				//Note that no special consideration is done for tile voxels, so the grid tiles must be voxelized prior to this op [tree().voxelizeActiveTiles()]
 				uint8 insideBits = 0;
 				const openvdb::Coord &coord = iter.getCoord();
-				auto acc = SourceGridPtr->getAccessor();
-				if (acc.getValue(coord).Data < SurfaceValue.Data) { insideBits |= 1; }
-				if (acc.getValue(coord.offsetBy(1, 0, 0)).Data < SurfaceValue.Data) { insideBits |= 2; }
-				if (acc.getValue(coord.offsetBy(0, 1, 0)).Data < SurfaceValue.Data) { insideBits |= 4; }
-				if (acc.getValue(coord.offsetBy(0, 0, 1)).Data < SurfaceValue.Data) { insideBits |= 8; }
-				if (acc.getValue(coord.offsetBy(1, 1, 0)).Data < SurfaceValue.Data) { insideBits |= 16; }
-				if (acc.getValue(coord.offsetBy(1, 0, 1)).Data < SurfaceValue.Data) { insideBits |= 32; }
-				if (acc.getValue(coord.offsetBy(0, 1, 1)).Data < SurfaceValue.Data) { insideBits |= 64; }
-				if (acc.getValue(coord.offsetBy(1, 1, 1)).Data < SurfaceValue.Data) { insideBits |= 128; }
+				auto srcAcc = SourceGridPtr->getAccessor();
+				if (srcAcc.getValue(coord).Data < SurfaceValue.Data) { insideBits |= 1; }
+				if (srcAcc.getValue(coord.offsetBy(1, 0, 0)).Data < SurfaceValue.Data) { insideBits |= 2; }
+				if (srcAcc.getValue(coord.offsetBy(0, 1, 0)).Data < SurfaceValue.Data) { insideBits |= 4; }
+				if (srcAcc.getValue(coord.offsetBy(0, 0, 1)).Data < SurfaceValue.Data) { insideBits |= 8; }
+				if (srcAcc.getValue(coord.offsetBy(1, 1, 0)).Data < SurfaceValue.Data) { insideBits |= 16; }
+				if (srcAcc.getValue(coord.offsetBy(1, 0, 1)).Data < SurfaceValue.Data) { insideBits |= 32; }
+				if (srcAcc.getValue(coord.offsetBy(0, 1, 1)).Data < SurfaceValue.Data) { insideBits |= 64; }
+				if (srcAcc.getValue(coord.offsetBy(1, 1, 1)).Data < SurfaceValue.Data) { insideBits |= 128; }
 				//Turn the voxel off if it is completely outside or completely inside the surface
 				if (insideBits == 0 || insideBits == 255)
 				{
