@@ -312,23 +312,22 @@ namespace Vdb
 				if (openvdb::math::isApproxEqual(valp1, SurfaceValue))
 				{
 					outVertex = vec1;
-					return;
 				}
-				if (openvdb::math::isApproxEqual(valp2, SurfaceValue))
+				else if (openvdb::math::isApproxEqual(valp2, SurfaceValue))
 				{
 					outVertex = vec2;
-					return;
 				}
-				if (openvdb::math::isApproxEqual(valp1, valp2))
+				else if (openvdb::math::isApproxEqual(valp1, valp2))
 				{
 					outVertex = vec1;
-					return;
 				}
-				const double mu = (SurfaceValue - valp1) / (valp2 - valp1);
-				outVertex.x() = vec1.x() + mu * (vec2.x() - vec1.x());
-				outVertex.y() = vec1.y() + mu * (vec2.y() - vec1.y());
-				outVertex.z() = vec1.z() + mu * (vec2.z() - vec1.z());
-				return;
+				else
+				{
+					const double mu = (SurfaceValue - valp1) / (valp2 - valp1);
+					outVertex.x() = vec1.x() + mu * (vec2.x() - vec1.x());
+					outVertex.y() = vec1.y() + mu * (vec2.y() - vec1.y());
+					outVertex.z() = vec1.z() + mu * (vec2.z() - vec1.z());
+				}
 			}
 			
 			const GridTypePtr GridPtr;
@@ -504,7 +503,7 @@ namespace Vdb
 
 				openvdb::Coord coord;
 				openvdb::CoordBBox activeIndexBBox;
-				GetFirstInactiveVoxelFromActive(coord, activeIndexBBox); //TODO: Properly handle when no such voxels are found in the entire grid
+				GetFirstInactiveVoxelFromActive<GridType>(GridPtr, coord, activeIndexBBox); //TODO: Properly handle when no such voxels are found in the entire grid
 				activeWorldBBox = GridPtr->transform().indexToWorld(activeIndexBBox);
 				startWorldCoord = GridPtr->indexToWorld(coord);
 				voxelSize = GridPtr->voxelSize();
@@ -514,28 +513,6 @@ namespace Vdb
 			inline void markChanged()
 			{
 				isChanged = true;
-			}
-
-			void GetFirstInactiveVoxelFromActive(openvdb::Coord &coord, openvdb::CoordBBox &activeIndexBBox) const
-			{
-				activeIndexBBox = GridPtr->evalActiveVoxelBoundingBox();
-				for (auto i = GridPtr->cbeginValueOn(); i; ++i)
-				{
-					if (i.isVoxelValue())
-					{
-						coord = i.getCoord();
-						//Find the first voxel above that is off
-						for (int32_t z = i.getCoord().z(); z <= activeIndexBBox.max().z(); ++z)
-						{
-							coord.setZ(z);
-							if (i.getTree()->isValueOff(coord))
-							{
-								return;
-							}
-						}
-					}
-				}
-				coord = openvdb::Coord(0, 0, 0);
 			}
 
 			bool isChanged;
@@ -569,7 +546,7 @@ namespace Vdb
 				if (isChanged)
 				{
 					clearBuffers();
-					GridPtr->clear();
+					//GridPtr->clear();
 					GridPtr->topologyUnion(*DataGridPtr);
 					openvdb::tools::valxform::SharedOpApplier<SourceIterType, MarchingCubesMesher<SourceTreeType>> proc(GridPtr->cbeginValueOn(), *this);
 					const bool threaded = true;
@@ -580,7 +557,7 @@ namespace Vdb
 
 				openvdb::Coord coord;
 				openvdb::CoordBBox activeIndexBBox;
-				GetFirstInactiveVoxelFromActive(coord, activeIndexBBox); //TODO: Properly handle when no such voxels are found in the entire grid
+				GetFirstInactiveVoxelFromActive<GridType>(GridPtr, coord, activeIndexBBox); //TODO: Properly handle when no such voxels are found in the entire grid
 				activeWorldBBox = GridPtr->transform().indexToWorld(activeIndexBBox);
 				startWorldCoord = GridPtr->indexToWorld(coord);
 				voxelSize = GridPtr->voxelSize();
@@ -592,29 +569,30 @@ namespace Vdb
 				isChanged = true;
 			}
 
-			void GetFirstInactiveVoxelFromActive(openvdb::Coord &coord, openvdb::CoordBBox &activeIndexBBox) const
+			bool isChanged;
+		};
+
+		template<typename GridType>
+		void GetFirstInactiveVoxelFromActive(typename GridType::Ptr gridPtr, openvdb::Coord &coord, openvdb::CoordBBox &activeIndexBBox)
+		{
+			activeIndexBBox = gridPtr->evalActiveVoxelBoundingBox();
+			for (auto i = gridPtr->cbeginValueOn(); i; ++i)
 			{
-				activeIndexBBox = GridPtr->evalActiveVoxelBoundingBox();
-				for (auto i = GridPtr->cbeginValueOn(); i; ++i)
+				if (i.isVoxelValue())
 				{
-					if (i.isVoxelValue())
+					coord = i.getCoord();
+					//Find the first voxel above that is off
+					for (int32_t z = i.getCoord().z(); z <= activeIndexBBox.max().z(); ++z)
 					{
-						coord = i.getCoord();
-						//Find the first voxel above that is off
-						for (int32_t z = i.getCoord().z(); z <= activeIndexBBox.max().z(); ++z)
+						coord.setZ(z);
+						if (i.getTree()->isValueOff(coord))
 						{
-							coord.setZ(z);
-							if (i.getTree()->isValueOff(coord))
-							{
-								return;
-							}
+							return;
 						}
 					}
 				}
-				coord = openvdb::Coord(0, 0, 0);
 			}
-
-			bool isChanged;
-		};
+			coord = openvdb::Coord(0, 0, 0);
+		}
 	}
 }
