@@ -187,6 +187,13 @@ namespace Vdb
 
 			inline void operator()(const IterType& iter)
 			{
+				const uint8 &insideBits = iter.getValue();
+				if (MC_EdgeTable[insideBits] == 0)
+				{
+					//This voxel is not on the surface so do nothing
+					return;
+				}
+
 				const openvdb::Coord &coord = iter.getCoord();
 				const openvdb::Coord p[8] =
 				{
@@ -224,7 +231,6 @@ namespace Vdb
 
 				//Find the vertices where the surface intersects the cube
 				openvdb::Vec3d vertlist[12];
-				const uint8 &insideBits = iter.getValue();
 				if (MC_EdgeTable[insideBits] & 1)
 				{
 					VertexInterp(vec[0], vec[1], val[0], val[1], vertlist[0]);
@@ -275,29 +281,30 @@ namespace Vdb
 				}
 
 				// Create the triangle
-				int32_t ntriangle = 0;
 				for (int32_t i = 0; MC_TriTable[insideBits][i] != -1; i += 3)
 				{
-					openvdb::Vec3d triangle[3];
-					triangle[0] = vertlist[MC_TriTable[insideBits][i]];
-					triangle[1] = vertlist[MC_TriTable[insideBits][i + 1]];
-					triangle[2] = vertlist[MC_TriTable[insideBits][i + 2]];
-					ntriangle++;
+					const openvdb::Vec3d &vertex0 = vertlist[MC_TriTable[insideBits][i]];
+					const openvdb::Vec3d &vertex1 = vertlist[MC_TriTable[insideBits][i + 1]];
+					const openvdb::Vec3d &vertex2 = vertlist[MC_TriTable[insideBits][i + 2]];
 					{
 						FScopeLock lock(&CriticalSection);
-						FVector triPolys[3];
-						triPolys[0].X = triangle[0].x();
-						triPolys[0].Y = triangle[0].y();
-						triPolys[0].Z = triangle[0].z();
-						triPolys[1].X = triangle[1].x();
-						triPolys[1].Y = triangle[1].y();
-						triPolys[1].Z = triangle[1].z();
-						triPolys[2].X = triangle[2].x();
-						triPolys[2].Y = triangle[2].y();
-						triPolys[2].Z = triangle[2].z();
-						polygons.Add(vertices.Add(triPolys[0]));
-						polygons.Add(vertices.Add(triPolys[1]));
-						polygons.Add(vertices.Add(triPolys[2]));
+						FVector vertex;
+
+						vertex.X = vertex0.x();
+						vertex.Y = vertex0.y();
+						vertex.Z = vertex0.z();
+						polygons.Add(vertices.Add(vertex));
+
+						vertex.X = vertex1.x();
+						vertex.Y = vertex1.y();
+						vertex.Z = vertex1.z();
+						polygons.Add(vertices.Add(vertex));
+
+						vertex.X = vertex2.x();
+						vertex.Y = vertex2.y();
+						vertex.Z = vertex2.z();
+						polygons.Add(vertices.Add(vertex));
+
 						//Add dummy values for now TODO
 						normals.Add(FVector());
 						uvs.Add(FVector2D());
