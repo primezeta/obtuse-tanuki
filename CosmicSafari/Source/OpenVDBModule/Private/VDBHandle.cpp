@@ -71,7 +71,7 @@ void UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 	}
 }
 
-void UVdbHandle::ReadGridTree(const FString &gridID, EMeshType MeshMethod, FIntVector &startFill, FIntVector &endFill)
+void UVdbHandle::ReadGridTree(const FString &gridID, FIntVector &startFill, FIntVector &endFill)
 {
 	if (FOpenVDBModule::IsAvailable())
 	{
@@ -88,7 +88,6 @@ void UVdbHandle::GetVoxelCoord(const FString &gridID, const FVector &worldLocati
 }
 
 void UVdbHandle::MeshGrid(const FString &gridID,
-	                      EMeshType MeshMethod,
 						  TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,
 						  TSharedPtr<TArray<int32>> &OutPolygonBufferPtr,
 						  TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,

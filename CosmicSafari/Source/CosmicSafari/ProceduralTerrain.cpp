@@ -4,8 +4,6 @@
 #include "FirstPersonCPPCharacter.h"
 #include "ProceduralTerrain.h"
 
-PRAGMA_DISABLE_OPTIMIZATION
-
 // Sets default values
 AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializer)
 {
@@ -56,7 +54,7 @@ void AProceduralTerrain::PostInitializeComponents()
 
 	FIntVector StartFill;
 	FIntVector EndFill;
-	VdbHandle->ReadGridTree(GridID, EMeshType::MESH_TYPE_CUBES, StartFill, EndFill);
+	VdbHandle->ReadGridTree(GridID, StartFill, EndFill);
 
 	int32 sectionIndex = 0;
 	TArray<FString> AllGridIDs = VdbHandle->GetAllGridIDs();
@@ -89,7 +87,6 @@ void AProceduralTerrain::BeginPlay()
 			FVector ActiveWorldEnd;
 			FVector StartLocation;
 			VdbHandle->MeshGrid(TerrainMeshComponent->MeshSectionIDs[sectionIndex],
-				                EMeshType::MESH_TYPE_CUBES,
 				                VertexBufferPtr,
 				                PolygonBufferPtr,
 				                NormalBufferPtr,

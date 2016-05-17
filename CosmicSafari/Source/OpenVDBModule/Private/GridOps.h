@@ -4,6 +4,7 @@
 #pragma warning(1:4211 4800 4503 4146)
 #include <openvdb/openvdb.h>
 #include <openvdb/tools/ValueTransformer.h>
+#include <openvdb/tools/GridOperators.h>
 #include <noise.h>
 #include <noiseutils.h>
 #include "MarchingCubes.h"
@@ -17,6 +18,58 @@ namespace Vdb
 		typedef openvdb::tree::Tree4<IndexType, 5, 4, 3>::Type IndexTreeType; //Same tree configuration (5,4,3) as openvdb::FloatTree (see openvdb.h)
 		typedef openvdb::tree::Tree4<BitType, 5, 4, 3>::Type BitTreeType; //Same tree configuration (5,4,3) as openvdb::FloatTree (see openvdb.h)
 		const static IndexType UNVISITED_VERTEX_INDEX = -1;
+
+		template<openvdb::math::DScheme DiffScheme, typename Accessor>
+		struct D1_FVoxelData
+		{
+			typedef typename Accessor AccessorType;
+			typedef typename AccessorType::ValueType ValueType;
+			typedef typename ValueType::DataType DataType;
+
+			// the difference opperator
+			static DataType difference(const ValueType& xp1, const ValueType& xm1) {
+				return (xp1.Data - xm1.Data)*ValueType::DataType(0.5);
+			}
+
+			// random access
+			static DataType inX(const AccessorType& grid, const openvdb::Coord& ijk)
+			{
+				return difference(
+					grid.getValue(ijk.offsetBy(1, 0, 0)),
+					grid.getValue(ijk.offsetBy(-1, 0, 0)));
+			}
+
+			static DataType inY(const AccessorType& grid, const openvdb::Coord& ijk)
+			{
+				return difference(
+					grid.getValue(ijk.offsetBy(0, 1, 0)),
+					grid.getValue(ijk.offsetBy(0, -1, 0)));
+			}
+
+			static DataType inZ(const AccessorType& grid, const openvdb::Coord& ijk)
+			{
+				return difference(
+					grid.getValue(ijk.offsetBy(0, 0, 1)),
+					grid.getValue(ijk.offsetBy(0, 0, -1)));
+			}
+		};
+
+		template<openvdb::math::DScheme DiffScheme, typename Accessor>
+		struct ISGradient_FVoxelData
+		{
+			typedef typename Accessor AccessorType;
+			typedef typename AccessorType::ValueType::DataType ValueType;
+			typedef openvdb::math::Vec3<ValueType> Vec3Type;
+
+			// random access version
+			static Vec3Type
+				result(const AccessorType& grid, const openvdb::Coord& ijk)
+				{
+					return Vec3Type(D1_FVoxelData<DiffScheme, Accessor>::inX(grid, ijk),
+						            D1_FVoxelData<DiffScheme, Accessor>::inY(grid, ijk),
+						            D1_FVoxelData<DiffScheme, Accessor>::inZ(grid, ijk));
+				}
+		};
 
 		//Operator to fill a grid with Perlin noise values (no tiles)
 		template <typename InTreeType, typename InIterType, typename OutTreeType>
@@ -183,6 +236,10 @@ namespace Vdb
 			MarchingCubesMeshOp(const GridTypePtr gridPtr, const DataGridTypePtr dataGridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer, TArray<FVector2D> &uvBuffer, TArray<FColor> &colorBuffer, TArray<FProcMeshTangent> &tangentBuffer)
 				: GridPtr(gridPtr), DataGridPtr(dataGridPtr), Acc(gridPtr->getAccessor()), Xform(dataGridPtr->transform()), SurfaceValue(dataGridPtr->tree().background().Data), DataAcc(dataGridPtr->getAccessor()), VisitedVertexIndicesPtr(openvdb::Grid<IndexTreeType>::create(UNVISITED_VERTEX_INDEX)), vertices(vertexBuffer), polygons(polygonBuffer), normals(normalBuffer), uvs(uvBuffer), colors(colorBuffer), tangents(tangentBuffer)
 			{
+				GradientGridPtr = openvdb::Vec3fGrid::create();
+				GradientGridPtr->setName(DataGridPtr->getName() + ".gradient");
+				GradientGridPtr->setTransform(DataGridPtr->transformPtr());
+				GradientGridPtr->setVectorType(openvdb::VEC_COVARIANT);
 			}
 
 			inline void operator()(const IterType& iter)
@@ -280,6 +337,23 @@ namespace Vdb
 					VertexInterp(vec[3], vec[7], val[3], val[7], p[3], p[7], vertlist[11]);
 				}
 
+				//Calculate the gradient of this point
+				openvdb::Vec3f Gradient;
+				{
+					FScopeLock lock(&CriticalSection);
+					auto gradAcc = GradientGridPtr->getAccessor();
+					if (!gradAcc.isValueOn(p[0]))
+					{
+						//TODO: Get the real map type (for now I know that the grid has a ScaleTranslateMap)
+						openvdb::Vec3f iGradient(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(DataAcc, p[0]));
+						Gradient = DataGridPtr->transform().baseMap()->applyIJT(iGradient, p[0].asVec3d());
+					}
+					else
+					{
+						Gradient = gradAcc.getValue(p[0]);
+					}
+				}
+
 				// Create the triangle
 				for (int32_t i = 0; MC_TriTable[insideBits][i] != -1; i += 3)
 				{
@@ -299,7 +373,7 @@ namespace Vdb
 						//const FVector u = vertices[vertex1] - vertices[vertex0];
 						//const FVector v = vertices[vertex2] - vertices[vertex0];
 						//normals.Add(FVector(u.Y*v.Z - u.Z*v.Y, u.Z*v.X - u.X*v.Z, u.X*v.Y - u.Y*v.X));
-						normals.Add(FVector());
+						normals.Add(FVector(Gradient.x(), Gradient.y(), Gradient.z()));
 						uvs.Add(FVector2D());
 						colors.Add(FColor());
 						tangents.Add(FProcMeshTangent());
@@ -309,10 +383,10 @@ namespace Vdb
 
 			inline void VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, const openvdb::Coord &c1, const openvdb::Coord &c2, IndexType &outVertex)
 			{
-				FScopeLock lock(&CriticalSection);
 				auto acc = VisitedVertexIndicesPtr->getAccessor();
 				if (openvdb::math::isApproxEqual(valp1, SurfaceValue))
 				{
+					FScopeLock lock(&CriticalSection);
 					if (acc.isValueOn(c1))
 					{
 						outVertex = acc.getValue(c1);
@@ -325,6 +399,7 @@ namespace Vdb
 				}
 				else if (openvdb::math::isApproxEqual(valp2, SurfaceValue))
 				{
+					FScopeLock lock(&CriticalSection);
 					if (acc.isValueOn(c2))
 					{
 						outVertex = acc.getValue(c2);
@@ -337,6 +412,7 @@ namespace Vdb
 				}
 				else if (openvdb::math::isApproxEqual(valp1, valp2))
 				{
+					FScopeLock lock(&CriticalSection);
 					if (acc.isValueOn(c1))
 					{
 						outVertex = acc.getValue(c1);
@@ -349,6 +425,7 @@ namespace Vdb
 				}
 				else
 				{
+					FScopeLock lock(&CriticalSection);
 					if (acc.isValueOn(c1))
 					{
 						outVertex = acc.getValue(c1);
@@ -372,6 +449,7 @@ namespace Vdb
 			const DataGridTypePtr DataGridPtr;
 			DataAccessorType DataAcc;
 			openvdb::Grid<IndexTreeType>::Ptr VisitedVertexIndicesPtr;
+			openvdb::Vec3fGrid::Ptr GradientGridPtr;
 			TArray<FVector> &vertices;
 			TArray<int32> &polygons;
 			TArray<FVector> &normals;
