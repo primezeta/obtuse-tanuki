@@ -181,14 +181,14 @@ namespace Vdb
 			typedef typename DataGridType::ValueType::DataType DataType;
 
 			MarchingCubesMeshOp(const GridTypePtr gridPtr, const DataGridTypePtr dataGridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer, TArray<FVector2D> &uvBuffer, TArray<FColor> &colorBuffer, TArray<FProcMeshTangent> &tangentBuffer)
-				: GridPtr(gridPtr), DataGridPtr(dataGridPtr), Acc(gridPtr->getAccessor()), Xform(dataGridPtr->transform()), SurfaceValue(dataGridPtr->tree().background().Data), DataAcc(dataGridPtr->getAccessor()), vertices(vertexBuffer), polygons(polygonBuffer), normals(normalBuffer), uvs(uvBuffer), colors(colorBuffer), tangents(tangentBuffer)
+				: GridPtr(gridPtr), DataGridPtr(dataGridPtr), Acc(gridPtr->getAccessor()), Xform(dataGridPtr->transform()), SurfaceValue(dataGridPtr->tree().background().Data), DataAcc(dataGridPtr->getAccessor()), VisitedVertexIndicesPtr(openvdb::Grid<IndexTreeType>::create(UNVISITED_VERTEX_INDEX)), vertices(vertexBuffer), polygons(polygonBuffer), normals(normalBuffer), uvs(uvBuffer), colors(colorBuffer), tangents(tangentBuffer)
 			{
 			}
 
 			inline void operator()(const IterType& iter)
 			{
 				const uint8 &insideBits = iter.getValue();
-				if (MC_EdgeTable[insideBits] == 0)
+				if (insideBits == 0 || insideBits == 255)
 				{
 					//This voxel is not on the surface so do nothing
 					return;
@@ -230,82 +230,75 @@ namespace Vdb
 				};
 
 				//Find the vertices where the surface intersects the cube
-				openvdb::Vec3d vertlist[12];
+				IndexType vertlist[12];
 				if (MC_EdgeTable[insideBits] & 1)
 				{
-					VertexInterp(vec[0], vec[1], val[0], val[1], vertlist[0]);
+					VertexInterp(vec[0], vec[1], val[0], val[1], p[0], p[1], vertlist[0]);
 				}
 				if (MC_EdgeTable[insideBits] & 2)
 				{
-					VertexInterp(vec[1], vec[2], val[1], val[2], vertlist[1]);
+					VertexInterp(vec[1], vec[2], val[1], val[2], p[1], p[2], vertlist[1]);
 				}
 				if (MC_EdgeTable[insideBits] & 4)
 				{
-					VertexInterp(vec[2], vec[3], val[2], val[3], vertlist[2]);
+					VertexInterp(vec[2], vec[3], val[2], val[3], p[2], p[3], vertlist[2]);
 				}
 				if (MC_EdgeTable[insideBits] & 8)
 				{
-					VertexInterp(vec[3], vec[0], val[3], val[0], vertlist[3]);
+					VertexInterp(vec[3], vec[0], val[3], val[0], p[3], p[0], vertlist[3]);
 				}
 				if (MC_EdgeTable[insideBits] & 16)
 				{
-					VertexInterp(vec[4], vec[5], val[4], val[5], vertlist[4]);
+					VertexInterp(vec[4], vec[5], val[4], val[5], p[4], p[5], vertlist[4]);
 				}
 				if (MC_EdgeTable[insideBits] & 32)
 				{
-					VertexInterp(vec[5], vec[6], val[5], val[6], vertlist[5]);
+					VertexInterp(vec[5], vec[6], val[5], val[6], p[5], p[6], vertlist[5]);
 				}
 				if (MC_EdgeTable[insideBits] & 64)
 				{
-					VertexInterp(vec[6], vec[7], val[6], val[7], vertlist[6]);
+					VertexInterp(vec[6], vec[7], val[6], val[7], p[6], p[7], vertlist[6]);
 				}
 				if (MC_EdgeTable[insideBits] & 128)
 				{
-					VertexInterp(vec[7], vec[4], val[7], val[4], vertlist[7]);
+					VertexInterp(vec[7], vec[4], val[7], val[4], p[7], p[4], vertlist[7]);
 				}
 				if (MC_EdgeTable[insideBits] & 256)
 				{
-					VertexInterp(vec[0], vec[4], val[0], val[4], vertlist[8]);
+					VertexInterp(vec[0], vec[4], val[0], val[4], p[0], p[4], vertlist[8]);
 				}
 				if (MC_EdgeTable[insideBits] & 512)
 				{
-					VertexInterp(vec[1], vec[5], val[1], val[5], vertlist[9]);
+					VertexInterp(vec[1], vec[5], val[1], val[5], p[1], p[5], vertlist[9]);
 				}
 				if (MC_EdgeTable[insideBits] & 1024)
 				{
-					VertexInterp(vec[2], vec[6], val[2], val[6], vertlist[10]);
+					VertexInterp(vec[2], vec[6], val[2], val[6], p[2], p[6], vertlist[10]);
 				}
 				if (MC_EdgeTable[insideBits] & 2048)
 				{
-					VertexInterp(vec[3], vec[7], val[3], val[7], vertlist[11]);
+					VertexInterp(vec[3], vec[7], val[3], val[7], p[3], p[7], vertlist[11]);
 				}
 
 				// Create the triangle
 				for (int32_t i = 0; MC_TriTable[insideBits][i] != -1; i += 3)
 				{
-					const openvdb::Vec3d &vertex0 = vertlist[MC_TriTable[insideBits][i]];
-					const openvdb::Vec3d &vertex1 = vertlist[MC_TriTable[insideBits][i + 1]];
-					const openvdb::Vec3d &vertex2 = vertlist[MC_TriTable[insideBits][i + 2]];
 					{
 						FScopeLock lock(&CriticalSection);
-						FVector vertex;
-
-						vertex.X = vertex0.x();
-						vertex.Y = vertex0.y();
-						vertex.Z = vertex0.z();
-						polygons.Add(vertices.Add(vertex));
-
-						vertex.X = vertex1.x();
-						vertex.Y = vertex1.y();
-						vertex.Z = vertex1.z();
-						polygons.Add(vertices.Add(vertex));
-
-						vertex.X = vertex2.x();
-						vertex.Y = vertex2.y();
-						vertex.Z = vertex2.z();
-						polygons.Add(vertices.Add(vertex));
+						const IndexType &vertex0 = vertlist[MC_TriTable[insideBits][i]];
+						const IndexType &vertex1 = vertlist[MC_TriTable[insideBits][i + 1]];
+						const IndexType &vertex2 = vertlist[MC_TriTable[insideBits][i + 2]];
+						polygons.Add(vertex0);
+						polygons.Add(vertex1);
+						polygons.Add(vertex2);
 
 						//Add dummy values for now TODO
+						//Nx = UyVz - UzVy
+						//Ny = UzVx - UxVz
+						//Nz = UxVy - UyVx
+						//const FVector u = vertices[vertex1] - vertices[vertex0];
+						//const FVector v = vertices[vertex2] - vertices[vertex0];
+						//normals.Add(FVector(u.Y*v.Z - u.Z*v.Y, u.Z*v.X - u.X*v.Z, u.X*v.Y - u.Y*v.X));
 						normals.Add(FVector());
 						uvs.Add(FVector2D());
 						colors.Add(FColor());
@@ -314,26 +307,58 @@ namespace Vdb
 				}
 			}
 
-			void VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, openvdb::Vec3d &outVertex)
+			inline void VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, const openvdb::Coord &c1, const openvdb::Coord &c2, IndexType &outVertex)
 			{
+				FScopeLock lock(&CriticalSection);
+				auto acc = VisitedVertexIndicesPtr->getAccessor();
 				if (openvdb::math::isApproxEqual(valp1, SurfaceValue))
 				{
-					outVertex = vec1;
+					if (acc.isValueOn(c1))
+					{
+						outVertex = acc.getValue(c1);
+					}
+					else
+					{
+						outVertex = vertices.Add(FVector(vec1.x(), vec1.y(), vec1.z()));
+						acc.setValueOn(c1, outVertex);
+					}
 				}
 				else if (openvdb::math::isApproxEqual(valp2, SurfaceValue))
 				{
-					outVertex = vec2;
+					if (acc.isValueOn(c2))
+					{
+						outVertex = acc.getValue(c2);
+					}
+					else
+					{
+						outVertex = vertices.Add(FVector(vec2.x(), vec2.y(), vec2.z()));
+						acc.setValueOn(c2, outVertex);
+					}
 				}
 				else if (openvdb::math::isApproxEqual(valp1, valp2))
 				{
-					outVertex = vec1;
+					if (acc.isValueOn(c1))
+					{
+						outVertex = acc.getValue(c1);
+					}
+					else
+					{
+						outVertex = vertices.Add(FVector(vec1.x(), vec1.y(), vec1.z()));
+						acc.setValueOn(c1, outVertex);
+					}
 				}
 				else
 				{
-					const double mu = (SurfaceValue - valp1) / (valp2 - valp1);
-					outVertex.x() = vec1.x() + mu * (vec2.x() - vec1.x());
-					outVertex.y() = vec1.y() + mu * (vec2.y() - vec1.y());
-					outVertex.z() = vec1.z() + mu * (vec2.z() - vec1.z());
+					if (acc.isValueOn(c1))
+					{
+						outVertex = acc.getValue(c1);
+					}
+					else
+					{
+						const double mu = ((double)(SurfaceValue - valp1)) / (double)(valp2 - valp1);
+						outVertex = vertices.Add(FVector(vec1.x() + (mu * (vec2.x() - vec1.x())), vec1.y() + (mu * (vec2.y() - vec1.y())), vec1.z() + (mu * (vec2.z() - vec1.z()))));
+						acc.setValueOn(c1, outVertex);
+					}
 				}
 			}
 			
@@ -346,6 +371,7 @@ namespace Vdb
 			const DataType &SurfaceValue;
 			const DataGridTypePtr DataGridPtr;
 			DataAccessorType DataAcc;
+			openvdb::Grid<IndexTreeType>::Ptr VisitedVertexIndicesPtr;
 			TArray<FVector> &vertices;
 			TArray<int32> &polygons;
 			TArray<FVector> &normals;
