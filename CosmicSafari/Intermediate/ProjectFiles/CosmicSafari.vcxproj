@@ -206,7 +206,7 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugGame_Game|x64'">
-    <IncludePath>$(SolutionDir)Source\ThirdParty</IncludePath>
+    <IncludePath>$(SolutionDir)Source\ThirdParty;C:\boost\boost_1_59_0</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -223,7 +223,7 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugGame_Editor|x64'">
-    <IncludePath>$(SolutionDir)Source\ThirdParty</IncludePath>
+    <IncludePath>$(SolutionDir)Source\ThirdParty;C:\boost\boost_1_59_0</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -296,7 +296,7 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Development_Game|x64'">
-    <IncludePath>$(SolutionDir)Source\ThirdParty</IncludePath>
+    <IncludePath>$(SolutionDir)Source\ThirdParty;C:\boost\boost_1_59_0</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -313,7 +313,7 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Development_Editor|x64'">
-    <IncludePath>$(SolutionDir)Source\ThirdParty</IncludePath>
+    <IncludePath>$(SolutionDir)Source\ThirdParty;C:\boost\boost_1_59_0</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -375,7 +375,7 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Shipping_Game|x64'">
-    <IncludePath>$(SolutionDir)Source\ThirdParty</IncludePath>
+    <IncludePath>$(SolutionDir)Source\ThirdParty;C:\boost\boost_1_59_0</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <LibraryWPath />
@@ -431,13 +431,12 @@
     <ClInclude Include="..\..\Source\CosmicSafari\FirstPersonCPPProjectile.h" />
     <ClCompile Include="..\..\Source\CosmicSafari\ProceduralTerrain.cpp" />
     <ClInclude Include="..\..\Source\CosmicSafari\ProceduralTerrain.h" />
-    <ClCompile Include="..\..\Source\CosmicSafari\ProceduralTerrainMeshComponent.cpp" />
-    <ClInclude Include="..\..\Source\CosmicSafari\ProceduralTerrainMeshComponent.h" />
     <None Include="..\..\Source\OpenVDBModule\OpenVDBModule.Build.cs" />
     <ClCompile Include="..\..\Source\OpenVDBModule\Private\GridMetadata.cpp" />
     <ClInclude Include="..\..\Source\OpenVDBModule\Private\GridMetadata.h" />
     <ClInclude Include="..\..\Source\OpenVDBModule\Private\GridOps.h" />
     <ClCompile Include="..\..\Source\OpenVDBModule\Private\OpenVDBModule.cpp" />
+    <ClCompile Include="..\..\Source\OpenVDBModule\Private\ProceduralTerrainMeshComponent.cpp" />
     <ClCompile Include="..\..\Source\OpenVDBModule\Private\VDBHandle.cpp" />
     <ClCompile Include="..\..\Source\OpenVDBModule\Private\VdbHandleEditor.cpp" />
     <ClCompile Include="..\..\Source\OpenVDBModule\Private\VDBHandlePrivate.cpp" />
@@ -445,6 +444,7 @@
     <ClInclude Include="..\..\Source\OpenVDBModule\Private\VDBHandlePrivate.h" />
     <ClCompile Include="..\..\Source\OpenVDBModule\Private\VdbInterface.cpp" />
     <ClInclude Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.h" />
+    <ClInclude Include="..\..\Source\OpenVDBModule\Public\ProceduralTerrainMeshComponent.h" />
     <ClInclude Include="..\..\Source\OpenVDBModule\Public\VDBHandle.h" />
     <ClInclude Include="..\..\Source\OpenVDBModule\Public\VDBInterface.h" />
     <ClInclude Include="..\..\Source\OpenVDBModule\Public\VoxelData.h" />

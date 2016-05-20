@@ -2,9 +2,6 @@
 #include "EngineMinimal.h"
 #include "VoxelData.generated.h"
 
-typedef float VoxelDataType;
-typedef int32 VoxelMaterialType;
-
 USTRUCT()
 struct FVoxelData
 {

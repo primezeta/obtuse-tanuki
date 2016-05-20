@@ -83,12 +83,6 @@
     <ClInclude Include="..\..\Source\CosmicSafari\ProceduralTerrain.h">
       <Filter>Source\CosmicSafari</Filter>
     </ClInclude>
-    <ClCompile Include="..\..\Source\CosmicSafari\ProceduralTerrainMeshComponent.cpp">
-      <Filter>Source\CosmicSafari</Filter>
-    </ClCompile>
-    <ClInclude Include="..\..\Source\CosmicSafari\ProceduralTerrainMeshComponent.h">
-      <Filter>Source\CosmicSafari</Filter>
-    </ClInclude>
     <Filter Include="Source\OpenVDBModule">
       <UniqueIdentifier>{894F9BFA-ED11-4C66-AC0B-F0A1DBB3717F}</UniqueIdentifier>
     </Filter>
@@ -5257,5 +5251,13 @@
     <ClInclude Include="..\..\Source\OpenVDBModule\Private\MarchingCubes.h">
       <Filter>Source\OpenVDBModule\Private</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Source\OpenVDBModule\Public\ProceduralTerrainMeshComponent.h">
+      <Filter>Source\OpenVDBModule\Public</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Source\OpenVDBModule\Private\ProceduralTerrainMeshComponent.cpp">
+      <Filter>Source\OpenVDBModule\Private</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

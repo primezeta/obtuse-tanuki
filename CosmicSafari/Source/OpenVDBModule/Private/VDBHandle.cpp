@@ -4,6 +4,7 @@
 
 UVdbHandle::UVdbHandle(const FObjectInitializer& ObjectInitializer)
 {
+	MeshMethod = EMeshType::MESH_TYPE_CUBES;
 	FilePath = "";
 	EnableDelayLoad = true;
 	EnableGridStats = true;
@@ -35,12 +36,20 @@ void UVdbHandle::BeginDestroy()
 	Super::BeginDestroy();
 }
 
-FString UVdbHandle::AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize)
+FString UVdbHandle::AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, bool bCreateCollision)
 {
 	FString gridID;
 	if (FOpenVDBModule::IsAvailable())
 	{
+		UProceduralTerrainMeshComponent * TerrainMesh = NewObject<UProceduralTerrainMeshComponent>(this, FName(*gridName));
+		check(TerrainMesh != nullptr);
 		gridID = FOpenVDBModule::AddGrid(this, gridName, regionIndex, voxelSize);
+		TerrainMesh->bGenerateOverlapEvents = true;
+		TerrainMesh->MeshName = gridName;
+		TerrainMesh->MeshID = gridID;
+		TerrainMesh->IsGridSectionMeshed = false;
+		TerrainMesh->CreateCollision = bCreateCollision;
+		TerrainMeshComponents.Add(TerrainMesh);
 	}
 	return gridID;
 }
@@ -59,7 +68,7 @@ void UVdbHandle::RemoveGrid(const FString &gridID)
 {
 	if (FOpenVDBModule::IsAvailable())
 	{
-		FOpenVDBModule::RemoveGrid(this, gridID);
+		FOpenVDBModule::RemoveGrid(this, gridID); //TODO: Remove mesh component
 	}
 }
 
@@ -71,11 +80,16 @@ void UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 	}
 }
 
-void UVdbHandle::ReadGridTree(const FString &gridID, FIntVector &startFill, FIntVector &endFill)
+void UVdbHandle::ReadGridTrees()
 {
 	if (FOpenVDBModule::IsAvailable())
 	{
-		FOpenVDBModule::ReadGridTree(this, gridID, MeshMethod, startFill, endFill);
+		FIntVector StartFill; //dummy value (not used)
+		FIntVector EndFill; //dummy value (not used)
+		for (TArray<UProceduralTerrainMeshComponent*>::TConstIterator i = TerrainMeshComponents.CreateConstIterator(); i; ++i)
+		{
+			FOpenVDBModule::ReadGridTree(this, (*i)->MeshID, MeshMethod, StartFill, EndFill);
+		}
 	}
 }
 
@@ -87,42 +101,36 @@ void UVdbHandle::GetVoxelCoord(const FString &gridID, const FVector &worldLocati
 	}
 }
 
-void UVdbHandle::MeshGrid(const FString &gridID,
-						  TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,
-						  TSharedPtr<TArray<int32>> &OutPolygonBufferPtr,
-						  TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,
-						  TSharedPtr<TArray<FVector2D>> &OutUVMapBufferPtr,
-						  TSharedPtr<TArray<FColor>> &OutVertexColorsBufferPtr,
-						  TSharedPtr<TArray<FProcMeshTangent>> &OutTangentsBufferPtr,
-	                      FVector &worldStart,
-	                      FVector &worldEnd,
-	                      FVector &firstActive)
+void UVdbHandle::MeshGrids(UWorld * World,
+	FVector &worldStart,
+	FVector &worldEnd,
+	TArray<FVector> &startLocations)
 {
 	if (FOpenVDBModule::IsAvailable())
 	{
-		FOpenVDBModule::MeshGrid(this,
-			                     gridID,
-			                     MeshMethod,
-			                     OutVertexBufferPtr,
-			                     OutPolygonBufferPtr,
-			                     OutNormalBufferPtr,
-			                     OutUVMapBufferPtr,
-			                     OutVertexColorsBufferPtr,
-			                     OutTangentsBufferPtr,
-			                     worldStart,
-			                     worldEnd,
-			                     firstActive);
+		for (auto i = TerrainMeshComponents.CreateConstIterator(); i; ++i)
+		{
+			FVector startLocation;
+			FOpenVDBModule::MeshGrid(this,
+				World,
+				*i,
+				MeshMethod,
+				worldStart,
+				worldEnd,
+				startLocation);
+			startLocations.Add(startLocation);
+		}
 	}
 }
 
 FIntVector UVdbHandle::GetRegionIndex(const FVector &worldLocation)
 {
-	openvdb::Vec3d regionIndex;
+	FIntVector regionIndex;
 	if (FOpenVDBModule::IsAvailable())
 	{
-		FOpenVDBModule::GetRegionIndex(this, worldLocation);
+		regionIndex = FOpenVDBModule::GetRegionIndex(this, worldLocation);
 	}
-	return FIntVector((int)regionIndex.x(), (int)regionIndex.y(), (int)regionIndex.z());
+	return regionIndex;
 }
 
 void UVdbHandle::WriteAllGrids()

@@ -3,7 +3,6 @@
 
 #include "EngineMinimal.h"
 #include "VdbHandle.h"
-#include "VDBHandlePrivate.h"
 
 class OPENVDBMODULE_API FOpenVDBModule : public IModuleInterface
 {
@@ -27,17 +26,12 @@ public:
 	static void ReadGridTree(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod, FIntVector &startFill, FIntVector &endFill);
 	static void GetVoxelCoord(UVdbHandle const * VdbHandle, const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord);
 	static void MeshGrid(UVdbHandle const * VdbHandle,
-						 const FString &gridID,
-		                 EMeshType MeshMethod,
-						 TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,
-						 TSharedPtr<TArray<int32>> &OutPolygonBufferPtr,
-						 TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,
-						 TSharedPtr<TArray<FVector2D>> &OutUVMapBufferPtr,
-						 TSharedPtr<TArray<FColor>> &OutVertexColorsBufferPtr,
-						 TSharedPtr<TArray<FProcMeshTangent>> &OutTangentsBufferPtr,
-		                 FVector &worldStart,
-		                 FVector &worldEnd,
-		                 FVector &firstActive);
+		UWorld * World,
+		UProceduralTerrainMeshComponent * TerrainMeshComponent,
+		EMeshType MeshMethod,
+		FVector &worldStart,
+		FVector &worldEnd,
+		FVector &startLocation);
 	static FIntVector GetRegionIndex(UVdbHandle const * VdbHandle, const FVector &worldLocation);
 	static void WriteAllGrids(UVdbHandle const * VdbHandle);
 };

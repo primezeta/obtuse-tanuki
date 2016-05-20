@@ -4,15 +4,16 @@
 
 #include "GameFramework/PlayerStart.h"
 #include "VDBHandle.h"
-#include "ProceduralTerrainMeshComponent.h"
 #include "ProceduralTerrain.generated.h"
 
-UCLASS(Category = "OpenVDB|Procedural Terrain")
+UCLASS(Category = "Procedural Terrain")
 class COSMICSAFARI_API AProceduralTerrain : public APlayerStart
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 	
 public:
+	AProceduralTerrain(const FObjectInitializer& ObjectInitializer);
+
 	virtual void PostInitializeComponents() override;
 
 	// Called when the game starts
@@ -23,19 +24,13 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaSeconds) override;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, SimpleDisplay, Category = "OpenVDB|Procedural Terrain")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, SimpleDisplay, Category = "Procedural Terrain")
 		UVdbHandle * VdbHandle;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "OpenVDB|Procedural Terrain")
-		UProceduralTerrainMeshComponent * TerrainMeshComponent;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "OpenVDB|Procedural Terrain")
-		UMaterial * TerrainMaterial;
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "OpenVDB|Procedural Terrain")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain")
 		FString VolumeName;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "OpenVDB|Procedural Terrain")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain")
 		bool bCreateCollision;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Voxels per dimension of a meshable terrain region"))
@@ -43,13 +38,4 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Dimensions of a single voxel"))
 		FVector VoxelSize;
-
-	UFUNCTION()
-		void OnOverlapBegin(class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
-	UFUNCTION()
-		void OnOverlapEnd(class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
-
-private:
-	//UMaterialInstanceDynamic * TerrainDynamicMaterial;
 };

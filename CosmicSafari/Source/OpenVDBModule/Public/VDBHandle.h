@@ -4,6 +4,8 @@
 
 #include "Components/ActorComponent.h"
 #include "VdbInterface.h"
+#include "VoxelData.h"
+#include "ProceduralTerrainMeshComponent.h"
 #include "VdbHandle.generated.h"
 
 //USTRUCT()
@@ -100,38 +102,41 @@ class OPENVDBMODULE_API UVdbHandle : public UActorComponent, public IVdbInterfac
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Path to voxel database"))
-		FString FilePath;
+	UVdbHandle(const FObjectInitializer& ObjectInitializer);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Enable delayed loading of grids"))
-		bool EnableDelayLoad;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Enable grid stats metadata"))
-		bool EnableGridStats;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Name of volume"))
-		FString WorldName;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Perlin noise random generator seed"))
-		int32 PerlinSeed;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Perlin noise source frequency"))
-		float PerlinFrequency;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Perlin noise source lacunarity"))
-		float PerlinLacunarity;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Perlin noise source persistence"))
-		float PerlinPersistence;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Perlin noise source number of octaves"))
-		int32 PerlinOctaveCount;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Mesh algorithm"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Mesh algorithm"))
 		EMeshType MeshMethod;
 
-	UVdbHandle(const FObjectInitializer& ObjectInitializer);
-	
+	UPROPERTY(BlueprintReadOnly, Category = "VDB Handle", Meta = (ToolTip = "Terrain mesh component of each grid"))
+		TArray<UProceduralTerrainMeshComponent*> TerrainMeshComponents;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Path to voxel database"))
+		FString FilePath;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Enable delayed loading of grids"))
+		bool EnableDelayLoad;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Enable grid stats metadata"))
+		bool EnableGridStats;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Name of volume"))
+		FString WorldName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise random generator seed"))
+		int32 PerlinSeed;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise frequency of first octave"))
+		float PerlinFrequency;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise frequency multiplier each successive octave"))
+		float PerlinLacunarity;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise amplitude multiplier each successive octave"))
+		float PerlinPersistence;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise number of octaves"))
+		int32 PerlinOctaveCount;
+
 	virtual void InitializeComponent() override;
 	virtual void BeginDestroy() override;
 #if WITH_EDITOR
@@ -139,27 +144,20 @@ public:
 #endif
 
 	UFUNCTION(BlueprintCallable, Category="VDB Handle")
-		virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize) override;
+		virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, bool bCreateCollision) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void RemoveGrid(const FString &gridID) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void SetRegionScale(const FIntVector &regionScale) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void ReadGridTree(const FString &gridID, FIntVector &startFill, FIntVector &endFill) override;
+		virtual void ReadGridTrees() override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord) override;
-	//UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-	//TODO: Can't use TSharedPtr as parameter for UFUNCTION. Maybe return the actual UProceduralTerrainMeshComponent and have that class hold the buffer pointers?
-		virtual void MeshGrid(const FString &gridID,
-							  TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,
-							  TSharedPtr<TArray<int32>> &OutPolygonBufferPtr,
-							  TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,
-							  TSharedPtr<TArray<FVector2D>> &OutUVMapBufferPtr,
-							  TSharedPtr<TArray<FColor>> &OutVertexColorsBufferPtr,
-							  TSharedPtr<TArray<FProcMeshTangent>> &OutTangentsBufferPtr,
-			                  FVector &worldStart,
-			                  FVector &worldEnd,
-			                  FVector &firstActive) override;
+	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
+		virtual void MeshGrids(UWorld * World,
+			FVector &worldStart,
+			FVector &worldEnd,
+			TArray<FVector> &startLocations) override;
 
 	TArray<FString> GetAllGridIDs();
 	FIntVector GetRegionIndex(const FVector &worldLocation);

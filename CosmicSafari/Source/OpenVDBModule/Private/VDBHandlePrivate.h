@@ -1,6 +1,5 @@
 #pragma once
 #include "OpenVDBModule.h"
-#include "VoxelData.h"
 #pragma warning(push)
 #pragma warning(1:4211 4800 4503 4146)
 #include <openvdb/openvdb.h>
@@ -8,7 +7,8 @@
 #include <openvdb/tools/Prune.h>
 #include "GridOps.h"
 #include "GridMetadata.h"
-#include <iostream>
+
+PRAGMA_DISABLE_OPTIMIZATION
 
 DECLARE_LOG_CATEGORY_EXTERN(LogOpenVDBModule, Log, All)
 
@@ -64,8 +64,8 @@ public:
 	static FString MetaName_RegionIndexStart() { return TEXT("RegionIndexStart"); }
 	static FString MetaName_RegionIndexEnd() { return TEXT("RegionIndexEnd"); }
 
-	VdbHandlePrivate(const FString &filePath, const bool &enableGridStats, const bool &enableDelayLoad)
-		: isFileInSync(false), FilePath(filePath), EnableGridStats(enableGridStats), EnableDelayLoad(enableDelayLoad)
+	VdbHandlePrivate(UObject const * parent, const FString &filePath, const bool &enableGridStats, const bool &enableDelayLoad)
+		: Parent(parent), isFileInSync(false), FilePath(filePath), EnableGridStats(enableGridStats), EnableDelayLoad(enableDelayLoad)
 	{
 	}
 
@@ -137,18 +137,19 @@ public:
 
 	void AddGrid(const FString &gridName, const FIntVector &indexStart, const FIntVector &indexEnd, const FVector &voxelSize)
 	{
-		GridTypePtr gridPtr = GetGridPtr(gridName);		
-		if (gridPtr == nullptr)
-		{
-			gridPtr = CreateGrid(gridName, indexStart, indexEnd, voxelSize);
-		}
-		
+		GridTypePtr gridPtr = GetGridPtr(gridName);	
 		const openvdb::Vec3d start(indexStart.X, indexStart.Y, indexStart.Z);
 		const openvdb::Vec3d end(indexEnd.X, indexEnd.Y, indexEnd.Z);
 		const openvdb::Vec3d voxelScale(voxelSize.X, voxelSize.Y, voxelSize.Z);
 		openvdb::math::ScaleMap::Ptr scale = openvdb::math::ScaleMap::Ptr(new openvdb::math::ScaleMap(voxelScale));
 		openvdb::math::ScaleTranslateMap::Ptr map(new openvdb::math::ScaleTranslateMap(voxelScale, scale->applyMap(start)));
 		openvdb::math::Transform::Ptr xformPtr = openvdb::math::Transform::Ptr(new openvdb::math::Transform(map));
+
+		if (gridPtr == nullptr)
+		{
+			gridPtr = CreateGrid(gridName, indexStart, indexEnd, xformPtr);
+		}
+		
 		if (gridPtr->transform() != *xformPtr)
 		{
 			gridPtr->setTransform(xformPtr);
@@ -179,8 +180,10 @@ public:
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		if (gridPtr->activeVoxelCount() == 0)
 		{
-			if (FilePtr->hasGrid(TCHAR_TO_UTF8(*gridName))) //This grid may not have been written to file yet
+			//This grid may not have been written to file yet
+			if (FilePtr->hasGrid(TCHAR_TO_UTF8(*gridName)))
 			{
+				//It has been written to file already so swap the grid tree to the grid tree that was read from file
 				OpenFileGuard();
 				GridTypePtr activeGrid = openvdb::gridPtrCast<GridType>(FilePtr->readGrid(TCHAR_TO_UTF8(*gridName)));
 				check(activeGrid != nullptr);
@@ -253,6 +256,9 @@ public:
 				VertexSectionBuffers.Remove(gridName);
 				PolygonSectionBuffers.Remove(gridName);
 				NormalSectionBuffers.Remove(gridName);
+				UVMapSectionBuffers.Remove(gridName);
+				VertexColorsSectionBuffers.Remove(gridName);
+				TangentsSectionBuffers.Remove(gridName);
 				CubeMeshOps.Remove(gridName);
 				MarchingCubesMeshOps.Remove(gridName);
 				i->reset();
@@ -333,7 +339,7 @@ public:
 		}
 	}
 
-	void MeshRegionCubes(const FString &gridName, FVector &worldStart, FVector &worldEnd, FVector &firstActive) const
+	void MeshRegionCubes(const FString &gridName, UWorld * world, FVector &worldStart, FVector &worldEnd, FVector &firstActive) const
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);		
 		TSharedPtr<Vdb::GridOps::CubeMesher<GridTreeType>> mesherOp = CubeMeshOps.FindChecked(gridName);
@@ -341,7 +347,7 @@ public:
 		openvdb::BBoxd activeWorldBBox;
 		openvdb::Vec3d startWorldCoord;
 		openvdb::Vec3d voxelSize;
-		mesherOp->doMeshOp(activeWorldBBox, startWorldCoord, voxelSize);
+		mesherOp->doMeshOp(world, activeWorldBBox, startWorldCoord, voxelSize);
 
 		worldStart.X = activeWorldBBox.min().x();
 		worldStart.Y = activeWorldBBox.min().y();
@@ -355,7 +361,7 @@ public:
 		firstActive.Z = startWorldCoord.z() + voxelSize.z();
 	}
 
-	void MeshRegionMarchingCubes(const FString &gridName, FVector &worldStart, FVector &worldEnd, FVector &firstActive) const
+	void MeshRegionMarchingCubes(const FString &gridName, UWorld * world, FVector &worldStart, FVector &worldEnd, FVector &firstActive) const
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		TSharedPtr<Vdb::GridOps::MarchingCubesMesher<GridTreeType>> mesherOp = MarchingCubesMeshOps.FindChecked(gridName);
@@ -363,7 +369,7 @@ public:
 		openvdb::BBoxd activeWorldBBox;
 		openvdb::Vec3d startWorldCoord;
 		openvdb::Vec3d voxelSize;
-		mesherOp->doMeshOp(activeWorldBBox, startWorldCoord, voxelSize);
+		mesherOp->doMeshOp(world, activeWorldBBox, startWorldCoord, voxelSize);
 
 		worldStart.X = activeWorldBBox.min().x();
 		worldStart.Y = activeWorldBBox.min().y();
@@ -434,17 +440,16 @@ public:
 
 			openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
 			check(!fillBBox.empty());
-			valuesMaskPtr->fill(fillBBox, /*value*/false, /*state*/true);
-			fillBBox.expand(-1);
-			check(!fillBBox.empty());
+			openvdb::CoordBBox maskBBox = fillBBox;
+			maskBBox.expand(1);
+			valuesMaskPtr->fill(maskBBox, /*value*/false, /*state*/true);
 			valuesMaskPtr->fill(fillBBox, /*value*/true, /*state*/true);
-			valuesMaskPtr->tree().voxelizeActiveTiles();
 
 			//openvdb transformValues requires that ops are copyable even if shared = true, so instead call only the shared op applier here (code adapted from openvdb transformValues() in ValueTransformer.h)
 			typedef typename Vdb::GridOps::PerlinNoiseFillOp<openvdb::BoolTree, openvdb::BoolTree::ValueOnIter, GridTreeType> NoiseFillOpType;
 			typedef typename openvdb::TreeAdapter<GridType> Adapter;
 			typedef typename openvdb::tools::valxform::SharedOpTransformer<openvdb::BoolTree::ValueOnIter, Adapter::TreeType, NoiseFillOpType> NoiseFillProcessor;
-			NoiseFillOpType noiseFillOp(gridPtr, seed, frequency, lacunarity, persistence, octaveCount);
+			NoiseFillOpType noiseFillOp(valuesMaskPtr, gridPtr, seed, frequency, lacunarity, persistence, octaveCount);
 			NoiseFillProcessor NoiseFillProc(valuesMaskPtr->beginValueOn(), Adapter::tree(*gridPtr), noiseFillOp, openvdb::MERGE_ACTIVE_STATES);
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(valuesMaskPtr->getName().c_str()), valuesMaskPtr->activeVoxelCount()));
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
@@ -494,12 +499,12 @@ public:
 	}
 
 	void GetGridSectionBuffers(const FString &gridName,
-							   TSharedPtr<TArray<FVector>> &OutVertexBufferPtr,
-							   TSharedPtr<TArray<int32>> &OutPolygonBufferPtr,
-							   TSharedPtr<TArray<FVector>> &OutNormalBufferPtr,
-							   TSharedPtr<TArray<FVector2D>> &OutUVMapBufferPtr,
-							   TSharedPtr<TArray<FColor>> &OutVertexColorsBufferPtr,
-							   TSharedPtr<TArray<FProcMeshTangent>> &OutTangentsBufferPtr)
+							   TSharedPtr<VertexBufferType> &OutVertexBufferPtr,
+							   TSharedPtr<PolygonBufferType> &OutPolygonBufferPtr,
+							   TSharedPtr<NormalBufferType> &OutNormalBufferPtr,
+							   TSharedPtr<UVMapBufferType> &OutUVMapBufferPtr,
+							   TSharedPtr<VertexColorBufferType> &OutVertexColorsBufferPtr,
+							   TSharedPtr<TangentBufferType> &OutTangentsBufferPtr)
 	{
 		check(VertexSectionBuffers.Contains(gridName));
 		check(PolygonSectionBuffers.Contains(gridName));
@@ -507,12 +512,12 @@ public:
 		check(UVMapSectionBuffers.Contains(gridName));
 		check(VertexColorsSectionBuffers.Contains(gridName));
 		check(TangentsSectionBuffers.Contains(gridName));
-		OutVertexBufferPtr = TSharedPtr<TArray<FVector>>(VertexSectionBuffers[gridName]);
-		OutPolygonBufferPtr = TSharedPtr<TArray<int32>>(PolygonSectionBuffers[gridName]);
-		OutNormalBufferPtr = TSharedPtr<TArray<FVector>>(NormalSectionBuffers[gridName]);
-		OutUVMapBufferPtr = TSharedPtr<TArray<FVector2D>>(UVMapSectionBuffers[gridName]);
-		OutVertexColorsBufferPtr = TSharedPtr<TArray<FColor>>(VertexColorsSectionBuffers[gridName]);
-		OutTangentsBufferPtr = TSharedPtr<TArray<FProcMeshTangent>>(TangentsSectionBuffers[gridName]);
+		OutVertexBufferPtr = TSharedPtr<VertexBufferType>(VertexSectionBuffers[gridName]);
+		OutPolygonBufferPtr = TSharedPtr<PolygonBufferType>(PolygonSectionBuffers[gridName]);
+		OutNormalBufferPtr = TSharedPtr<NormalBufferType>(NormalSectionBuffers[gridName]);
+		OutUVMapBufferPtr = TSharedPtr<UVMapBufferType>(UVMapSectionBuffers[gridName]);
+		OutVertexColorsBufferPtr = TSharedPtr<VertexColorBufferType>(VertexColorsSectionBuffers[gridName]);
+		OutTangentsBufferPtr = TSharedPtr<TangentBufferType>(TangentsSectionBuffers[gridName]);
 	}
 
 	void GetIndexCoord(const FString &gridName, const FVector &location, FIntVector &outIndexCoord) const
@@ -577,18 +582,19 @@ public:
 	}
 
 private:
+	UObject const * Parent;
 	bool isFileInSync;
 	TSharedPtr<openvdb::io::File> FilePtr;
 	openvdb::GridPtrVecPtr GridsPtr;
 	openvdb::GridPtrVecPtr MasksPtr;
 	openvdb::MetaMap::Ptr FileMetaPtr;
 	mutable openvdb::GridPtrVec::iterator CachedGrid;
-	TMap<FString, TSharedRef<TArray<FVector>>> VertexSectionBuffers;
-	TMap<FString, TSharedRef<TArray<int32>>> PolygonSectionBuffers;
-	TMap<FString, TSharedRef<TArray<FVector>>> NormalSectionBuffers;
-	TMap<FString, TSharedRef<TArray<FVector2D>>> UVMapSectionBuffers;
-	TMap<FString, TSharedRef<TArray<FColor>>> VertexColorsSectionBuffers;
-	TMap<FString, TSharedRef<TArray<FProcMeshTangent>>> TangentsSectionBuffers;
+	TMap<FString, TSharedRef<VertexBufferType>> VertexSectionBuffers;
+	TMap<FString, TSharedRef<PolygonBufferType>> PolygonSectionBuffers;
+	TMap<FString, TSharedRef<NormalBufferType>> NormalSectionBuffers;
+	TMap<FString, TSharedRef<UVMapBufferType>> UVMapSectionBuffers;
+	TMap<FString, TSharedRef<VertexColorBufferType>> VertexColorsSectionBuffers;
+	TMap<FString, TSharedRef<TangentBufferType>> TangentsSectionBuffers;
 	TMap<FString, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>> CubeMeshOps;
 	TMap<FString, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>> MarchingCubesMeshOps;
 
@@ -620,23 +626,25 @@ private:
 	void InitMeshSection(GridTypePtr gridPtr)
 	{
 		const FString gridName = UTF8_TO_TCHAR(gridPtr->getName().c_str());
-		auto VertexBufferRef = VertexSectionBuffers.Emplace(gridName, TSharedRef<TArray<FVector>>(new TArray<FVector>()));
-		auto PolygonBufferRef = PolygonSectionBuffers.Emplace(gridName, TSharedRef<TArray<int32>>(new TArray<int32>()));
-		auto NormalBufferRef = NormalSectionBuffers.Emplace(gridName, TSharedRef<TArray<FVector>>(new TArray<FVector>()));
-		auto UVMapBufferRef = UVMapSectionBuffers.Emplace(gridName, TSharedRef<TArray<FVector2D>>(new TArray<FVector2D>()));
-		auto VertexColorsBufferRef = VertexColorsSectionBuffers.Emplace(gridName, TSharedRef<TArray<FColor>>(new TArray<FColor>()));
-		auto TangentsBufferRef = TangentsSectionBuffers.Emplace(gridName, TSharedRef<TArray<FProcMeshTangent>>(new TArray<FProcMeshTangent>()));
-		CubeMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(gridPtr, VertexBufferRef.Get(), PolygonBufferRef.Get(), NormalBufferRef.Get(), UVMapBufferRef.Get(), VertexColorsBufferRef.Get(), TangentsBufferRef.Get())));
-		MarchingCubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>(new Vdb::GridOps::MarchingCubesMesher<GridTreeType>(gridPtr, VertexBufferRef.Get(), PolygonBufferRef.Get(), NormalBufferRef.Get(), UVMapBufferRef.Get(), VertexColorsBufferRef.Get(), TangentsBufferRef.Get())));
+		auto VertexBufferRef = VertexSectionBuffers.Emplace(gridName, TSharedRef<VertexBufferType>(new VertexBufferType()));
+		auto PolygonBufferRef = PolygonSectionBuffers.Emplace(gridName, TSharedRef<PolygonBufferType>(new PolygonBufferType()));
+		auto NormalBufferRef = NormalSectionBuffers.Emplace(gridName, TSharedRef<NormalBufferType>(new NormalBufferType()));
+		auto UVMapBufferRef = UVMapSectionBuffers.Emplace(gridName, TSharedRef<UVMapBufferType>(new UVMapBufferType()));
+		auto VertexColorsBufferRef = VertexColorsSectionBuffers.Emplace(gridName, TSharedRef<VertexColorBufferType>(new VertexColorBufferType()));
+		auto TangentsBufferRef = TangentsSectionBuffers.Emplace(gridName, TSharedRef<TangentBufferType>(new TangentBufferType()));
+		CubeMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(gridPtr)));
+		//TODO: Section index buffers
+		//MarchingCubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>(new Vdb::GridOps::MarchingCubesMesher<GridTreeType>(gridPtr, VertexBufferRef.Get(), PolygonBufferRef.Get(), NormalBufferRef.Get(), UVMapBufferRef.Get(), VertexColorsBufferRef.Get(), TangentsBufferRef.Get())));
 		openvdb::BoolGrid::Ptr valuesMask = openvdb::BoolGrid::create(false);
 		valuesMask->setName(gridPtr->getName() + ".mask");
 		MasksPtr->push_back(valuesMask);
 	}
 
-	GridTypePtr CreateGrid(const FString &gridName, const FIntVector &indexStart, const FIntVector &indexEnd, const FVector &voxelSize)
+	GridTypePtr CreateGrid(const FString &gridName, const FIntVector &indexStart, const FIntVector &indexEnd, openvdb::math::Transform::Ptr xform)
 	{
 		GridTypePtr gridPtr = GridType::create();
 		gridPtr->setName(TCHAR_TO_UTF8(*gridName));
+		gridPtr->setTransform(xform);
 		InitMeshSection(gridPtr);
 		GridsPtr->push_back(gridPtr);
 		CachedGrid = GridsPtr->end();

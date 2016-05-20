@@ -9,18 +9,12 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 {
 	UVdbHandle * VdbHandle = ObjectInitializer.CreateDefaultSubobject<UVdbHandle>(this, TEXT("VDBHandle"));
 	check(VdbHandle != nullptr);
-	TerrainMeshComponent = ObjectInitializer.CreateDefaultSubobject<UProceduralTerrainMeshComponent>(this, TEXT("GeneratedTerrain"));
-	check(TerrainMeshComponent != nullptr);
-	TerrainMeshComponent->bGenerateOverlapEvents = true;
 
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	SetActorEnableCollision(true);
-	//RootComponent = TerrainMeshComponent;
-	TerrainMeshComponent->AttachTo(RootComponent);
-	TerrainMeshComponent->SetWorldScale3D(FVector(1.0f, 1.0f, 1.0f));
-	//TerrainMeshComponent->SetMaterial(0, TerrainMaterial);
 
+	//TerrainMeshComponent->SetMaterial(0, TerrainMaterial);
 	//static ConstructorHelpers::FObjectFinder<UMaterial> TerrainMaterialObject(TEXT("Material'/Engine/EngineMaterials/DefaultDeferredDecalMaterial.DefaultDeferredDecalMaterial'"));
 	//if (TerrainMaterialObject.Succeeded())
 	//{
@@ -43,35 +37,22 @@ void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
-	if (TerrainMeshComponent->bGenerateOverlapEvents)
-	{
-		TerrainMeshComponent->OnComponentBeginOverlap.AddDynamic(this, &AProceduralTerrain::OnOverlapBegin);
-		TerrainMeshComponent->OnComponentEndOverlap.AddDynamic(this, &AProceduralTerrain::OnOverlapEnd);
-	}
-
+	//Set the scale of all grid regions
 	VdbHandle->SetRegionScale(RegionDimensions);
-	VdbHandle->AddGrid(TEXT("Region[0,0,0]"), FIntVector(0, 0, 0), VoxelSize);
-	//VdbHandle->AddGrid(TEXT("Region[1,0,0]"), FIntVector(1, 0, 0), VoxelSize);
-	//VdbHandle->AddGrid(TEXT("Region[1,-1,0]"), FIntVector(1, -1, 0), VoxelSize);
-	//VdbHandle->AddGrid(TEXT("Region[0,-1,0]"), FIntVector(0, -1, 0), VoxelSize);
-	//VdbHandle->AddGrid(TEXT("Region[-1,-1,0]"), FIntVector(-1, -1, 0), VoxelSize);
-	//VdbHandle->AddGrid(TEXT("Region[-1,0,0]"), FIntVector(-1, 0, 0), VoxelSize);
-	//VdbHandle->AddGrid(TEXT("Region[-1,1,0]"), FIntVector(-1, 1, 0), VoxelSize);
-	//VdbHandle->AddGrid(TEXT("Region[0,1,0]"), FIntVector(0, 1, 0), VoxelSize);
-	//VdbHandle->AddGrid(TEXT("Region[1,1,0]"), FIntVector(1, 1, 0), VoxelSize);
 
-	FIntVector StartFill; //dummy value (not used)
-	FIntVector EndFill; //dummy value (not used)
-	int32 sectionIndex = 0;
-	TArray<FString> AllGridIDs = VdbHandle->GetAllGridIDs();
-	for (TArray<FString>::TConstIterator i = AllGridIDs.CreateConstIterator(); i; ++i)
-	{
-		VdbHandle->ReadGridTree(*i, StartFill, EndFill);
-		TerrainMeshComponent->MeshSectionIndices.Add(sectionIndex);
-		TerrainMeshComponent->MeshSectionIDs.Add(sectionIndex, *i);
-		TerrainMeshComponent->IsGridSectionMeshed.Add(sectionIndex, false);
-		sectionIndex++;
-	}
+	//Add the first grid region and all 8 regions surrounding the first
+	VdbHandle->AddGrid(TEXT("Region[0,0,0]"), FIntVector(0, 0, 0), VoxelSize, bCreateCollision);
+	VdbHandle->AddGrid(TEXT("Region[1,0,0]"), FIntVector(1, 0, 0), VoxelSize, bCreateCollision);
+	VdbHandle->AddGrid(TEXT("Region[1,-1,0]"), FIntVector(1, -1, 0), VoxelSize, bCreateCollision);
+	VdbHandle->AddGrid(TEXT("Region[0,-1,0]"), FIntVector(0, -1, 0), VoxelSize, bCreateCollision);
+	VdbHandle->AddGrid(TEXT("Region[-1,-1,0]"), FIntVector(-1, -1, 0), VoxelSize, bCreateCollision);
+	VdbHandle->AddGrid(TEXT("Region[-1,0,0]"), FIntVector(-1, 0, 0), VoxelSize, bCreateCollision);
+	VdbHandle->AddGrid(TEXT("Region[-1,1,0]"), FIntVector(-1, 1, 0), VoxelSize, bCreateCollision);
+	VdbHandle->AddGrid(TEXT("Region[0,1,0]"), FIntVector(0, 1, 0), VoxelSize, bCreateCollision);
+	VdbHandle->AddGrid(TEXT("Region[1,1,0]"), FIntVector(1, 1, 0), VoxelSize, bCreateCollision);
+
+	//Read all added grids from file
+	VdbHandle->ReadGridTrees();
 }
 
 // Called when the game starts or when spawned
@@ -79,56 +60,14 @@ void AProceduralTerrain::BeginPlay()
 {
 	Super::BeginPlay();
 
-	for (auto i = TerrainMeshComponent->MeshSectionIndices.CreateConstIterator(); i; ++i)
-	{
-		const int32 &sectionIndex = *i;
-		if (!TerrainMeshComponent->IsGridSectionMeshed[sectionIndex])
-		{
-			TSharedPtr<TArray<FVector>> VertexBufferPtr;
-			TSharedPtr<TArray<int32>> PolygonBufferPtr;
-			TSharedPtr<TArray<FVector>> NormalBufferPtr;
-			TSharedPtr<TArray<FVector2D>> UVMapBufferPtr;
-			TSharedPtr<TArray<FColor>> VertexColorsBufferPtr;
-			TSharedPtr<TArray<FProcMeshTangent>> TangentsBufferPtr;
-			FVector ActiveWorldStart;
-			FVector ActiveWorldEnd;
-			FVector StartLocation;
-			VdbHandle->MeshGrid(TerrainMeshComponent->MeshSectionIDs[sectionIndex],
-				                VertexBufferPtr,
-				                PolygonBufferPtr,
-				                NormalBufferPtr,
-				                UVMapBufferPtr,
-				                VertexColorsBufferPtr,
-				                TangentsBufferPtr,
-				                ActiveWorldStart,
-				                ActiveWorldEnd,
-				                StartLocation);
-			TerrainMeshComponent->CreateTerrainMeshSection(
-				sectionIndex,
-				bCreateCollision,
-				*VertexBufferPtr,
-				*PolygonBufferPtr,
-				*UVMapBufferPtr,
-				*NormalBufferPtr,
-				*VertexColorsBufferPtr,
-				*TangentsBufferPtr);
-			TerrainMeshComponent->IsGridSectionMeshed[sectionIndex] = true;
-
-			if (sectionIndex == 0)
-			{
-				ACharacter* Character = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-				FVector PlayerLocation;
-				if (Character)
-				{
-					PlayerLocation = Character->GetActorLocation();
-					StartLocation = TerrainMeshComponent->GetComponentScale()*(PlayerLocation - StartLocation);
-					TerrainMeshComponent->SetRelativeLocationAndRotation(StartLocation, FRotator::ZeroRotator);
-				}
-				TerrainMeshComponent->SetWorldLocation(PlayerLocation);
-				TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
-			}
-		}
-	}
+	FVector ActiveWorldStart;
+	FVector ActiveWorldEnd;
+	TArray<FVector> StartLocations;
+	VdbHandle->MeshGrids(GetWorld(),
+		ActiveWorldStart,
+	    ActiveWorldEnd,
+		StartLocations);
+	SetActorRelativeLocation(StartLocations[0]);
 }
 
 void AProceduralTerrain::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -140,29 +79,4 @@ void AProceduralTerrain::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AProceduralTerrain::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-}
-
-void AProceduralTerrain::OnOverlapBegin(class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-{
-	AFirstPersonCPPCharacter * PlayerActor = Cast<AFirstPersonCPPCharacter>(OtherActor);
-	if (PlayerActor != nullptr)
-	{
-		static FIntVector PrevVoxelCoord;
-		FIntVector VoxelCoord;
-		VdbHandle->GetVoxelCoord(TerrainMeshComponent->MeshSectionIDs[0], SweepResult.Location, VoxelCoord);
-		if (PrevVoxelCoord != VoxelCoord)
-		{
-			PrevVoxelCoord = VoxelCoord;
-			UE_LOG(LogFlying, Display, TEXT("OnOverlapBegin %s"), *VoxelCoord.ToString());
-		}
-	}
-}
-
-void AProceduralTerrain::OnOverlapEnd(class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
-{
-	AFirstPersonCPPCharacter * PlayerActor = Cast<AFirstPersonCPPCharacter>(OtherActor);
-	if (PlayerActor != nullptr)
-	{
-
-	}
 }
