@@ -22,8 +22,7 @@ public:
 	virtual void SetRegionScale(const FIntVector &regionScale) = 0;
 	virtual void ReadGridTrees() = 0;
 	virtual void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord) = 0;
-	virtual void MeshGrids(UWorld * World,
-		FVector &worldStart,
+	virtual void MeshGrids(FVector &worldStart,
 		FVector &worldEnd,
 		TArray<FVector> &startLocations) = 0;
 };

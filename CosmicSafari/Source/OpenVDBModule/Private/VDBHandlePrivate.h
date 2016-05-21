@@ -339,7 +339,7 @@ public:
 		}
 	}
 
-	void MeshRegionCubes(const FString &gridName, UWorld * world, FVector &worldStart, FVector &worldEnd, FVector &firstActive) const
+	void MeshRegionCubes(const FString &gridName, FVector &worldStart, FVector &worldEnd, FVector &firstActive) const
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);		
 		TSharedPtr<Vdb::GridOps::CubeMesher<GridTreeType>> mesherOp = CubeMeshOps.FindChecked(gridName);
@@ -347,7 +347,7 @@ public:
 		openvdb::BBoxd activeWorldBBox;
 		openvdb::Vec3d startWorldCoord;
 		openvdb::Vec3d voxelSize;
-		mesherOp->doMeshOp(world, activeWorldBBox, startWorldCoord, voxelSize);
+		mesherOp->doMeshOp(activeWorldBBox, startWorldCoord, voxelSize);
 
 		worldStart.X = activeWorldBBox.min().x();
 		worldStart.Y = activeWorldBBox.min().y();
@@ -361,7 +361,7 @@ public:
 		firstActive.Z = startWorldCoord.z() + voxelSize.z();
 	}
 
-	void MeshRegionMarchingCubes(const FString &gridName, UWorld * world, FVector &worldStart, FVector &worldEnd, FVector &firstActive) const
+	void MeshRegionMarchingCubes(const FString &gridName, FVector &worldStart, FVector &worldEnd, FVector &firstActive) const
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		TSharedPtr<Vdb::GridOps::MarchingCubesMesher<GridTreeType>> mesherOp = MarchingCubesMeshOps.FindChecked(gridName);
@@ -369,7 +369,7 @@ public:
 		openvdb::BBoxd activeWorldBBox;
 		openvdb::Vec3d startWorldCoord;
 		openvdb::Vec3d voxelSize;
-		mesherOp->doMeshOp(world, activeWorldBBox, startWorldCoord, voxelSize);
+		mesherOp->doMeshOp(activeWorldBBox, startWorldCoord, voxelSize);
 
 		worldStart.X = activeWorldBBox.min().x();
 		worldStart.Y = activeWorldBBox.min().y();
@@ -632,8 +632,14 @@ private:
 		auto UVMapBufferRef = UVMapSectionBuffers.Emplace(gridName, TSharedRef<UVMapBufferType>(new UVMapBufferType()));
 		auto VertexColorsBufferRef = VertexColorsSectionBuffers.Emplace(gridName, TSharedRef<VertexColorBufferType>(new VertexColorBufferType()));
 		auto TangentsBufferRef = TangentsSectionBuffers.Emplace(gridName, TSharedRef<TangentBufferType>(new TangentBufferType()));
-		CubeMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(gridPtr)));
-		//TODO: Section index buffers
+		CubeMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(
+			new Vdb::GridOps::CubeMesher<GridTreeType>(gridPtr,
+				VertexBufferRef.Get(),
+				PolygonBufferRef.Get(),
+				NormalBufferRef.Get(),
+				UVMapBufferRef.Get(),
+				VertexColorsBufferRef.Get(),
+				TangentsBufferRef.Get())));
 		//MarchingCubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>(new Vdb::GridOps::MarchingCubesMesher<GridTreeType>(gridPtr, VertexBufferRef.Get(), PolygonBufferRef.Get(), NormalBufferRef.Get(), UVMapBufferRef.Get(), VertexColorsBufferRef.Get(), TangentsBufferRef.Get())));
 		openvdb::BoolGrid::Ptr valuesMask = openvdb::BoolGrid::create(false);
 		valuesMask->setName(gridPtr->getName() + ".mask");

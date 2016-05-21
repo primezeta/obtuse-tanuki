@@ -475,7 +475,6 @@ namespace Vdb
 			DataAccessorType DataAcc;
 			openvdb::Grid<IndexTreeType>::Ptr VisitedVertexIndicesPtr;
 			openvdb::Vec3fGrid::Ptr GradientGridPtr;
-			UWorld * World;
 			TArray<FVector> &vertices;
 			TArray<int32> &polygons;
 			TArray<FVector> &normals;
@@ -495,44 +494,150 @@ namespace Vdb
 			typedef typename GridType::ValueType ValueType;
 			typedef typename IterType SourceIterType;
 
-			CubesMeshOp(const GridTypePtr gridPtr)
-				: GridPtr(gridPtr), GridAcc(gridPtr->tree())
+			CubesMeshOp(const GridTypePtr gridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer, TArray<FVector2D> &uvBuffer, TArray<FColor> &colorBuffer, TArray<FProcMeshTangent> &tangentBuffer)
+				: GridPtr(gridPtr), GridAcc(gridPtr->tree()), UnvisitedVertexIndex(GridPtr->tree().background()), vertices(vertexBuffer), polygons(polygonBuffer), normals(normalBuffer), uvs(uvBuffer), colors(colorBuffer), tangents(tangentBuffer)
 			{
 			}
 
-			//FORCEINLINE void operator()(const SourceIterType& iter)
-			void operator()(const SourceIterType& iter)
+			FORCEINLINE void operator()(const SourceIterType& iter)
 			{
 				//Mesh the voxel as a simple cube with 6 equal sized quads
-				const openvdb::Coord &coord = iter.getCoord();
-				const openvdb::Vec3d location = GridPtr->indexToWorld(coord);
+				const openvdb::CoordBBox bbox = openvdb::CoordBBox::createCube(iter.getCoord(), 2);
+				const openvdb::Vec3d location = GridPtr->indexToWorld(bbox.min());
+				const int32_t &minX = bbox.min().x();
+				const int32_t &minY = bbox.min().y();
+				const int32_t &minZ = bbox.min().z();
+				const int32_t &maxX = bbox.max().x();
+				const int32_t &maxY = bbox.max().y();
+				const int32_t &maxZ = bbox.max().z();
+				ValueType outValues[8];
+				openvdb::Coord vertexCoord;
+				for (int32_t x = minX; x <= maxX; ++x)
+				{
+					vertexCoord.setX(x);
+					for (int32_t y = minY; y <= maxY; ++y)
+					{
+						vertexCoord.setY(y);
+						for (int32_t z = minZ; z <= maxZ; ++z)
+						{
+							vertexCoord.setZ(z);
+							ValueType outValue;
+							{
+								FScopeLock lock(&CriticalSection);
+								//The vertex value may have already been calculated by someone else since voxels share vertices so first check if the vertex exists
+								if (GridAcc.getValue(vertexCoord) != UnvisitedVertexIndex)
+								{
+									//Get the saved vertex index
+									outValue = GridAcc.getValue(vertexCoord);
+								}
+								else
+								{
+									//Add to the vertex array and save the index of the new vertex
+									const openvdb::Vec3d vtx = GridPtr->transform().indexToWorld(vertexCoord);
+									outValue = (ValueType)(vertices.Add(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z())));
+									GridAcc.setValueOnly(vertexCoord, outValue);
+								}
+							}
+							outValues[(z - minZ) + ((y - minY) << 1) + ((x - minX) << 2)] = outValue;
+						}
+					}
+				}
+
+				//Add the vertex indices in counterclockwise order on each quad face
+				{
+					FScopeLock lock(&CriticalSection);
+					//Upper XY
+					//quads.Enqueue(openvdb::Vec4i(outValues[1], outValues[3], outValues[7], outValues[5]));
+					polygons.Add(outValues[1]);
+					polygons.Add(outValues[3]);
+					polygons.Add(outValues[7]);
+					polygons.Add(outValues[5]);
+					//Lower XY
+					//quads.Enqueue(openvdb::Vec4i(outValues[6], outValues[2], outValues[0], outValues[4]));
+					polygons.Add(outValues[6]);
+					polygons.Add(outValues[2]);
+					polygons.Add(outValues[0]);
+					polygons.Add(outValues[4]);
+					//Back XZ
+					//quads.Enqueue(openvdb::Vec4i(outValues[7], outValues[3], outValues[2], outValues[6]));
+					polygons.Add(outValues[7]);
+					polygons.Add(outValues[3]);
+					polygons.Add(outValues[2]);
+					polygons.Add(outValues[6]);
+					//Front XZ
+					//quads.Enqueue(openvdb::Vec4i(outValues[5], outValues[4], outValues[0], outValues[1]));
+					polygons.Add(outValues[5]);
+					polygons.Add(outValues[4]);
+					polygons.Add(outValues[0]);
+					polygons.Add(outValues[1]);
+					//Right YZ
+					//quads.Enqueue(openvdb::Vec4i(outValues[7], outValues[6], outValues[4], outValues[5]));
+					polygons.Add(outValues[7]);
+					polygons.Add(outValues[6]);
+					polygons.Add(outValues[4]);
+					polygons.Add(outValues[5]);
+					//Left YZ
+					//quads.Enqueue(openvdb::Vec4i(outValues[0], outValues[2], outValues[3], outValues[1]));
+					polygons.Add(outValues[0]);
+					polygons.Add(outValues[2]);
+					polygons.Add(outValues[3]);
+					polygons.Add(outValues[1]);
+					//Add dummy values for now TODO
+					normals.Add(FVector());
+					uvs.Add(FVector2D());
+					colors.Add(FColor());
+					tangents.Add(FProcMeshTangent());
+				}
 			}
 
 		protected:
 			FCriticalSection CriticalSection;
 			const GridTypePtr GridPtr;
 			AccessorType GridAcc;
-			UWorld * World;
+			const ValueType &UnvisitedVertexIndex;
+			TArray<FVector> &vertices;
+			TArray<int32> &polygons;
+			TArray<FVector> &normals;
+			TArray<FVector2D> &uvs;
+			TArray<FColor> &colors;
+			TArray<FProcMeshTangent> &tangents;
 		};
 
 		//Helper struct to hold the associated basic cubes meshing info
 		template <typename SourceTreeType>
 		class CubeMesher :
-			public CubesMeshOp<SourceTreeType, typename SourceTreeType::ValueOnCIter>
+			public CubesMeshOp<IndexTreeType, typename SourceTreeType::ValueOnCIter>
 		{
 		public:
-			CubeMesher(const GridTypePtr gridPtr)
-				: CubesMeshOp(gridPtr), isChanged(true)
+			typedef typename openvdb::Grid<SourceTreeType> SourceGridType;
+			typedef typename SourceGridType::Ptr SourceGridTypePtr;
+			const SourceGridTypePtr SourceGridPtr;
+
+			CubeMesher(const SourceGridTypePtr sourceGridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer, TArray<FVector2D> &uvBuffer, TArray<FColor> &colorBuffer, TArray<FProcMeshTangent> &tangentBuffer)
+				: isChanged(true), CubesMeshOp(GridType::create(UNVISITED_VERTEX_INDEX), vertexBuffer, polygonBuffer, normalBuffer, uvBuffer, colorBuffer, tangentBuffer)
 			{
+				GridPtr->setName(SourceGridPtr->getName() + ".indices");
+				GridPtr->setTransform(SourceGridPtr->transformPtr());
 			}
 
-			//FORCEINLINE void doMeshOp(openvdb::BBoxd &activeWorldBBox, openvdb::Vec3d &startWorldCoord, openvdb::Vec3d &voxelSize)
-			void doMeshOp(UWorld * world, openvdb::BBoxd &activeWorldBBox, openvdb::Vec3d &startWorldCoord, openvdb::Vec3d &voxelSize)
+			FORCEINLINE void clearBuffers()
 			{
-				World = world;
+				vertices.Empty();
+				polygons.Empty();
+				normals.Empty();
+				uvs.Empty();
+				colors.Empty();
+				tangents.Empty();
+			}
+
+			FORCEINLINE void doMeshOp(openvdb::BBoxd &activeWorldBBox, openvdb::Vec3d &startWorldCoord, openvdb::Vec3d &voxelSize)
+			{
 				if (isChanged)
 				{
-					openvdb::tools::valxform::SharedOpApplier<SourceIterType, CubeMesher<SourceTreeType>> proc(GridPtr->cbeginValueOn(), *this);
+					clearBuffers();
+					GridPtr->clear();
+					GridPtr->topologyUnion(*SourceGridPtr);
+					openvdb::tools::valxform::SharedOpApplier<SourceIterType, CubeMesher<SourceTreeType>> proc(SourceGridPtr->cbeginValueOn(), *this);
 					const bool threaded = true;
 					UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre basic mesh op) %d active voxels"), UTF8_TO_TCHAR(GridPtr->getName().c_str()), GridPtr->activeVoxelCount()));
 					proc.process(threaded);
@@ -579,9 +684,8 @@ namespace Vdb
 				tangents.Empty();
 			}
 
-			FORCEINLINE void doMeshOp(UWorld * world, openvdb::BBoxd &activeWorldBBox, openvdb::Vec3d &startWorldCoord, openvdb::Vec3d &voxelSize)
+			FORCEINLINE void doMeshOp(openvdb::BBoxd &activeWorldBBox, openvdb::Vec3d &startWorldCoord, openvdb::Vec3d &voxelSize)
 			{
-				World = world;
 				if (isChanged)
 				{
 					clearBuffers();

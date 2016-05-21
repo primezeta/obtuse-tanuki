@@ -63,8 +63,7 @@ void AProceduralTerrain::BeginPlay()
 	FVector ActiveWorldStart;
 	FVector ActiveWorldEnd;
 	TArray<FVector> StartLocations;
-	VdbHandle->MeshGrids(GetWorld(),
-		ActiveWorldStart,
+	VdbHandle->MeshGrids(ActiveWorldStart,
 	    ActiveWorldEnd,
 		StartLocations);
 	SetActorRelativeLocation(StartLocations[0]);

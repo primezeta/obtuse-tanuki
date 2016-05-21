@@ -49,6 +49,7 @@ FString UVdbHandle::AddGrid(const FString &gridName, const FIntVector &regionInd
 		TerrainMesh->MeshID = gridID;
 		TerrainMesh->IsGridSectionMeshed = false;
 		TerrainMesh->CreateCollision = bCreateCollision;
+		TerrainMesh->SectionIndex = TerrainMeshComponents.Num();
 		TerrainMeshComponents.Add(TerrainMesh);
 	}
 	return gridID;
@@ -101,13 +102,13 @@ void UVdbHandle::GetVoxelCoord(const FString &gridID, const FVector &worldLocati
 	}
 }
 
-void UVdbHandle::MeshGrids(UWorld * World,
-	FVector &worldStart,
+void UVdbHandle::MeshGrids(FVector &worldStart,
 	FVector &worldEnd,
 	TArray<FVector> &startLocations)
 {
 	if (FOpenVDBModule::IsAvailable())
 	{
+		UWorld * World = GetWorld();
 		for (auto i = TerrainMeshComponents.CreateConstIterator(); i; ++i)
 		{
 			FVector startLocation;

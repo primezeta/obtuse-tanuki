@@ -5,12 +5,12 @@
 #include "ProceduralMeshComponent.h"
 #include "ProceduralTerrainMeshComponent.generated.h"
 
-typedef TArray<TArray<FVector>> VertexBufferType;
-typedef TArray<TArray<int32>> PolygonBufferType;
-typedef TArray<TArray<FVector>> NormalBufferType;
-typedef TArray<TArray<FVector2D>> UVMapBufferType;
-typedef TArray<TArray<FColor>> VertexColorBufferType;
-typedef TArray<TArray<FProcMeshTangent>> TangentBufferType;
+typedef TArray<FVector> VertexBufferType;
+typedef TArray<int32> PolygonBufferType;
+typedef TArray<FVector> NormalBufferType;
+typedef TArray<FVector2D> UVMapBufferType;
+typedef TArray<FColor> VertexColorBufferType;
+typedef TArray<FProcMeshTangent> TangentBufferType;
 
 UENUM(BlueprintType)		//"BlueprintType" is essential to include
 enum class EMeshType : uint8
@@ -30,17 +30,18 @@ class OPENVDBMODULE_API UProceduralTerrainMeshComponent : public UProceduralMesh
 public:
 	UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer);
 
-	void CreateTerrainMeshSection(int32 SectionIndex);
-	void UpdateTerrainMeshSection(int32 SectionIndex);
+	void CreateTerrainMeshSection();
+	void UpdateTerrainMeshSection();
 	
 	FString MeshName;
 	FString MeshID;
 	bool IsGridSectionMeshed;
 	bool CreateCollision;
-	TSharedPtr<VertexBufferType> VertexBufferPtrs;
-	TSharedPtr<PolygonBufferType> PolygonBufferPtrs;
-	TSharedPtr<NormalBufferType> NormalBufferPtrs;
-	TSharedPtr<UVMapBufferType> UVMapBufferPtrs;
-	TSharedPtr<VertexColorBufferType> VertexColorsBufferPtrs;
-	TSharedPtr<TangentBufferType> TangentsBufferPtrs;
+	int32 SectionIndex;
+	TSharedPtr<VertexBufferType> VertexBufferPtr;
+	TSharedPtr<PolygonBufferType> PolygonBufferPtr;
+	TSharedPtr<NormalBufferType> NormalBufferPtr;
+	TSharedPtr<UVMapBufferType> UVMapBufferPtr;
+	TSharedPtr<VertexColorBufferType> VertexColorsBufferPtr;
+	TSharedPtr<TangentBufferType> TangentsBufferPtr;
 };

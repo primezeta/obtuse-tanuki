@@ -154,8 +154,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void MeshGrids(UWorld * World,
-			FVector &worldStart,
+		virtual void MeshGrids(FVector &worldStart,
 			FVector &worldEnd,
 			TArray<FVector> &startLocations) override;
 

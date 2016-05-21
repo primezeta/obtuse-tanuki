@@ -133,6 +133,7 @@ void FOpenVDBModule::RemoveGrid(UVdbHandle const * VdbHandle, const FString &gri
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(VdbHandle->GetReadableName());
 	try
 	{
+		//TODO: Remove terrain mesh component and reconcile mesh section indices
 		VdbHandlePrivatePtr->RemoveFileMeta(gridID);
 		VdbHandlePrivatePtr->RemoveGridFromGridVec(gridID);
 	}
@@ -266,11 +267,11 @@ void FOpenVDBModule::MeshGrid(UVdbHandle const * VdbHandle,
 			FVector firstActiveLocation;
 			if (MeshMethod == EMeshType::MESH_TYPE_CUBES)
 			{
-				VdbHandlePrivatePtr->MeshRegionCubes(gridID, World, worldStart, worldEnd, firstActiveLocation);
+				VdbHandlePrivatePtr->MeshRegionCubes(gridID, worldStart, worldEnd, firstActiveLocation);
 			}
 			else if (MeshMethod == EMeshType::MESH_TYPE_MARCHING_CUBES)
 			{
-				VdbHandlePrivatePtr->MeshRegionMarchingCubes(gridID, World, worldStart, worldEnd, firstActiveLocation);
+				VdbHandlePrivatePtr->MeshRegionMarchingCubes(gridID, worldStart, worldEnd, firstActiveLocation);
 			}
 			else
 			{
@@ -280,13 +281,13 @@ void FOpenVDBModule::MeshGrid(UVdbHandle const * VdbHandle,
 			if (MeshMethod == EMeshType::MESH_TYPE_MARCHING_CUBES)
 			{
 				//VdbHandlePrivatePtr->GetGridSectionBuffers(gridID,
-				//	TerrainMeshComponent->VertexBufferPtrs,
-				//	TerrainMeshComponent->PolygonBufferPtrs,
-				//	TerrainMeshComponent->NormalBufferPtrs,
-				//	TerrainMeshComponent->UVMapBufferPtrs,
-				//	TerrainMeshComponent->VertexColorsBufferPtrs,
-				//	TerrainMeshComponent->TangentsBufferPtrs);
-				//TerrainMeshComponent->CreateTerrainMeshSection(sectionIndex);
+				//	TerrainMeshComponent->VertexBufferPtr,
+				//	TerrainMeshComponent->PolygonBufferPtr,
+				//	TerrainMeshComponent->NormalBufferPtr,
+				//	TerrainMeshComponent->UVMapBufferPtr,
+				//	TerrainMeshComponent->VertexColorsBufferPtr,
+				//	TerrainMeshComponent->TangentsBufferPtr);
+				//TerrainMeshComponent->CreateTerrainMeshSection();
 				//TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
 			}
 

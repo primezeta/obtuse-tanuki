@@ -8,12 +8,12 @@ UProceduralTerrainMeshComponent::UProceduralTerrainMeshComponent(const FObjectIn
 	MeshName = TEXT("DefaultMeshName");
 }
 
-inline void UProceduralTerrainMeshComponent::CreateTerrainMeshSection(int32 SectionIndex)
+inline void UProceduralTerrainMeshComponent::CreateTerrainMeshSection()
 {
-	Super::CreateMeshSection(SectionIndex, (*VertexBufferPtrs)[SectionIndex], (*PolygonBufferPtrs)[SectionIndex], (*NormalBufferPtrs)[SectionIndex], (*UVMapBufferPtrs)[SectionIndex], (*VertexColorsBufferPtrs)[SectionIndex], (*TangentsBufferPtrs)[SectionIndex], CreateCollision);
+	Super::CreateMeshSection(SectionIndex, *VertexBufferPtr, *PolygonBufferPtr, *NormalBufferPtr, *UVMapBufferPtr, *VertexColorsBufferPtr, *TangentsBufferPtr, CreateCollision);
 }
 
-inline void UProceduralTerrainMeshComponent::UpdateTerrainMeshSection(int32 SectionIndex)
+inline void UProceduralTerrainMeshComponent::UpdateTerrainMeshSection()
 {
-	Super::UpdateMeshSection(SectionIndex, (*VertexBufferPtrs)[SectionIndex], (*NormalBufferPtrs)[SectionIndex], (*UVMapBufferPtrs)[SectionIndex], (*VertexColorsBufferPtrs)[SectionIndex], (*TangentsBufferPtrs)[SectionIndex]);
+	Super::UpdateMeshSection(SectionIndex, *VertexBufferPtr, *NormalBufferPtr, *UVMapBufferPtr, *VertexColorsBufferPtr, *TangentsBufferPtr);
 }
