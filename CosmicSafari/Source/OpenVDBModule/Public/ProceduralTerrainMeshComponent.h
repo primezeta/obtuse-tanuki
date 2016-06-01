@@ -34,5 +34,5 @@ public:
 	FString MeshID;
 	bool IsGridSectionMeshed;
 	bool CreateCollision;
-	int32 SectionIndex;
+	int32 SectionCount;
 };

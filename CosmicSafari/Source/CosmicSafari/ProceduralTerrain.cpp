@@ -67,8 +67,10 @@ void AProceduralTerrain::AddTerrainComponent(const FString &name, const FIntVect
 	TerrainMesh->MeshName = name;
 	TerrainMesh->IsGridSectionMeshed = false;
 	TerrainMesh->CreateCollision = bCreateCollision;
-	TerrainMesh->SectionIndex = TerrainMeshComponents.Num();
+	TerrainMesh->SectionCount = 1; //TODO: One section per material?
 	TerrainMesh->MeshID = VdbHandle->AddGrid(name, gridIndex, VoxelSize);
+	TerrainMesh->RegisterComponent();
+	TerrainMesh->AttachTo(RootComponent);
 	TerrainMeshComponents.Add(TerrainMesh);
 }
 
@@ -89,7 +91,12 @@ void AProceduralTerrain::BeginPlay()
 	for (auto i = TerrainMeshComponents.CreateIterator(); i; ++i)
 	{
 		UProceduralTerrainMeshComponent &TerrainMeshComponent = **i;
-		if (!TerrainMeshComponent.IsGridSectionMeshed)
+		if (TerrainMeshComponent.IsGridSectionMeshed)
+		{
+			continue;
+		}
+
+		for (auto j = 0; j < TerrainMeshComponent.SectionCount; ++j)
 		{
 			TSharedPtr<VertexBufferType> VertexBufferPtr;
 			TSharedPtr<PolygonBufferType> PolygonBufferPtr;
@@ -113,7 +120,7 @@ void AProceduralTerrain::BeginPlay()
 				ActiveWorldEnd,
 				StartLocation);
 			TerrainMeshComponent.CreateMeshSection(
-				TerrainMeshComponent.SectionIndex,
+				j,
 				*VertexBufferPtr,
 				*PolygonBufferPtr,
 				*NormalBufferPtr,
@@ -122,6 +129,7 @@ void AProceduralTerrain::BeginPlay()
 				*TangentsBufferPtr,
 				bCreateCollision);
 			TerrainMeshComponent.IsGridSectionMeshed = true;
+			TerrainMeshComponent.SetMeshSectionVisible(j, true);
 			StartLocations.Add(StartLocation);
 		}
 	}
