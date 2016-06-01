@@ -248,8 +248,14 @@ void FOpenVDBModule::GetVoxelCoord(UVdbHandle const * VdbHandle, const FString &
 }
 
 void FOpenVDBModule::MeshGrid(UVdbHandle const * VdbHandle,
-	UWorld * World,
-	UProceduralTerrainMeshComponent * TerrainMeshComponent,
+	const FString &gridID,
+	const FVector &Location,
+	TSharedPtr<VertexBufferType>& VertexBuffer,
+	TSharedPtr<PolygonBufferType>& PolygonBuffer,
+	TSharedPtr<NormalBufferType>& NormalBuffer,
+	TSharedPtr<UVMapBufferType>& UVMapBuffer,
+	TSharedPtr<VertexColorBufferType>& VertexColorBuffer,
+	TSharedPtr<TangentBufferType>& TangentBuffer,
 	EMeshType MeshMethod,
 	FVector &worldStart,
 	FVector &worldEnd,
@@ -258,50 +264,28 @@ void FOpenVDBModule::MeshGrid(UVdbHandle const * VdbHandle,
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(VdbHandle->GetReadableName());
 	try
 	{
-		//const int32 &sectionIndex = *i;
-		if (!TerrainMeshComponent->IsGridSectionMeshed)
+		FVector firstActiveLocation;
+		if (MeshMethod == EMeshType::MESH_TYPE_CUBES)
 		{
-			TerrainMeshComponent->IsGridSectionMeshed = true;
-			const FString gridID = TerrainMeshComponent->MeshID;
-			VdbHandlePrivateType::GridTypePtr GridPtr = VdbHandlePrivatePtr->GetGridPtrChecked(gridID);
-			FVector firstActiveLocation;
-			if (MeshMethod == EMeshType::MESH_TYPE_CUBES)
-			{
-				VdbHandlePrivatePtr->MeshRegionCubes(gridID, worldStart, worldEnd, firstActiveLocation);
-			}
-			else if (MeshMethod == EMeshType::MESH_TYPE_MARCHING_CUBES)
-			{
-				VdbHandlePrivatePtr->MeshRegionMarchingCubes(gridID, worldStart, worldEnd, firstActiveLocation);
-			}
-			else
-			{
-				throw(std::string("Invalid mesh type!"));
-			}
-
-			if (MeshMethod == EMeshType::MESH_TYPE_MARCHING_CUBES)
-			{
-				//VdbHandlePrivatePtr->GetGridSectionBuffers(gridID,
-				//	TerrainMeshComponent->VertexBufferPtr,
-				//	TerrainMeshComponent->PolygonBufferPtr,
-				//	TerrainMeshComponent->NormalBufferPtr,
-				//	TerrainMeshComponent->UVMapBufferPtr,
-				//	TerrainMeshComponent->VertexColorsBufferPtr,
-				//	TerrainMeshComponent->TangentsBufferPtr);
-				//TerrainMeshComponent->CreateTerrainMeshSection();
-				//TerrainMeshComponent->SetMeshSectionVisible(sectionIndex, true);
-			}
-
-			//if (sectionIndex == 0)
-			//{
-				ACharacter* Character = UGameplayStatics::GetPlayerCharacter(World, 0);
-				FVector PlayerLocation;
-				if (Character)
-				{
-					PlayerLocation = Character->GetActorLocation();
-				}
-				startLocation = PlayerLocation - firstActiveLocation;
-			//}
+			VdbHandlePrivatePtr->MeshRegionCubes(gridID, worldStart, worldEnd, firstActiveLocation);
 		}
+		else if (MeshMethod == EMeshType::MESH_TYPE_MARCHING_CUBES)
+		{
+			VdbHandlePrivatePtr->MeshRegionMarchingCubes(gridID, worldStart, worldEnd, firstActiveLocation);
+		}
+		else
+		{
+			throw(std::string("Invalid mesh type!"));
+		}
+		startLocation = Location - firstActiveLocation;
+
+		VdbHandlePrivatePtr->BindGridSectionBuffers(gridID,
+			VertexBuffer,
+			PolygonBuffer,
+			NormalBuffer,
+			UVMapBuffer,
+			VertexColorBuffer,
+			TangentBuffer);
 	}
 	catch (const openvdb::Exception &e)
 	{

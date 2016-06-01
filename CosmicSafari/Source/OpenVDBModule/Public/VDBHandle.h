@@ -107,9 +107,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Mesh algorithm"))
 		EMeshType MeshMethod;
 
-	UPROPERTY(BlueprintReadOnly, Category = "VDB Handle", Meta = (ToolTip = "Terrain mesh component of each grid"))
-		TArray<UProceduralTerrainMeshComponent*> TerrainMeshComponents;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Path to voxel database"))
 		FString FilePath;
 
@@ -144,19 +141,27 @@ public:
 #endif
 
 	UFUNCTION(BlueprintCallable, Category="VDB Handle")
-		virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, bool bCreateCollision) override;
+		virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void RemoveGrid(const FString &gridID) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void SetRegionScale(const FIntVector &regionScale) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void ReadGridTrees() override;
+		virtual void ReadGridTree(const FString &gridID) override;
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord) override;
-	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void MeshGrids(FVector &worldStart,
+	//UFUNCTION(BlueprintCallable, Category = "VDB Handle")
+		virtual void MeshGrid(const FString &gridID,
+			const FVector &playerLocation,
+			TSharedPtr<VertexBufferType> &VertexBuffer,
+			TSharedPtr<PolygonBufferType> &PolygonBuffer,
+			TSharedPtr<NormalBufferType> &NormalBuffer,
+			TSharedPtr<UVMapBufferType> &UVMapBuffer,
+			TSharedPtr<VertexColorBufferType> &VertexColorBuffer,
+			TSharedPtr<TangentBufferType> &TangentBuffer,
+			FVector &worldStart,
 			FVector &worldEnd,
-			TArray<FVector> &startLocations) override;
+			FVector &startLocation) override;
 
 	TArray<FString> GetAllGridIDs();
 	FIntVector GetRegionIndex(const FVector &worldLocation);

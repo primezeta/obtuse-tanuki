@@ -105,6 +105,7 @@ public:
 		check(FilePtr.IsValid());
 		FilePtr->setGridStatsMetadataEnabled(EnableGridStats);
 
+		//TODO: Ensure path exists before writing file
 		if (!FPaths::FileExists(FilePath))
 		{
 			//Create an empty vdb file
@@ -259,7 +260,7 @@ public:
 				UVMapSectionBuffers.Remove(gridName);
 				VertexColorsSectionBuffers.Remove(gridName);
 				TangentsSectionBuffers.Remove(gridName);
-				CubeMeshOps.Remove(gridName);
+				CubesMeshOps.Remove(gridName);
 				MarchingCubesMeshOps.Remove(gridName);
 				i->reset();
 				//TODO: Remove mask grid
@@ -342,12 +343,13 @@ public:
 	void MeshRegionCubes(const FString &gridName, FVector &worldStart, FVector &worldEnd, FVector &firstActive) const
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);		
-		TSharedPtr<Vdb::GridOps::CubeMesher<GridTreeType>> mesherOp = CubeMeshOps.FindChecked(gridName);
+		TSharedPtr<Vdb::GridOps::CubeMesher<GridTreeType>> mesherOp = CubesMeshOps.FindChecked(gridName);
 
+		const bool threaded = true;
 		openvdb::BBoxd activeWorldBBox;
 		openvdb::Vec3d startWorldCoord;
 		openvdb::Vec3d voxelSize;
-		mesherOp->doMeshOp(activeWorldBBox, startWorldCoord, voxelSize);
+		mesherOp->doMeshOp(activeWorldBBox, startWorldCoord, voxelSize, threaded);
 
 		worldStart.X = activeWorldBBox.min().x();
 		worldStart.Y = activeWorldBBox.min().y();
@@ -366,10 +368,11 @@ public:
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		TSharedPtr<Vdb::GridOps::MarchingCubesMesher<GridTreeType>> mesherOp = MarchingCubesMeshOps.FindChecked(gridName);
 
+		const bool threaded = true;
 		openvdb::BBoxd activeWorldBBox;
 		openvdb::Vec3d startWorldCoord;
 		openvdb::Vec3d voxelSize;
-		mesherOp->doMeshOp(activeWorldBBox, startWorldCoord, voxelSize);
+		mesherOp->doMeshOp(activeWorldBBox, startWorldCoord, voxelSize, threaded);
 
 		worldStart.X = activeWorldBBox.min().x();
 		worldStart.Y = activeWorldBBox.min().y();
@@ -435,7 +438,7 @@ public:
 			{
 				valuesMaskPtr->clear();
 				gridPtr->clear();
-				CubeMeshOps.FindChecked(gridName)->markChanged();
+				CubesMeshOps.FindChecked(gridName)->markChanged();
 			}
 
 			openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
@@ -450,10 +453,11 @@ public:
 			typedef typename openvdb::TreeAdapter<GridType> Adapter;
 			typedef typename openvdb::tools::valxform::SharedOpTransformer<openvdb::BoolTree::ValueOnIter, Adapter::TreeType, NoiseFillOpType> NoiseFillProcessor;
 			NoiseFillOpType noiseFillOp(valuesMaskPtr, gridPtr, seed, frequency, lacunarity, persistence, octaveCount);
-			NoiseFillProcessor NoiseFillProc(valuesMaskPtr->beginValueOn(), Adapter::tree(*gridPtr), noiseFillOp, openvdb::MERGE_ACTIVE_STATES);
+			NoiseFillProcessor NoiseFillProc(valuesMaskPtr->beginValueOn(), Adapter::tree(*gridPtr), noiseFillOp, openvdb::MERGE_NODES);
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(valuesMaskPtr->getName().c_str()), valuesMaskPtr->activeVoxelCount()));
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 			NoiseFillProc.process(threaded);
+			gridPtr->topologyUnion(*valuesMaskPtr);
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post perlin op) %d active voxels"), UTF8_TO_TCHAR(valuesMaskPtr->getName().c_str()), valuesMaskPtr->activeVoxelCount()));
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post perlin op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		}
@@ -482,7 +486,7 @@ public:
 		mesherOp->GridPtr->setTransform(gridPtr->transformPtr());
 
 		ExtractSurfaceOpType ExtractSurfaceOp(gridPtr);
-		ExtractSurfaceProcessor ExtractSurfaceProc(gridPtr->beginValueOn(), Adapter::tree(*(mesherOp->GridPtr)), ExtractSurfaceOp, openvdb::MERGE_ACTIVE_STATES);
+		ExtractSurfaceProcessor ExtractSurfaceProc(gridPtr->beginValueOn(), Adapter::tree(*(mesherOp->GridPtr)), ExtractSurfaceOp, openvdb::MERGE_ACTIVE_STATES_AND_NODES);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(mesherOp->GridPtr->getName().c_str()), mesherOp->GridPtr->activeVoxelCount()));
 		ExtractSurfaceProc.process(threaded);
@@ -498,14 +502,15 @@ public:
 		}
 	}
 
-	void GetGridSectionBuffers(const FString &gridName,
-							   TSharedPtr<VertexBufferType> &OutVertexBufferPtr,
-							   TSharedPtr<PolygonBufferType> &OutPolygonBufferPtr,
-							   TSharedPtr<NormalBufferType> &OutNormalBufferPtr,
-							   TSharedPtr<UVMapBufferType> &OutUVMapBufferPtr,
-							   TSharedPtr<VertexColorBufferType> &OutVertexColorsBufferPtr,
-							   TSharedPtr<TangentBufferType> &OutTangentsBufferPtr)
+	void BindGridSectionBuffers(const FString &gridName,
+		TSharedPtr<VertexBufferType> &OutVertexBufferPtr,
+		TSharedPtr<PolygonBufferType> &OutPolygonBufferPtr,
+		TSharedPtr<NormalBufferType> &OutNormalBufferPtr,
+		TSharedPtr<UVMapBufferType> &OutUVMapBufferPtr,
+		TSharedPtr<VertexColorBufferType> &OutVertexColorsBufferPtr,
+		TSharedPtr<TangentBufferType> &OutTangentsBufferPtr)
 	{
+		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		check(VertexSectionBuffers.Contains(gridName));
 		check(PolygonSectionBuffers.Contains(gridName));
 		check(NormalSectionBuffers.Contains(gridName));
@@ -560,7 +565,7 @@ public:
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
 		GridType::Accessor acc = gridPtr->getAccessor();
 		acc.modifyValueAndActiveState<Vdb::GridOps::BasicModifyOp<typename GridType::ValueType>>(coord, Vdb::GridOps::BasicModifyOp<typename GridType::ValueType>>(value));
-		CubeMeshOps.FindChecked(gridName)->markChanged();
+		CubesMeshOps.FindChecked(gridName)->markChanged();
 	}
 
 	void SetVoxelActiveState(const FString &gridName, const FIntVector &indexCoord, const bool &isActive)
@@ -569,7 +574,7 @@ public:
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
 		GridType::Accessor acc = gridPtr->getAccessor();
 		acc.setActiveState(coord, isActive);
-		CubeMeshOps.FindChecked(gridName)->markChanged();
+		CubesMeshOps.FindChecked(gridName)->markChanged();
 	}
 
 	void SetVoxelValueAndActiveState(const FString &gridName, const FIntVector &indexCoord, const typename GridType::ValueType &value, const bool &isActive)
@@ -578,7 +583,7 @@ public:
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
 		GridType::Accessor acc = gridPtr->getAccessor();
 		acc.modifyValueAndActiveState<Vdb::GridOps::BasicModifyActiveOp<typename GridType::ValueType>>(coord, Vdb::GridOps::BasicModifyActiveOp<typename GridType::ValueType>>(value, isActive));
-		CubeMeshOps.FindChecked(gridName)->markChanged();
+		CubesMeshOps.FindChecked(gridName)->markChanged();
 	}
 
 private:
@@ -595,7 +600,7 @@ private:
 	TMap<FString, TSharedRef<UVMapBufferType>> UVMapSectionBuffers;
 	TMap<FString, TSharedRef<VertexColorBufferType>> VertexColorsSectionBuffers;
 	TMap<FString, TSharedRef<TangentBufferType>> TangentsSectionBuffers;
-	TMap<FString, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>> CubeMeshOps;
+	TMap<FString, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>> CubesMeshOps;
 	TMap<FString, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>> MarchingCubesMeshOps;
 
 	inline void SetIsFileInSync(bool isInSync)
@@ -632,14 +637,7 @@ private:
 		auto UVMapBufferRef = UVMapSectionBuffers.Emplace(gridName, TSharedRef<UVMapBufferType>(new UVMapBufferType()));
 		auto VertexColorsBufferRef = VertexColorsSectionBuffers.Emplace(gridName, TSharedRef<VertexColorBufferType>(new VertexColorBufferType()));
 		auto TangentsBufferRef = TangentsSectionBuffers.Emplace(gridName, TSharedRef<TangentBufferType>(new TangentBufferType()));
-		CubeMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(
-			new Vdb::GridOps::CubeMesher<GridTreeType>(gridPtr,
-				VertexBufferRef.Get(),
-				PolygonBufferRef.Get(),
-				NormalBufferRef.Get(),
-				UVMapBufferRef.Get(),
-				VertexColorsBufferRef.Get(),
-				TangentsBufferRef.Get())));
+		CubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(gridPtr, VertexBufferRef.Get(), PolygonBufferRef.Get(), NormalBufferRef.Get(), UVMapBufferRef.Get(), VertexColorsBufferRef.Get(), TangentsBufferRef.Get())));
 		//MarchingCubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>(new Vdb::GridOps::MarchingCubesMesher<GridTreeType>(gridPtr, VertexBufferRef.Get(), PolygonBufferRef.Get(), NormalBufferRef.Get(), UVMapBufferRef.Get(), VertexColorsBufferRef.Get(), TangentsBufferRef.Get())));
 		openvdb::BoolGrid::Ptr valuesMask = openvdb::BoolGrid::create(false);
 		valuesMask->setName(gridPtr->getName() + ".mask");

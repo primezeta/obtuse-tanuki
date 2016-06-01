@@ -100,19 +100,26 @@ namespace Vdb
 			{
 				const openvdb::Coord &coord = iter.getCoord();
 				const bool &isActiveValue = iter.getValue();
-				DestValueType outValue;
-				GetValue(coord, outValue);
+				//Set active state of the mask iter, so that after the op is run, topologyUnion will set the destination grid active states to match
 				if (!isActiveValue)
 				{
-					//If the mask value is false then that means it is not part of the surface, however we still need
-					//a value so that each voxel has a value at each of 12 surrounding voxels when extracting the surface
-					acc.setValueOff(coord, outValue);
+					iter.setValueOff();
 				}
-				else
-				{
-					//Set the value to on so that it is part of the extractable surface
-					acc.setValueOn(coord, outValue);
-				}
+				//Set the value for the destination
+				DestValueType outValue;
+				GetValue(coord, outValue);
+				acc.setValueOnly(coord, outValue);
+				//if (!isActiveValue)
+				//{
+				//	//If the mask value is false then that means it is not part of the surface, however we still need
+				//	//a value so that each voxel has a value at each of 12 surrounding voxels when extracting the surface
+				//	acc.setValueOff(coord, outValue);
+				//}
+				//else
+				//{
+				//	//Set the value to on so that it is part of the extractable surface
+				//	acc.setValueOn(coord, outValue);
+				//}
 			}
 
 			FORCEINLINE void GetValue(const openvdb::Coord &coord, DestValueType &outValue)
@@ -164,14 +171,15 @@ namespace Vdb
 			{
 			}
 
-			FORCEINLINE void operator()(const IterType& iter)
+			void operator()(const IterType& iter)
+			//FORCEINLINE void operator()(const IterType& iter)
 			{
 				//Note that no special consideration is done for tile voxels, so the grid tiles must be voxelized prior to this op [tree().voxelizeActiveTiles()]
 				uint8 insideBits = 0;
 				ValueType value = iter.getValue();
 				const openvdb::Coord &coord = iter.getCoord();
 				auto acc = GridPtr->getConstAccessor();
-				if (value.Data < SurfaceValue.Data) { insideBits |= 1; }
+				if (acc.getValue(coord).Data < SurfaceValue.Data) { insideBits |= 1; }
 				if (acc.getValue(coord.offsetBy(1, 0, 0)).Data < SurfaceValue.Data) { insideBits |= 2; }
 				if (acc.getValue(coord.offsetBy(0, 1, 0)).Data < SurfaceValue.Data) { insideBits |= 4; }
 				if (acc.getValue(coord.offsetBy(0, 0, 1)).Data < SurfaceValue.Data) { insideBits |= 8; }
@@ -494,12 +502,20 @@ namespace Vdb
 			typedef typename GridType::ValueType ValueType;
 			typedef typename IterType SourceIterType;
 
-			CubesMeshOp(const GridTypePtr gridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer, TArray<FVector2D> &uvBuffer, TArray<FColor> &colorBuffer, TArray<FProcMeshTangent> &tangentBuffer)
-				: GridPtr(gridPtr), GridAcc(gridPtr->tree()), UnvisitedVertexIndex(GridPtr->tree().background()), vertices(vertexBuffer), polygons(polygonBuffer), normals(normalBuffer), uvs(uvBuffer), colors(colorBuffer), tangents(tangentBuffer)
+			CubesMeshOp(const GridTypePtr gridPtr,
+				VertexBufferType &vertexBuffer,
+				PolygonBufferType &polygonBuffer,
+				NormalBufferType &normalBuffer,
+				UVMapBufferType &uvBuffer,
+				VertexColorBufferType &colorBuffer,
+				TangentBufferType &tangentBuffer)
+				: GridPtr(gridPtr), GridAcc(gridPtr->tree()), UnvisitedVertexIndex(GridPtr->tree().background()),
+				vertices(vertexBuffer), polygons(polygonBuffer), normals(normalBuffer), uvs(uvBuffer), colors(colorBuffer), tangents(tangentBuffer)
 			{
 			}
 
-			FORCEINLINE void operator()(const SourceIterType& iter)
+			void operator()(const SourceIterType& iter)
+			//FORCEINLINE void operator()(const SourceIterType& iter)
 			{
 				//Mesh the voxel as a simple cube with 6 equal sized quads
 				const openvdb::CoordBBox bbox = openvdb::CoordBBox::createCube(iter.getCoord(), 2);
@@ -544,44 +560,74 @@ namespace Vdb
 				}
 
 				//Add the vertex indices in counterclockwise order on each quad face
+				{//Upper XY
+					FScopeLock lock(&CriticalSection);
+					//First poly
+					polygons.Add(outValues[1]);
+					polygons.Add(outValues[3]);
+					polygons.Add(outValues[7]);
+					//Second poly
+					polygons.Add(outValues[1]);
+					polygons.Add(outValues[7]);
+					polygons.Add(outValues[5]);
+				}
+				{//Lower XY
+					FScopeLock lock(&CriticalSection);
+					//First poly
+					polygons.Add(outValues[6]);
+					polygons.Add(outValues[2]);
+					polygons.Add(outValues[0]);
+					//Second poly
+					polygons.Add(outValues[6]);
+					polygons.Add(outValues[0]);
+					polygons.Add(outValues[4]);
+				}
+				{//Back XZ
+					FScopeLock lock(&CriticalSection);
+					//First poly
+					polygons.Add(outValues[7]);
+					polygons.Add(outValues[3]);
+					polygons.Add(outValues[2]);
+					//Second poly
+					polygons.Add(outValues[7]);
+					polygons.Add(outValues[2]);
+					polygons.Add(outValues[6]);
+				}
+				{//Front XZ
+					FScopeLock lock(&CriticalSection);
+					//First poly
+					polygons.Add(outValues[5]);
+					polygons.Add(outValues[4]);
+					polygons.Add(outValues[0]);
+					//Second poly
+					polygons.Add(outValues[5]);
+					polygons.Add(outValues[0]);
+					polygons.Add(outValues[1]);
+				}
+				{//Right YZ
+					FScopeLock lock(&CriticalSection);
+					//First poly
+					polygons.Add(outValues[7]);
+					polygons.Add(outValues[6]);
+					polygons.Add(outValues[4]);
+					//Second poly
+					polygons.Add(outValues[7]);
+					polygons.Add(outValues[4]);
+					polygons.Add(outValues[5]);
+				}
+				{//Left YZ
+					FScopeLock lock(&CriticalSection);
+					//First poly
+					polygons.Add(outValues[0]);
+					polygons.Add(outValues[2]);
+					polygons.Add(outValues[3]);
+					//Second poly
+					polygons.Add(outValues[0]);
+					polygons.Add(outValues[3]);
+					polygons.Add(outValues[1]);
+				}
 				{
 					FScopeLock lock(&CriticalSection);
-					//Upper XY
-					//quads.Enqueue(openvdb::Vec4i(outValues[1], outValues[3], outValues[7], outValues[5]));
-					polygons.Add(outValues[1]);
-					polygons.Add(outValues[3]);
-					polygons.Add(outValues[7]);
-					polygons.Add(outValues[5]);
-					//Lower XY
-					//quads.Enqueue(openvdb::Vec4i(outValues[6], outValues[2], outValues[0], outValues[4]));
-					polygons.Add(outValues[6]);
-					polygons.Add(outValues[2]);
-					polygons.Add(outValues[0]);
-					polygons.Add(outValues[4]);
-					//Back XZ
-					//quads.Enqueue(openvdb::Vec4i(outValues[7], outValues[3], outValues[2], outValues[6]));
-					polygons.Add(outValues[7]);
-					polygons.Add(outValues[3]);
-					polygons.Add(outValues[2]);
-					polygons.Add(outValues[6]);
-					//Front XZ
-					//quads.Enqueue(openvdb::Vec4i(outValues[5], outValues[4], outValues[0], outValues[1]));
-					polygons.Add(outValues[5]);
-					polygons.Add(outValues[4]);
-					polygons.Add(outValues[0]);
-					polygons.Add(outValues[1]);
-					//Right YZ
-					//quads.Enqueue(openvdb::Vec4i(outValues[7], outValues[6], outValues[4], outValues[5]));
-					polygons.Add(outValues[7]);
-					polygons.Add(outValues[6]);
-					polygons.Add(outValues[4]);
-					polygons.Add(outValues[5]);
-					//Left YZ
-					//quads.Enqueue(openvdb::Vec4i(outValues[0], outValues[2], outValues[3], outValues[1]));
-					polygons.Add(outValues[0]);
-					polygons.Add(outValues[2]);
-					polygons.Add(outValues[3]);
-					polygons.Add(outValues[1]);
 					//Add dummy values for now TODO
 					normals.Add(FVector());
 					uvs.Add(FVector2D());
@@ -595,12 +641,12 @@ namespace Vdb
 			const GridTypePtr GridPtr;
 			AccessorType GridAcc;
 			const ValueType &UnvisitedVertexIndex;
-			TArray<FVector> &vertices;
-			TArray<int32> &polygons;
-			TArray<FVector> &normals;
-			TArray<FVector2D> &uvs;
-			TArray<FColor> &colors;
-			TArray<FProcMeshTangent> &tangents;
+			VertexBufferType &vertices;
+			PolygonBufferType &polygons;
+			NormalBufferType &normals;
+			UVMapBufferType &uvs;
+			VertexColorBufferType &colors;
+			TangentBufferType &tangents;
 		};
 
 		//Helper struct to hold the associated basic cubes meshing info
@@ -613,8 +659,14 @@ namespace Vdb
 			typedef typename SourceGridType::Ptr SourceGridTypePtr;
 			const SourceGridTypePtr SourceGridPtr;
 
-			CubeMesher(const SourceGridTypePtr sourceGridPtr, TArray<FVector> &vertexBuffer, TArray<int32> &polygonBuffer, TArray<FVector> &normalBuffer, TArray<FVector2D> &uvBuffer, TArray<FColor> &colorBuffer, TArray<FProcMeshTangent> &tangentBuffer)
-				: isChanged(true), CubesMeshOp(GridType::create(UNVISITED_VERTEX_INDEX), vertexBuffer, polygonBuffer, normalBuffer, uvBuffer, colorBuffer, tangentBuffer)
+			CubeMesher(const SourceGridTypePtr sourceGridPtr,
+				VertexBufferType &vertexBuffer,
+				PolygonBufferType &polygonBuffer,
+				NormalBufferType &normalBuffer,
+				UVMapBufferType &uvBuffer,
+				VertexColorBufferType &colorBuffer,
+				TangentBufferType &tangentBuffer)
+				: isChanged(true), SourceGridPtr(sourceGridPtr), CubesMeshOp(GridType::create(UNVISITED_VERTEX_INDEX), vertexBuffer, polygonBuffer, normalBuffer, uvBuffer, colorBuffer, tangentBuffer)
 			{
 				GridPtr->setName(SourceGridPtr->getName() + ".indices");
 				GridPtr->setTransform(SourceGridPtr->transformPtr());
@@ -630,7 +682,7 @@ namespace Vdb
 				tangents.Empty();
 			}
 
-			FORCEINLINE void doMeshOp(openvdb::BBoxd &activeWorldBBox, openvdb::Vec3d &startWorldCoord, openvdb::Vec3d &voxelSize)
+			FORCEINLINE void doMeshOp(openvdb::BBoxd &activeWorldBBox, openvdb::Vec3d &startWorldCoord, openvdb::Vec3d &voxelSize, const bool &threaded)
 			{
 				if (isChanged)
 				{
@@ -638,7 +690,6 @@ namespace Vdb
 					GridPtr->clear();
 					GridPtr->topologyUnion(*SourceGridPtr);
 					openvdb::tools::valxform::SharedOpApplier<SourceIterType, CubeMesher<SourceTreeType>> proc(SourceGridPtr->cbeginValueOn(), *this);
-					const bool threaded = true;
 					UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre basic mesh op) %d active voxels"), UTF8_TO_TCHAR(GridPtr->getName().c_str()), GridPtr->activeVoxelCount()));
 					proc.process(threaded);
 				}
@@ -684,7 +735,7 @@ namespace Vdb
 				tangents.Empty();
 			}
 
-			FORCEINLINE void doMeshOp(openvdb::BBoxd &activeWorldBBox, openvdb::Vec3d &startWorldCoord, openvdb::Vec3d &voxelSize)
+			FORCEINLINE void doMeshOp(openvdb::BBoxd &activeWorldBBox, openvdb::Vec3d &startWorldCoord, openvdb::Vec3d &voxelSize, const bool &threaded)
 			{
 				if (isChanged)
 				{
@@ -692,7 +743,6 @@ namespace Vdb
 					//GridPtr->clear();
 					GridPtr->topologyUnion(*DataGridPtr);
 					openvdb::tools::valxform::SharedOpApplier<SourceIterType, MarchingCubesMesher<SourceTreeType>> proc(GridPtr->cbeginValueOn(), *this);
-					const bool threaded = true;
 					UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre mesh op) %d active voxels"), UTF8_TO_TCHAR(GridPtr->getName().c_str()), GridPtr->activeVoxelCount()));
 					proc.process(threaded);
 				}

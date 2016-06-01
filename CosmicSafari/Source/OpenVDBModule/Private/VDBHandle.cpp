@@ -36,21 +36,12 @@ void UVdbHandle::BeginDestroy()
 	Super::BeginDestroy();
 }
 
-FString UVdbHandle::AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, bool bCreateCollision)
+FString UVdbHandle::AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize)
 {
 	FString gridID;
 	if (FOpenVDBModule::IsAvailable())
 	{
-		UProceduralTerrainMeshComponent * TerrainMesh = NewObject<UProceduralTerrainMeshComponent>(this, FName(*gridName));
-		check(TerrainMesh != nullptr);
 		gridID = FOpenVDBModule::AddGrid(this, gridName, regionIndex, voxelSize);
-		TerrainMesh->bGenerateOverlapEvents = true;
-		TerrainMesh->MeshName = gridName;
-		TerrainMesh->MeshID = gridID;
-		TerrainMesh->IsGridSectionMeshed = false;
-		TerrainMesh->CreateCollision = bCreateCollision;
-		TerrainMesh->SectionIndex = TerrainMeshComponents.Num();
-		TerrainMeshComponents.Add(TerrainMesh);
 	}
 	return gridID;
 }
@@ -81,16 +72,13 @@ void UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 	}
 }
 
-void UVdbHandle::ReadGridTrees()
+void UVdbHandle::ReadGridTree(const FString &gridID)
 {
 	if (FOpenVDBModule::IsAvailable())
 	{
 		FIntVector StartFill; //dummy value (not used)
 		FIntVector EndFill; //dummy value (not used)
-		for (TArray<UProceduralTerrainMeshComponent*>::TConstIterator i = TerrainMeshComponents.CreateConstIterator(); i; ++i)
-		{
-			FOpenVDBModule::ReadGridTree(this, (*i)->MeshID, MeshMethod, StartFill, EndFill);
-		}
+		FOpenVDBModule::ReadGridTree(this, gridID, MeshMethod, StartFill, EndFill);
 	}
 }
 
@@ -102,25 +90,34 @@ void UVdbHandle::GetVoxelCoord(const FString &gridID, const FVector &worldLocati
 	}
 }
 
-void UVdbHandle::MeshGrids(FVector &worldStart,
+void UVdbHandle::MeshGrid(const FString &gridID,
+	const FVector &playerLocation,
+	TSharedPtr<VertexBufferType> &VertexBuffer,
+	TSharedPtr<PolygonBufferType> &PolygonBuffer,
+	TSharedPtr<NormalBufferType> &NormalBuffer,
+	TSharedPtr<UVMapBufferType> &UVMapBuffer,
+	TSharedPtr<VertexColorBufferType> &VertexColorBuffer,
+	TSharedPtr<TangentBufferType> &TangentBuffer,
+	FVector &worldStart,
 	FVector &worldEnd,
-	TArray<FVector> &startLocations)
+	FVector &startLocation)
 {
 	if (FOpenVDBModule::IsAvailable())
 	{
-		UWorld * World = GetWorld();
-		for (auto i = TerrainMeshComponents.CreateConstIterator(); i; ++i)
-		{
-			FVector startLocation;
-			FOpenVDBModule::MeshGrid(this,
-				World,
-				*i,
-				MeshMethod,
-				worldStart,
-				worldEnd,
-				startLocation);
-			startLocations.Add(startLocation);
-		}
+		FOpenVDBModule::MeshGrid(
+			this,
+			gridID,
+			playerLocation,
+			VertexBuffer,
+			PolygonBuffer,
+			NormalBuffer,
+			UVMapBuffer,
+			VertexColorBuffer,
+			TangentBuffer,
+			MeshMethod,
+			worldStart,
+			worldEnd,
+			startLocation);
 	}
 }
 

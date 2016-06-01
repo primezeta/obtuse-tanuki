@@ -17,12 +17,20 @@ class IVdbInterface
 	GENERATED_IINTERFACE_BODY()
 
 public:
-	virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, bool bCreateCollision) = 0;
+	virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize) = 0;
 	virtual void RemoveGrid(const FString &gridID) = 0;
 	virtual void SetRegionScale(const FIntVector &regionScale) = 0;
-	virtual void ReadGridTrees() = 0;
+	virtual void ReadGridTree(const FString &gridID) = 0;
 	virtual void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord) = 0;
-	virtual void MeshGrids(FVector &worldStart,
+	virtual void MeshGrid(const FString &gridID,
+		const FVector &playerLocation,
+		TSharedPtr<VertexBufferType> &VertexBuffer,
+		TSharedPtr<PolygonBufferType> &PolygonBuffer,
+		TSharedPtr<NormalBufferType> &NormalBuffer,
+		TSharedPtr<UVMapBufferType> &UVMapBuffer,
+		TSharedPtr<VertexColorBufferType> &VertexColorBuffer,
+		TSharedPtr<TangentBufferType> &TangentBuffer,
+		FVector &worldStart,
 		FVector &worldEnd,
-		TArray<FVector> &startLocations) = 0;
+		FVector &startLocation) = 0;
 };

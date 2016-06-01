@@ -7,13 +7,3 @@ UProceduralTerrainMeshComponent::UProceduralTerrainMeshComponent(const FObjectIn
 {
 	MeshName = TEXT("DefaultMeshName");
 }
-
-inline void UProceduralTerrainMeshComponent::CreateTerrainMeshSection()
-{
-	Super::CreateMeshSection(SectionIndex, *VertexBufferPtr, *PolygonBufferPtr, *NormalBufferPtr, *UVMapBufferPtr, *VertexColorsBufferPtr, *TangentsBufferPtr, CreateCollision);
-}
-
-inline void UProceduralTerrainMeshComponent::UpdateTerrainMeshSection()
-{
-	Super::UpdateMeshSection(SectionIndex, *VertexBufferPtr, *NormalBufferPtr, *UVMapBufferPtr, *VertexColorsBufferPtr, *TangentsBufferPtr);
-}

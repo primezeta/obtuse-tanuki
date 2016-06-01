@@ -29,19 +29,10 @@ class OPENVDBMODULE_API UProceduralTerrainMeshComponent : public UProceduralMesh
 
 public:
 	UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer);
-
-	void CreateTerrainMeshSection();
-	void UpdateTerrainMeshSection();
 	
 	FString MeshName;
 	FString MeshID;
 	bool IsGridSectionMeshed;
 	bool CreateCollision;
 	int32 SectionIndex;
-	TSharedPtr<VertexBufferType> VertexBufferPtr;
-	TSharedPtr<PolygonBufferType> PolygonBufferPtr;
-	TSharedPtr<NormalBufferType> NormalBufferPtr;
-	TSharedPtr<UVMapBufferType> UVMapBufferPtr;
-	TSharedPtr<VertexColorBufferType> VertexColorsBufferPtr;
-	TSharedPtr<TangentBufferType> TangentsBufferPtr;
 };

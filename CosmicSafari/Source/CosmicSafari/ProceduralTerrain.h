@@ -27,6 +27,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, SimpleDisplay, Category = "Procedural Terrain")
 		UVdbHandle * VdbHandle;
 
+	UPROPERTY(BlueprintReadOnly, Category = "VDB Handle", Meta = (ToolTip = "Terrain mesh component of each grid"))
+		TArray<UProceduralTerrainMeshComponent*> TerrainMeshComponents;
+
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain")
 		FString VolumeName;
 
@@ -38,4 +41,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Dimensions of a single voxel"))
 		FVector VoxelSize;
+
+	UFUNCTION()
+		void AddTerrainComponent(const FString &name, const FIntVector &gridIndex);
 };

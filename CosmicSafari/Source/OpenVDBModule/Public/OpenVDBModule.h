@@ -26,8 +26,14 @@ public:
 	static void ReadGridTree(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod, FIntVector &startFill, FIntVector &endFill);
 	static void GetVoxelCoord(UVdbHandle const * VdbHandle, const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord);
 	static void MeshGrid(UVdbHandle const * VdbHandle,
-		UWorld * World,
-		UProceduralTerrainMeshComponent * TerrainMeshComponent,
+		const FString &gridID,
+		const FVector &Location,
+		TSharedPtr<VertexBufferType>& VertexBuffer,
+		TSharedPtr<PolygonBufferType>& PolygonBuffer,
+		TSharedPtr<NormalBufferType>& NormalBuffer,
+		TSharedPtr<UVMapBufferType>& UVMapBuffer,
+		TSharedPtr<VertexColorBufferType>& VertexColorBuffer,
+		TSharedPtr<TangentBufferType>& TangentBuffer,
 		EMeshType MeshMethod,
 		FVector &worldStart,
 		FVector &worldEnd,

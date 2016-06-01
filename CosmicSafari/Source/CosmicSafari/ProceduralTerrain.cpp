@@ -37,22 +37,39 @@ void AProceduralTerrain::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
-	//Set the scale of all grid regions
+	//Set the number of voxels per grid region index
 	VdbHandle->SetRegionScale(RegionDimensions);
 
-	//Add the first grid region and all 8 regions surrounding the first
-	VdbHandle->AddGrid(TEXT("Region[0,0,0]"), FIntVector(0, 0, 0), VoxelSize, bCreateCollision);
-	VdbHandle->AddGrid(TEXT("Region[1,0,0]"), FIntVector(1, 0, 0), VoxelSize, bCreateCollision);
-	VdbHandle->AddGrid(TEXT("Region[1,-1,0]"), FIntVector(1, -1, 0), VoxelSize, bCreateCollision);
-	VdbHandle->AddGrid(TEXT("Region[0,-1,0]"), FIntVector(0, -1, 0), VoxelSize, bCreateCollision);
-	VdbHandle->AddGrid(TEXT("Region[-1,-1,0]"), FIntVector(-1, -1, 0), VoxelSize, bCreateCollision);
-	VdbHandle->AddGrid(TEXT("Region[-1,0,0]"), FIntVector(-1, 0, 0), VoxelSize, bCreateCollision);
-	VdbHandle->AddGrid(TEXT("Region[-1,1,0]"), FIntVector(-1, 1, 0), VoxelSize, bCreateCollision);
-	VdbHandle->AddGrid(TEXT("Region[0,1,0]"), FIntVector(0, 1, 0), VoxelSize, bCreateCollision);
-	VdbHandle->AddGrid(TEXT("Region[1,1,0]"), FIntVector(1, 1, 0), VoxelSize, bCreateCollision);
+	//Add the first grid region and all 8 surrounding regions
+	AddTerrainComponent(TEXT("Region[0,0,0]"), FIntVector(0, 0, 0));
+	AddTerrainComponent(TEXT("Region[1,0,0]"), FIntVector(1, 0, 0));
+	AddTerrainComponent(TEXT("Region[1,-1,0]"), FIntVector(1, -1, 0));
+	AddTerrainComponent(TEXT("Region[0,-1,0]"), FIntVector(0, -1, 0));
+	AddTerrainComponent(TEXT("Region[-1,-1,0]"), FIntVector(-1, -1, 0));
+	AddTerrainComponent(TEXT("Region[-1,0,0]"), FIntVector(-1, 0, 0));
+	AddTerrainComponent(TEXT("Region[-1,1,0]"), FIntVector(-1, 1, 0));
+	AddTerrainComponent(TEXT("Region[0,1,0]"), FIntVector(0, 1, 0));
+	AddTerrainComponent(TEXT("Region[1,1,0]"), FIntVector(1, 1, 0));
 
 	//Read all added grids from file
-	VdbHandle->ReadGridTrees();
+	for (TArray<UProceduralTerrainMeshComponent*>::TConstIterator i = TerrainMeshComponents.CreateConstIterator(); i; ++i)
+	{
+		VdbHandle->ReadGridTree((*i)->MeshID);
+	}
+}
+
+void AProceduralTerrain::AddTerrainComponent(const FString &name, const FIntVector &gridIndex)
+{
+	//TODO: Check if terrain component already exists
+	UProceduralTerrainMeshComponent * TerrainMesh = NewObject<UProceduralTerrainMeshComponent>(this, FName(*name));
+	check(TerrainMesh != nullptr);
+	TerrainMesh->bGenerateOverlapEvents = true;
+	TerrainMesh->MeshName = name;
+	TerrainMesh->IsGridSectionMeshed = false;
+	TerrainMesh->CreateCollision = bCreateCollision;
+	TerrainMesh->SectionIndex = TerrainMeshComponents.Num();
+	TerrainMesh->MeshID = VdbHandle->AddGrid(name, gridIndex, VoxelSize);
+	TerrainMeshComponents.Add(TerrainMesh);
 }
 
 // Called when the game starts or when spawned
@@ -60,12 +77,54 @@ void AProceduralTerrain::BeginPlay()
 {
 	Super::BeginPlay();
 
-	FVector ActiveWorldStart;
-	FVector ActiveWorldEnd;
+	UWorld * World = GetWorld();
+	ACharacter* Character = UGameplayStatics::GetPlayerCharacter(World, 0);
+	FVector PlayerLocation;
+	if (Character)
+	{
+		PlayerLocation = Character->GetActorLocation();
+	}
+
 	TArray<FVector> StartLocations;
-	VdbHandle->MeshGrids(ActiveWorldStart,
-	    ActiveWorldEnd,
-		StartLocations);
+	for (auto i = TerrainMeshComponents.CreateIterator(); i; ++i)
+	{
+		UProceduralTerrainMeshComponent &TerrainMeshComponent = **i;
+		if (!TerrainMeshComponent.IsGridSectionMeshed)
+		{
+			TSharedPtr<VertexBufferType> VertexBufferPtr;
+			TSharedPtr<PolygonBufferType> PolygonBufferPtr;
+			TSharedPtr<NormalBufferType> NormalBufferPtr;
+			TSharedPtr<UVMapBufferType> UVMapBufferPtr;
+			TSharedPtr<VertexColorBufferType> VertexColorsBufferPtr;
+			TSharedPtr<TangentBufferType> TangentsBufferPtr;
+			FVector ActiveWorldStart;
+			FVector ActiveWorldEnd;
+			FVector StartLocation;
+			VdbHandle->MeshGrid(
+				TerrainMeshComponent.MeshID,
+				PlayerLocation,
+				VertexBufferPtr,
+				PolygonBufferPtr,
+				NormalBufferPtr,
+				UVMapBufferPtr,
+				VertexColorsBufferPtr,
+				TangentsBufferPtr,
+				ActiveWorldStart,
+				ActiveWorldEnd,
+				StartLocation);
+			TerrainMeshComponent.CreateMeshSection(
+				TerrainMeshComponent.SectionIndex,
+				*VertexBufferPtr,
+				*PolygonBufferPtr,
+				*NormalBufferPtr,
+				*UVMapBufferPtr,
+				*VertexColorsBufferPtr,
+				*TangentsBufferPtr,
+				bCreateCollision);
+			TerrainMeshComponent.IsGridSectionMeshed = true;
+			StartLocations.Add(StartLocation);
+		}
+	}
 	SetActorRelativeLocation(StartLocations[0]);
 }
 
