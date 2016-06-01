@@ -77,7 +77,7 @@ FString FOpenVDBModule::AddGrid(UVdbHandle const * VdbHandle, const FString &gri
 		const openvdb::Vec3d regionStart = regionSizeMetaValue->value().applyMap(openvdb::Vec3d((double)startIndexCoord.x(), (double)startIndexCoord.y(), (double)startIndexCoord.z()));
 		const openvdb::Vec3d regionEnd = regionSizeMetaValue->value().applyMap(openvdb::Vec3d((double)endIndexCoord.x(), (double)endIndexCoord.y(), (double)endIndexCoord.z()));
 		const FIntVector indexStart = FIntVector(regionStart.x(), regionStart.y(), regionStart.z());
-		const FIntVector indexEnd = FIntVector(((int32)regionEnd.x()), ((int32)regionEnd.y()), ((int32)regionEnd.z()));
+		const FIntVector indexEnd = FIntVector(regionEnd.x(), regionEnd.y(), regionEnd.z()) - FIntVector(1, 1, 1);
 
 		gridID = gridName + TEXT(".") + indexStart.ToString() + TEXT(",") + indexEnd.ToString();
 		VdbHandlePrivatePtr->AddGrid(gridID, indexStart, indexEnd, voxelSize);

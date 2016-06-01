@@ -142,8 +142,7 @@ public:
 		const openvdb::Vec3d start(indexStart.X, indexStart.Y, indexStart.Z);
 		const openvdb::Vec3d end(indexEnd.X, indexEnd.Y, indexEnd.Z);
 		const openvdb::Vec3d voxelScale(voxelSize.X, voxelSize.Y, voxelSize.Z);
-		openvdb::math::ScaleMap::Ptr scale = openvdb::math::ScaleMap::Ptr(new openvdb::math::ScaleMap(voxelScale));
-		openvdb::math::ScaleTranslateMap::Ptr map(new openvdb::math::ScaleTranslateMap(voxelScale, scale->applyMap(start)));
+		openvdb::math::ScaleMap::Ptr map = openvdb::math::ScaleMap::Ptr(new openvdb::math::ScaleMap(voxelScale));
 		openvdb::math::Transform::Ptr xformPtr = openvdb::math::Transform::Ptr(new openvdb::math::Transform(map));
 
 		if (gridPtr == nullptr)

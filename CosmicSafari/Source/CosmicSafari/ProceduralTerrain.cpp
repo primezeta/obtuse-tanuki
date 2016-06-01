@@ -119,6 +119,7 @@ void AProceduralTerrain::BeginPlay()
 				ActiveWorldStart,
 				ActiveWorldEnd,
 				StartLocation);
+			StartLocations.Add(StartLocation);
 			TerrainMeshComponent.CreateMeshSection(
 				j,
 				*VertexBufferPtr,
@@ -130,7 +131,6 @@ void AProceduralTerrain::BeginPlay()
 				bCreateCollision);
 			TerrainMeshComponent.IsGridSectionMeshed = true;
 			TerrainMeshComponent.SetMeshSectionVisible(j, true);
-			StartLocations.Add(StartLocation);
 		}
 	}
 	SetActorRelativeLocation(StartLocations[0]);
