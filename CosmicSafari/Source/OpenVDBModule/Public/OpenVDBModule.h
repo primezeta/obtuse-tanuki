@@ -17,7 +17,7 @@ public:
 		return FModuleManager::Get().IsModuleLoaded("OpenVDBModule");
 	}
 
-	static void RegisterVdb(UVdbHandle const * VdbHandle);
+	static bool RegisterVdb(UVdbHandle const * VdbHandle);
 	static void UnregisterVdb(UVdbHandle const * VdbHandle);
 	static FString AddGrid(UVdbHandle const * VdbHandle, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize);
 	static TArray<FString> GetAllGridIDs(UVdbHandle const * VdbHandle);
@@ -27,17 +27,14 @@ public:
 	static void GetVoxelCoord(UVdbHandle const * VdbHandle, const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord);
 	static void MeshGrid(UVdbHandle const * VdbHandle,
 		const FString &gridID,
-		const FVector &Location,
 		TSharedPtr<VertexBufferType>& VertexBuffer,
 		TSharedPtr<PolygonBufferType>& PolygonBuffer,
 		TSharedPtr<NormalBufferType>& NormalBuffer,
 		TSharedPtr<UVMapBufferType>& UVMapBuffer,
 		TSharedPtr<VertexColorBufferType>& VertexColorBuffer,
 		TSharedPtr<TangentBufferType>& TangentBuffer,
-		EMeshType MeshMethod,
-		FVector &worldStart,
-		FVector &worldEnd,
-		FVector &startLocation);
+		EMeshType MeshMethod);
+	static void GetGridDimensions(UVdbHandle const * VdbHandle, const FString &gridID, FVector &worldStart, FVector &worldEnd, FVector &firstActive);
 	static FIntVector GetRegionIndex(UVdbHandle const * VdbHandle, const FVector &worldLocation);
 	static void WriteAllGrids(UVdbHandle const * VdbHandle);
 };

@@ -30,9 +30,16 @@ class OPENVDBMODULE_API UProceduralTerrainMeshComponent : public UProceduralMesh
 public:
 	UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer);
 	
-	FString MeshName;
-	FString MeshID;
-	bool IsGridSectionMeshed;
-	bool CreateCollision;
-	int32 SectionCount;
+	UPROPERTY()
+		FString MeshName;
+	UPROPERTY()
+		FString MeshID;
+	UPROPERTY()
+		bool IsGridSectionMeshed;
+	UPROPERTY()
+		bool CreateCollision;
+	UPROPERTY()
+		int32 SectionCount;
+	UPROPERTY()
+		FVector StartLocation;
 };

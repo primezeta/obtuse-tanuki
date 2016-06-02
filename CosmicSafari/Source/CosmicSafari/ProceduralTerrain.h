@@ -42,6 +42,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Dimensions of a single voxel"))
 		FVector VoxelSize;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Material to apply to each terrain component"))
+		UMaterial * Material;
+
 	UFUNCTION()
 		void AddTerrainComponent(const FString &name, const FIntVector &gridIndex);
 };

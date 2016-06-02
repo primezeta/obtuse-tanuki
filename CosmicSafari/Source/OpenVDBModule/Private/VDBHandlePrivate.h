@@ -339,50 +339,20 @@ public:
 		}
 	}
 
-	void MeshRegionCubes(const FString &gridName, FVector &worldStart, FVector &worldEnd, FVector &firstActive) const
+	void MeshRegionCubes(const FString &gridName) const
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);		
 		TSharedPtr<Vdb::GridOps::CubeMesher<GridTreeType>> mesherOp = CubesMeshOps.FindChecked(gridName);
-
 		const bool threaded = true;
-		openvdb::BBoxd activeWorldBBox;
-		openvdb::Vec3d startWorldCoord;
-		openvdb::Vec3d voxelSize;
-		mesherOp->doMeshOp(activeWorldBBox, startWorldCoord, voxelSize, threaded);
-
-		worldStart.X = activeWorldBBox.min().x();
-		worldStart.Y = activeWorldBBox.min().y();
-		worldStart.Z = activeWorldBBox.min().z();
-		worldEnd.X = activeWorldBBox.max().x();
-		worldEnd.Y = activeWorldBBox.max().y();
-		worldEnd.Z = activeWorldBBox.max().z();
-		//Set start location to the center of the voxel surface
-		firstActive.X = startWorldCoord.x() + voxelSize.x()*0.5;
-		firstActive.Y = startWorldCoord.y() + voxelSize.y()*0.5;
-		firstActive.Z = startWorldCoord.z() + voxelSize.z();
+		mesherOp->doMeshOp(threaded);
 	}
 
-	void MeshRegionMarchingCubes(const FString &gridName, FVector &worldStart, FVector &worldEnd, FVector &firstActive) const
+	void MeshRegionMarchingCubes(const FString &gridName) const
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		TSharedPtr<Vdb::GridOps::MarchingCubesMesher<GridTreeType>> mesherOp = MarchingCubesMeshOps.FindChecked(gridName);
-
 		const bool threaded = true;
-		openvdb::BBoxd activeWorldBBox;
-		openvdb::Vec3d startWorldCoord;
-		openvdb::Vec3d voxelSize;
-		mesherOp->doMeshOp(activeWorldBBox, startWorldCoord, voxelSize, threaded);
-
-		worldStart.X = activeWorldBBox.min().x();
-		worldStart.Y = activeWorldBBox.min().y();
-		worldStart.Z = activeWorldBBox.min().z();
-		worldEnd.X = activeWorldBBox.max().x();
-		worldEnd.Y = activeWorldBBox.max().y();
-		worldEnd.Z = activeWorldBBox.max().z();
-		//Set start location to the center of the voxel surface
-		firstActive.X = startWorldCoord.x() + voxelSize.x()*0.5;
-		firstActive.Y = startWorldCoord.y() + voxelSize.y()*0.5;
-		firstActive.Z = startWorldCoord.z() + voxelSize.z();
+		mesherOp->doMeshOp(threaded);
 	}
 
 	bool FillGrid_PerlinDensity(const FString &gridName, bool threaded, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount)
@@ -522,6 +492,26 @@ public:
 		OutUVMapBufferPtr = TSharedPtr<UVMapBufferType>(UVMapSectionBuffers[gridName]);
 		OutVertexColorsBufferPtr = TSharedPtr<VertexColorBufferType>(VertexColorsSectionBuffers[gridName]);
 		OutTangentsBufferPtr = TSharedPtr<TangentBufferType>(TangentsSectionBuffers[gridName]);
+	}
+
+	void GetGridDimensions(const FString &gridName, FVector &worldStart, FVector &worldEnd, FVector &firstActive)
+	{
+		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
+		openvdb::Coord firstActiveCoord;
+		openvdb::CoordBBox activeIndexBBox = gridPtr->evalActiveVoxelBoundingBox();
+		GetFirstActiveCoord(gridPtr, activeIndexBBox, firstActiveCoord);
+		const openvdb::BBoxd worldBBox = gridPtr->transform().indexToWorld(activeIndexBBox);
+		const openvdb::Vec3d firstActiveWorld = gridPtr->indexToWorld(firstActiveCoord);
+		const openvdb::Vec3d voxelSize = gridPtr->transform().voxelSize();
+		worldStart.X = worldBBox.min().x();
+		worldStart.Y = worldBBox.min().y();
+		worldStart.Z = worldBBox.min().z();
+		worldEnd.X = worldBBox.min().x();
+		worldEnd.Y = worldBBox.min().y();
+		worldEnd.Z = worldBBox.min().z();
+		firstActive.X = firstActiveWorld.x() + voxelSize.x()*0.5;
+		firstActive.Y = firstActiveWorld.y() + voxelSize.y()*0.5;
+		firstActive.Z = firstActiveWorld.z() + voxelSize.z();
 	}
 
 	void GetIndexCoord(const FString &gridName, const FVector &location, FIntVector &outIndexCoord) const
@@ -678,6 +668,29 @@ private:
 		{
 			FilePtr->close();
 		}
+	}
+
+	inline void GetFirstActiveCoord(GridTypePtr gridPtr, openvdb::CoordBBox &activeIndexBBox, openvdb::Coord &firstActive)
+	{
+		activeIndexBBox = gridPtr->evalActiveVoxelBoundingBox();
+		for (auto i = gridPtr->cbeginValueOn(); i; ++i)
+		{
+			if (i.isVoxelValue())
+			{
+				firstActive = i.getCoord();
+				//Find the first voxel above that is off
+				for (int32_t z = i.getCoord().z(); z <= activeIndexBBox.max().z(); ++z)
+				{
+					firstActive.setZ(z);
+					if (i.getTree()->isValueOff(firstActive))
+					{
+						return;
+					}
+				}
+			}
+		}
+		//TODO: Handle when no such voxel found
+		firstActive = openvdb::Coord(0, 0, 0);
 	}
 };
 

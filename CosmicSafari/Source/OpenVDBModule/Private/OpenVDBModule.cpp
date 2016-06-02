@@ -5,8 +5,9 @@ DEFINE_LOG_CATEGORY(LogOpenVDBModule)
 typedef TMap<FString, TSharedPtr<VdbHandlePrivateType>> VdbRegistryType;
 static VdbRegistryType VdbRegistry;
 
-void FOpenVDBModule::RegisterVdb(UVdbHandle const * VdbHandle)
+bool FOpenVDBModule::RegisterVdb(UVdbHandle const * VdbHandle)
 {
+	bool isRegistered = false;
 	const FString VdbObjectName = VdbHandle->GetReadableName();
 	try
 	{
@@ -16,6 +17,8 @@ void FOpenVDBModule::RegisterVdb(UVdbHandle const * VdbHandle)
 			VdbHandlePrivatePtr->InitGrids();
 			VdbRegistry.Add(VdbObjectName, VdbHandlePrivatePtr);
 		}
+		//Registration successful if we made it here with no errors thrown
+		isRegistered = true;
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -33,6 +36,7 @@ void FOpenVDBModule::RegisterVdb(UVdbHandle const * VdbHandle)
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
 	}
+	return isRegistered;
 }
 
 void FOpenVDBModule::UnregisterVdb(UVdbHandle const * VdbHandle)
@@ -249,17 +253,13 @@ void FOpenVDBModule::GetVoxelCoord(UVdbHandle const * VdbHandle, const FString &
 
 void FOpenVDBModule::MeshGrid(UVdbHandle const * VdbHandle,
 	const FString &gridID,
-	const FVector &Location,
 	TSharedPtr<VertexBufferType>& VertexBuffer,
 	TSharedPtr<PolygonBufferType>& PolygonBuffer,
 	TSharedPtr<NormalBufferType>& NormalBuffer,
 	TSharedPtr<UVMapBufferType>& UVMapBuffer,
 	TSharedPtr<VertexColorBufferType>& VertexColorBuffer,
 	TSharedPtr<TangentBufferType>& TangentBuffer,
-	EMeshType MeshMethod,
-	FVector &worldStart,
-	FVector &worldEnd,
-	FVector &startLocation)
+	EMeshType MeshMethod)
 {
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(VdbHandle->GetReadableName());
 	try
@@ -267,17 +267,17 @@ void FOpenVDBModule::MeshGrid(UVdbHandle const * VdbHandle,
 		FVector firstActiveLocation;
 		if (MeshMethod == EMeshType::MESH_TYPE_CUBES)
 		{
-			VdbHandlePrivatePtr->MeshRegionCubes(gridID, worldStart, worldEnd, firstActiveLocation);
+			VdbHandlePrivatePtr->MeshRegionCubes(gridID);
 		}
 		else if (MeshMethod == EMeshType::MESH_TYPE_MARCHING_CUBES)
 		{
-			VdbHandlePrivatePtr->MeshRegionMarchingCubes(gridID, worldStart, worldEnd, firstActiveLocation);
+			VdbHandlePrivatePtr->MeshRegionMarchingCubes(gridID);
 		}
 		else
 		{
 			throw(std::string("Invalid mesh type!"));
 		}
-		startLocation = Location - firstActiveLocation;
+		//startLocation = Location - firstActiveLocation;
 
 		VdbHandlePrivatePtr->BindGridSectionBuffers(gridID,
 			VertexBuffer,
@@ -343,6 +343,31 @@ void FOpenVDBModule::WriteAllGrids(UVdbHandle const * VdbHandle)
 	try
 	{
 		VdbHandlePrivatePtr->WriteChanges();
+	}
+	catch (const openvdb::Exception &e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule OpenVDB exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::exception& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::string& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.c_str()));
+	}
+	catch (...)
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
+	}
+}
+
+void FOpenVDBModule::GetGridDimensions(UVdbHandle const * VdbHandle, const FString &gridID, FVector &worldStart, FVector &worldEnd, FVector &firstActive)
+{
+	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(VdbHandle->GetReadableName());
+	try
+	{
+		VdbHandlePrivatePtr->GetGridDimensions(gridID, worldStart, worldEnd, firstActive);
 	}
 	catch (const openvdb::Exception &e)
 	{

@@ -7,28 +7,14 @@
 // Sets default values
 AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializer)
 {
-	UVdbHandle * VdbHandle = ObjectInitializer.CreateDefaultSubobject<UVdbHandle>(this, TEXT("VDBHandle"));
+	VdbHandle = ObjectInitializer.CreateDefaultSubobject<UVdbHandle>(this, TEXT("VDBHandle"));
 	check(VdbHandle != nullptr);
+	Material = ObjectInitializer.CreateDefaultSubobject<UMaterial>(this, TEXT("TerrainMaterial"));
+	check(Material != nullptr);
 
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	SetActorEnableCollision(true);
-
-	//TerrainMeshComponent->SetMaterial(0, TerrainMaterial);
-	//static ConstructorHelpers::FObjectFinder<UMaterial> TerrainMaterialObject(TEXT("Material'/Engine/EngineMaterials/DefaultDeferredDecalMaterial.DefaultDeferredDecalMaterial'"));
-	//if (TerrainMaterialObject.Succeeded())
-	//{
-	//	TerrainMaterial = (UMaterial*)TerrainMaterialObject.Object;
-	//	TerrainDynamicMaterial = UMaterialInstanceDynamic::Create(TerrainMaterial, this);
-	//	TerrainMeshComponent->SetMaterial(0, TerrainDynamicMaterial);
-	//}
-	//if (TerrainMaterial)
-	//{
-	//	auto material = TerrainMaterial->GetClass();
-	//	UMaterialInstanceDynamic::Create(material,)
-	//	material->Create
-	//	TerrainMeshComponent->SetMaterial(0, TerrainDynamicMaterial);
-	//}
 
 	VoxelSize = FVector(1.0f, 1.0f, 1.0f);
 }
@@ -71,6 +57,10 @@ void AProceduralTerrain::AddTerrainComponent(const FString &name, const FIntVect
 	TerrainMesh->MeshID = VdbHandle->AddGrid(name, gridIndex, VoxelSize);
 	TerrainMesh->RegisterComponent();
 	TerrainMesh->AttachTo(RootComponent);
+	if (Material)
+	{
+		TerrainMesh->SetMaterial(0, Material);
+	}
 	TerrainMeshComponents.Add(TerrainMesh);
 }
 
@@ -79,23 +69,9 @@ void AProceduralTerrain::BeginPlay()
 {
 	Super::BeginPlay();
 
-	UWorld * World = GetWorld();
-	ACharacter* Character = UGameplayStatics::GetPlayerCharacter(World, 0);
-	FVector PlayerLocation;
-	if (Character)
-	{
-		PlayerLocation = Character->GetActorLocation();
-	}
-
-	TArray<FVector> StartLocations;
 	for (auto i = TerrainMeshComponents.CreateIterator(); i; ++i)
 	{
 		UProceduralTerrainMeshComponent &TerrainMeshComponent = **i;
-		if (TerrainMeshComponent.IsGridSectionMeshed)
-		{
-			continue;
-		}
-
 		for (auto j = 0; j < TerrainMeshComponent.SectionCount; ++j)
 		{
 			TSharedPtr<VertexBufferType> VertexBufferPtr;
@@ -104,36 +80,62 @@ void AProceduralTerrain::BeginPlay()
 			TSharedPtr<UVMapBufferType> UVMapBufferPtr;
 			TSharedPtr<VertexColorBufferType> VertexColorsBufferPtr;
 			TSharedPtr<TangentBufferType> TangentsBufferPtr;
-			FVector ActiveWorldStart;
-			FVector ActiveWorldEnd;
-			FVector StartLocation;
 			VdbHandle->MeshGrid(
 				TerrainMeshComponent.MeshID,
-				PlayerLocation,
 				VertexBufferPtr,
 				PolygonBufferPtr,
 				NormalBufferPtr,
 				UVMapBufferPtr,
 				VertexColorsBufferPtr,
-				TangentsBufferPtr,
-				ActiveWorldStart,
-				ActiveWorldEnd,
-				StartLocation);
-			StartLocations.Add(StartLocation);
-			TerrainMeshComponent.CreateMeshSection(
-				j,
-				*VertexBufferPtr,
-				*PolygonBufferPtr,
-				*NormalBufferPtr,
-				*UVMapBufferPtr,
-				*VertexColorsBufferPtr,
-				*TangentsBufferPtr,
-				bCreateCollision);
-			TerrainMeshComponent.IsGridSectionMeshed = true;
-			TerrainMeshComponent.SetMeshSectionVisible(j, true);
+				TangentsBufferPtr);
+
+			if (!TerrainMeshComponent.IsGridSectionMeshed)
+			{
+				//First time, copy mesh geometry to the procedural mesh renderer
+				if (VertexBufferPtr.IsValid() && PolygonBufferPtr.IsValid() && NormalBufferPtr.IsValid() && UVMapBufferPtr.IsValid() && VertexColorsBufferPtr.IsValid() && TangentsBufferPtr.IsValid())
+				{
+					TerrainMeshComponent.CreateMeshSection(
+						j,
+						*VertexBufferPtr,
+						*PolygonBufferPtr,
+						*NormalBufferPtr,
+						*UVMapBufferPtr,
+						*VertexColorsBufferPtr,
+						*TangentsBufferPtr,
+						bCreateCollision);
+					TerrainMeshComponent.IsGridSectionMeshed = true;
+				}
+			}
+			else
+			{
+				//Already meshed, just update dynamic geometry
+				TerrainMeshComponent.UpdateMeshSection(
+					j,
+					*VertexBufferPtr,
+					*NormalBufferPtr,
+					*UVMapBufferPtr,
+					*VertexColorsBufferPtr,
+					*TangentsBufferPtr);
+			}
+			TerrainMeshComponent.SetMeshSectionVisible(j, TerrainMeshComponent.IsGridSectionMeshed);
 		}
+
+		FVector worldStart;
+		FVector worldEnd;
+		FVector firstActive;
+		VdbHandle->GetGridDimensions(TerrainMeshComponent.MeshID, worldStart, worldEnd, firstActive);
+		TerrainMeshComponent.StartLocation = firstActive;
 	}
-	SetActorRelativeLocation(StartLocations[0]);
+
+	//If there's a character position the terrain under the character
+	UWorld * World = GetWorld();
+	ACharacter* Character = UGameplayStatics::GetPlayerCharacter(World, 0);
+	FVector TerrainLocation;
+	if (Character)
+	{
+		TerrainLocation = Character->GetActorLocation() - TerrainMeshComponents[0]->StartLocation;
+	}
+	SetActorRelativeLocation(TerrainLocation);
 }
 
 void AProceduralTerrain::EndPlay(const EEndPlayReason::Type EndPlayReason)

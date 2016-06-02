@@ -97,7 +97,7 @@
 //};
 
 UCLASS()
-class OPENVDBMODULE_API UVdbHandle : public UActorComponent, public IVdbInterface
+class OPENVDBMODULE_API UVdbHandle : public UActorComponent //, public IVdbInterface TODO
 {
 	GENERATED_BODY()
 
@@ -141,29 +141,30 @@ public:
 #endif
 
 	UFUNCTION(BlueprintCallable, Category="VDB Handle")
-		virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize) override;
+		virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void RemoveGrid(const FString &gridID) override;
+		virtual void RemoveGrid(const FString &gridID);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void SetRegionScale(const FIntVector &regionScale) override;
+		virtual void SetRegionScale(const FIntVector &regionScale);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void ReadGridTree(const FString &gridID) override;
+		virtual void ReadGridTree(const FString &gridID);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord) override;
+		virtual void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord);
 	//UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void MeshGrid(const FString &gridID,
-			const FVector &playerLocation,
 			TSharedPtr<VertexBufferType> &VertexBuffer,
 			TSharedPtr<PolygonBufferType> &PolygonBuffer,
 			TSharedPtr<NormalBufferType> &NormalBuffer,
 			TSharedPtr<UVMapBufferType> &UVMapBuffer,
 			TSharedPtr<VertexColorBufferType> &VertexColorBuffer,
-			TSharedPtr<TangentBufferType> &TangentBuffer,
-			FVector &worldStart,
-			FVector &worldEnd,
-			FVector &startLocation) override;
+			TSharedPtr<TangentBufferType> &TangentBuffer);	
+	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
+		void GetGridDimensions(const FString &gridID, FVector &worldStart, FVector &worldEnd, FVector &firstActive);
 
 	TArray<FString> GetAllGridIDs();
 	FIntVector GetRegionIndex(const FVector &worldLocation);
 	void WriteAllGrids();
+
+private:
+	bool isRegistered;
 };
