@@ -88,23 +88,22 @@ void AProceduralTerrain::BeginPlay()
 				UVMapBufferPtr,
 				VertexColorsBufferPtr,
 				TangentsBufferPtr);
+			check(VertexBufferPtr.IsValid() && PolygonBufferPtr.IsValid() && NormalBufferPtr.IsValid() && UVMapBufferPtr.IsValid() && VertexColorsBufferPtr.IsValid() && TangentsBufferPtr.IsValid());
 
+			//TODO: Move IsGridSectionMeshed flag to OpenVDBModule so that state is retained over play cycles?
 			if (!TerrainMeshComponent.IsGridSectionMeshed)
 			{
 				//First time, copy mesh geometry to the procedural mesh renderer
-				if (VertexBufferPtr.IsValid() && PolygonBufferPtr.IsValid() && NormalBufferPtr.IsValid() && UVMapBufferPtr.IsValid() && VertexColorsBufferPtr.IsValid() && TangentsBufferPtr.IsValid())
-				{
-					TerrainMeshComponent.CreateMeshSection(
-						j,
-						*VertexBufferPtr,
-						*PolygonBufferPtr,
-						*NormalBufferPtr,
-						*UVMapBufferPtr,
-						*VertexColorsBufferPtr,
-						*TangentsBufferPtr,
-						bCreateCollision);
-					TerrainMeshComponent.IsGridSectionMeshed = true;
-				}
+				TerrainMeshComponent.CreateMeshSection(
+					j,
+					*VertexBufferPtr,
+					*PolygonBufferPtr,
+					*NormalBufferPtr,
+					*UVMapBufferPtr,
+					*VertexColorsBufferPtr,
+					*TangentsBufferPtr,
+					bCreateCollision);
+				TerrainMeshComponent.IsGridSectionMeshed = true;
 			}
 			else
 			{
