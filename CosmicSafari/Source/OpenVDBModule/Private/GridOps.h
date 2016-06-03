@@ -9,8 +9,6 @@
 #include <noiseutils.h>
 #include "MarchingCubes.h"
 
-PRAGMA_DISABLE_OPTIMIZATION
-
 namespace Vdb
 {
 	namespace GridOps
@@ -171,8 +169,7 @@ namespace Vdb
 			{
 			}
 
-			void operator()(const IterType& iter)
-			//FORCEINLINE void operator()(const IterType& iter)
+			FORCEINLINE void operator()(const IterType& iter)
 			{
 				//Note that no special consideration is done for tile voxels, so the grid tiles must be voxelized prior to this op [tree().voxelizeActiveTiles()]
 				uint8 insideBits = 0;
@@ -514,8 +511,7 @@ namespace Vdb
 			{
 			}
 
-			void operator()(const SourceIterType& iter)
-			//FORCEINLINE void operator()(const SourceIterType& iter)
+			FORCEINLINE void operator()(const SourceIterType& iter)
 			{
 				//Mesh the voxel as a simple cube with 6 equal sized quads
 				const openvdb::CoordBBox bbox = openvdb::CoordBBox::createCube(iter.getCoord(), 2);
