@@ -515,8 +515,6 @@ namespace Vdb
 			{
 				//Mesh the voxel as a simple cube with 6 equal sized quads
 				const openvdb::BBoxd bbox = GridPtr->transform().indexToWorld(openvdb::CoordBBox::createCube(iter.getCoord(), 2));
-				//outValue = (ValueType)(vertices.Add(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z())));
-
 				const openvdb::Vec3d vtxs[8] = {
 					bbox.min(),
 					openvdb::Vec3d(bbox.max().x(), bbox.min().y(), bbox.min().z()),
@@ -530,67 +528,54 @@ namespace Vdb
 
 				{
 					FScopeLock lock(&CriticalSection);
+					//Add polygons each with unique vertices (vertex indices added clockwise order on each quad face)
+					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));//Front face
+					polygons.Add(vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())));
+					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));
 
-					//Add vertices and collect array index returned by TArray.Add()
-					const int32 idxs[8] = {
-						vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())),
-						vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())),
-						vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())),
-						vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())),
-						vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())),
-						vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())),
-						vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())),
-						vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z()))
-					};
+					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z()))); //Front face
+					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));
+					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));
 
-					//Add polygons (vertex indices added clockwise order on each quad face)
-					polygons.Add(idxs[0]);//Front face
-					polygons.Add(idxs[2]);
-					polygons.Add(idxs[3]);
+					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));//Right face
+					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));
+					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));
 
-					polygons.Add(idxs[3]); //Front face
-					polygons.Add(idxs[1]);
-					polygons.Add(idxs[0]);
+					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Right face
+					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));
+					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));
 
-					polygons.Add(idxs[1]);//Right face
-					polygons.Add(idxs[3]);
-					polygons.Add(idxs[7]);
+					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));//Back face
+					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));
+					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));
 
-					polygons.Add(idxs[7]);//Right face
-					polygons.Add(idxs[6]);
-					polygons.Add(idxs[1]);
+					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Back face
+					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));
+					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));
 
-					polygons.Add(idxs[4]);//Back face
-					polygons.Add(idxs[6]);
-					polygons.Add(idxs[7]);
+					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));//Left face
+					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));
+					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));
 
-					polygons.Add(idxs[7]);//Back face
-					polygons.Add(idxs[5]);
-					polygons.Add(idxs[4]);
+					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));//Left face
+					polygons.Add(vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())));
+					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));
 
-					polygons.Add(idxs[0]);//Left face
-					polygons.Add(idxs[4]);
-					polygons.Add(idxs[5]);
+					polygons.Add(vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())));//Top face
+					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));
+					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));
 
-					polygons.Add(idxs[5]);//Left face
-					polygons.Add(idxs[2]);
-					polygons.Add(idxs[0]);
+					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Top face
+					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));
+					polygons.Add(vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())));
 
-					polygons.Add(idxs[2]);//Top face
-					polygons.Add(idxs[5]);
-					polygons.Add(idxs[7]);
+					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));//Bottom face
+					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));
+					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));
 
-					polygons.Add(idxs[7]);//Top face
-					polygons.Add(idxs[3]);
-					polygons.Add(idxs[2]);
-
-					polygons.Add(idxs[0]);//Bottom face
-					polygons.Add(idxs[1]);
-					polygons.Add(idxs[6]);
-
-					polygons.Add(idxs[6]);//Bottom face
-					polygons.Add(idxs[4]);
-					polygons.Add(idxs[0]);
+					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));//Bottom face
+					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));
+					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));
 
 					//Add dummy values for now TODO
 					normals.Add(FVector());
