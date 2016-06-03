@@ -544,51 +544,51 @@ namespace Vdb
 					};
 
 					//Add polygons (vertex indices added clockwise order on each quad face)
-					polygons.Add(idxs[0]);
+					polygons.Add(idxs[0]);//Front face
 					polygons.Add(idxs[2]);
 					polygons.Add(idxs[3]);
 
-					polygons.Add(idxs[3]);
+					polygons.Add(idxs[3]); //Front face
 					polygons.Add(idxs[1]);
 					polygons.Add(idxs[0]);
 
-					polygons.Add(idxs[1]);
+					polygons.Add(idxs[1]);//Right face
 					polygons.Add(idxs[3]);
 					polygons.Add(idxs[7]);
 
-					polygons.Add(idxs[7]);
+					polygons.Add(idxs[7]);//Right face
 					polygons.Add(idxs[6]);
 					polygons.Add(idxs[1]);
 
-					polygons.Add(idxs[4]);
+					polygons.Add(idxs[4]);//Back face
 					polygons.Add(idxs[6]);
 					polygons.Add(idxs[7]);
 
-					polygons.Add(idxs[7]);
+					polygons.Add(idxs[7]);//Back face
 					polygons.Add(idxs[5]);
 					polygons.Add(idxs[4]);
 
-					polygons.Add(idxs[0]);
+					polygons.Add(idxs[0]);//Left face
 					polygons.Add(idxs[4]);
 					polygons.Add(idxs[5]);
 
-					polygons.Add(idxs[5]);
+					polygons.Add(idxs[5]);//Left face
 					polygons.Add(idxs[2]);
 					polygons.Add(idxs[0]);
 
-					polygons.Add(idxs[2]);
+					polygons.Add(idxs[2]);//Top face
 					polygons.Add(idxs[5]);
 					polygons.Add(idxs[7]);
 
-					polygons.Add(idxs[7]);
+					polygons.Add(idxs[7]);//Top face
 					polygons.Add(idxs[3]);
 					polygons.Add(idxs[2]);
 
-					polygons.Add(idxs[0]);
+					polygons.Add(idxs[0]);//Bottom face
 					polygons.Add(idxs[1]);
 					polygons.Add(idxs[6]);
 
-					polygons.Add(idxs[6]);
+					polygons.Add(idxs[6]);//Bottom face
 					polygons.Add(idxs[4]);
 					polygons.Add(idxs[0]);
 
