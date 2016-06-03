@@ -514,116 +514,84 @@ namespace Vdb
 			FORCEINLINE void operator()(const SourceIterType& iter)
 			{
 				//Mesh the voxel as a simple cube with 6 equal sized quads
-				const openvdb::CoordBBox bbox = openvdb::CoordBBox::createCube(iter.getCoord(), 2);
-				const openvdb::Vec3d location = GridPtr->indexToWorld(bbox.min());
-				const int32_t &minX = bbox.min().x();
-				const int32_t &minY = bbox.min().y();
-				const int32_t &minZ = bbox.min().z();
-				const int32_t &maxX = bbox.max().x();
-				const int32_t &maxY = bbox.max().y();
-				const int32_t &maxZ = bbox.max().z();
-				ValueType outValues[8];
-				openvdb::Coord vertexCoord;
-				for (int32_t x = minX; x <= maxX; ++x)
-				{
-					vertexCoord.setX(x);
-					for (int32_t y = minY; y <= maxY; ++y)
-					{
-						vertexCoord.setY(y);
-						for (int32_t z = minZ; z <= maxZ; ++z)
-						{
-							vertexCoord.setZ(z);
-							ValueType outValue;
-							{
-								FScopeLock lock(&CriticalSection);
-								//The vertex value may have already been calculated by someone else since voxels share vertices so first check if the vertex exists
-								if (GridAcc.getValue(vertexCoord) != UnvisitedVertexIndex)
-								{
-									//Get the saved vertex index
-									outValue = GridAcc.getValue(vertexCoord);
-								}
-								else
-								{
-									//Add to the vertex array and save the index of the new vertex
-									const openvdb::Vec3d vtx = GridPtr->transform().indexToWorld(vertexCoord);
-									outValue = (ValueType)(vertices.Add(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z())));
-									GridAcc.setValueOnly(vertexCoord, outValue);
-								}
-							}
-							outValues[(z - minZ) + ((y - minY) << 1) + ((x - minX) << 2)] = outValue;
-						}
-					}
-				}
+				const openvdb::BBoxd bbox = GridPtr->transform().indexToWorld(openvdb::CoordBBox::createCube(iter.getCoord(), 2));
+				//outValue = (ValueType)(vertices.Add(FVector((float)vtx.x(), (float)vtx.y(), (float)vtx.z())));
 
-				//Add the vertex indices in counterclockwise order on each quad face
-				{//Upper XY
-					FScopeLock lock(&CriticalSection);
-					//First poly
-					polygons.Add(outValues[1]);
-					polygons.Add(outValues[3]);
-					polygons.Add(outValues[7]);
-					//Second poly
-					polygons.Add(outValues[1]);
-					polygons.Add(outValues[7]);
-					polygons.Add(outValues[5]);
-				}
-				{//Lower XY
-					FScopeLock lock(&CriticalSection);
-					//First poly
-					polygons.Add(outValues[6]);
-					polygons.Add(outValues[2]);
-					polygons.Add(outValues[0]);
-					//Second poly
-					polygons.Add(outValues[6]);
-					polygons.Add(outValues[0]);
-					polygons.Add(outValues[4]);
-				}
-				{//Back XZ
-					FScopeLock lock(&CriticalSection);
-					//First poly
-					polygons.Add(outValues[7]);
-					polygons.Add(outValues[3]);
-					polygons.Add(outValues[2]);
-					//Second poly
-					polygons.Add(outValues[7]);
-					polygons.Add(outValues[2]);
-					polygons.Add(outValues[6]);
-				}
-				{//Front XZ
-					FScopeLock lock(&CriticalSection);
-					//First poly
-					polygons.Add(outValues[5]);
-					polygons.Add(outValues[4]);
-					polygons.Add(outValues[0]);
-					//Second poly
-					polygons.Add(outValues[5]);
-					polygons.Add(outValues[0]);
-					polygons.Add(outValues[1]);
-				}
-				{//Right YZ
-					FScopeLock lock(&CriticalSection);
-					//First poly
-					polygons.Add(outValues[7]);
-					polygons.Add(outValues[6]);
-					polygons.Add(outValues[4]);
-					//Second poly
-					polygons.Add(outValues[7]);
-					polygons.Add(outValues[4]);
-					polygons.Add(outValues[5]);
-				}
-				{//Left YZ
-					FScopeLock lock(&CriticalSection);
-					//First poly
-					polygons.Add(outValues[0]);
-					polygons.Add(outValues[2]);
-					polygons.Add(outValues[3]);
-					//Second poly
-					polygons.Add(outValues[0]);
-					polygons.Add(outValues[3]);
-					polygons.Add(outValues[1]);
-				}
+				const openvdb::Vec3d vtxs[8] = {
+					bbox.min(),
+					openvdb::Vec3d(bbox.max().x(), bbox.min().y(), bbox.min().z()),
+					openvdb::Vec3d(bbox.min().x(), bbox.min().y(), bbox.max().z()),
+					openvdb::Vec3d(bbox.max().x(), bbox.min().y(), bbox.max().z()),
+					openvdb::Vec3d(bbox.min().x(), bbox.max().y(), bbox.min().z()),
+					openvdb::Vec3d(bbox.min().x(), bbox.max().y(), bbox.max().z()),
+					openvdb::Vec3d(bbox.max().x(), bbox.max().y(), bbox.min().z()),
+					bbox.max()
+				};
+
 				{
 					FScopeLock lock(&CriticalSection);
+
+					//Add vertices and collect array index returned by TArray.Add()
+					const int32 idxs[8] = {
+						vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())),
+						vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())),
+						vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())),
+						vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())),
+						vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())),
+						vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())),
+						vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())),
+						vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z()))
+					};
+
+					//Add polygons (vertex indices added clockwise order on each quad face)
+					polygons.Add(idxs[0]);
+					polygons.Add(idxs[2]);
+					polygons.Add(idxs[3]);
+
+					polygons.Add(idxs[3]);
+					polygons.Add(idxs[1]);
+					polygons.Add(idxs[0]);
+
+					polygons.Add(idxs[1]);
+					polygons.Add(idxs[3]);
+					polygons.Add(idxs[7]);
+
+					polygons.Add(idxs[7]);
+					polygons.Add(idxs[6]);
+					polygons.Add(idxs[1]);
+
+					polygons.Add(idxs[4]);
+					polygons.Add(idxs[6]);
+					polygons.Add(idxs[7]);
+
+					polygons.Add(idxs[7]);
+					polygons.Add(idxs[5]);
+					polygons.Add(idxs[4]);
+
+					polygons.Add(idxs[0]);
+					polygons.Add(idxs[4]);
+					polygons.Add(idxs[5]);
+
+					polygons.Add(idxs[5]);
+					polygons.Add(idxs[2]);
+					polygons.Add(idxs[0]);
+
+					polygons.Add(idxs[2]);
+					polygons.Add(idxs[5]);
+					polygons.Add(idxs[7]);
+
+					polygons.Add(idxs[7]);
+					polygons.Add(idxs[3]);
+					polygons.Add(idxs[2]);
+
+					polygons.Add(idxs[0]);
+					polygons.Add(idxs[1]);
+					polygons.Add(idxs[6]);
+
+					polygons.Add(idxs[6]);
+					polygons.Add(idxs[4]);
+					polygons.Add(idxs[0]);
+
 					//Add dummy values for now TODO
 					normals.Add(FVector());
 					uvs.Add(FVector2D());
