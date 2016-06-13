@@ -43,6 +43,7 @@ CosmicSafari/Build/Receipts/*
 CosmicSafari/Intermediate/Build/*
 CosmicSafari/Intermediate/Config/*
 CosmicSafari/Intermediate/Staging/*
+CosmicSafari/Intermediate/AssetRegistryCache/*
 CosmicSafari/Saved/*
 CosmicSafari/Intermediate/ProjectFiles/obj/*
 CosmicSafari/Content/FirstPerson/*
