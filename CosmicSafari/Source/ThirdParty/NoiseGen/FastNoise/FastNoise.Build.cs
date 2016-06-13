@@ -9,7 +9,7 @@ public class FastNoise : ModuleRules
     private UnrealTargetPlatform Platform;
     private UnrealTargetConfiguration Configuration;
     
-    public LibNoise(TargetInfo Target)
+    public FastNoise(TargetInfo Target)
     {
         Platform = Target.Platform;
         Configuration = Target.Configuration;

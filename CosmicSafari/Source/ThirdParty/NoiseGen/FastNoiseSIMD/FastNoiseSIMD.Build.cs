@@ -6,29 +6,29 @@ using System;
 
 enum SimdArch { AVX, AVX2 } //TODO: Add other architectures
 
-public class LibNoise : ModuleRules
+public class FastNoiseSIMD : ModuleRules
 {
     private UnrealTargetPlatform Platform;
     private UnrealTargetConfiguration Configuration;
     
-    public LibNoise(TargetInfo Target)
+    public FastNoiseSIMD(TargetInfo Target)
     {
         Platform = Target.Platform;
         Configuration = Target.Configuration;
         Type = ModuleType.External;
         OptimizeCode = CodeOptimization.InNonDebugBuilds;
-        SimdArch Arch = Arch::AVX2;
+        SimdArch Arch = SimdArch.AVX2;
         PublicIncludePaths.AddRange(PublicIncludes);
         PrivateIncludePaths.AddRange(PrivateIncludes);
         PublicSystemIncludePaths.AddRange(ThirdPartyIncludes);
         PublicLibraryPaths.AddRange(ThirdPartyLibPaths);
         PublicAdditionalLibraries.AddRange(ThirdPartyLibNames);
 
-        if (Arch == AVX)
+        if (Arch == SimdArch.AVX)
         {
             Definitions.Add("_AVX_");
         }
-        else if (Arch == AVX2)
+        else if (Arch == SimdArch.AVX2)
         {
             Definitions.Add("_AVX2_");
         }
