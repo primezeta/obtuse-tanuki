@@ -94,7 +94,7 @@ public class LibNoise : ModuleRules
         {
             return new string[]
             {
-                Path.Combine(ModuleDirectory, "Binaries", "VS2015", PlatformPath, ConfigurationPath),
+                Path.Combine(ModuleDirectory, "..", "..", "Binaries", "VS2015", PlatformPath, ConfigurationPath),
             };
         }
     }
