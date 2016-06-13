@@ -74,7 +74,7 @@ public class LibNoise : ModuleRules
     {
         get
         {
-            return Path.Combine(ModuleDirectory, "..");
+            return Path.Combine(ModuleDirectory, "..", "..");
         }
     }
 
@@ -94,7 +94,6 @@ public class LibNoise : ModuleRules
         {
             return new string[]
             {
-                //if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
                 Path.Combine(ModuleDirectory, "Binaries", "VS2015", PlatformPath, ConfigurationPath),
             };
         }
