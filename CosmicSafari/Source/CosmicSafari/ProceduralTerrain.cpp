@@ -56,7 +56,7 @@ void AProceduralTerrain::AddTerrainComponent(const FString &name, const FIntVect
 	TerrainMesh->SectionCount = 1; //TODO: One section per material?
 	TerrainMesh->MeshID = VdbHandle->AddGrid(name, gridIndex, VoxelSize);
 	TerrainMesh->RegisterComponent();
-	TerrainMesh->AttachTo(RootComponent);
+	TerrainMesh->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 	if (Material)
 	{
 		TerrainMesh->SetMaterial(0, Material);

@@ -38,7 +38,7 @@ AFirstPersonCPPCharacter::AFirstPersonCPPCharacter()
 	FP_Gun->SetOnlyOwnerSee(true);			// only the owning player will see this mesh
 	FP_Gun->bCastDynamicShadow = false;
 	FP_Gun->CastShadow = false;
-	FP_Gun->AttachTo(Mesh1P, TEXT("GripPoint"), EAttachLocation::SnapToTargetIncludingScale, true);
+	FP_Gun->AttachToComponent(Mesh1P, FAttachmentTransformRules::KeepRelativeTransform, TEXT("GripPoint"));
 
 
 	// Default offset from the character location for projectiles to spawn

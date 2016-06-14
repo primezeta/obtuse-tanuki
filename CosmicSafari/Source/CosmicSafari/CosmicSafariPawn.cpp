@@ -7,7 +7,7 @@ ACosmicSafariPawn::ACosmicSafariPawn()
 {
 	// Create a spring arm component
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm0"));
-	SpringArm->AttachTo(RootComponent);
+	SpringArm->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 	SpringArm->TargetArmLength = 100.0f; // The camera follows at this distance behind the character	
 	SpringArm->SocketOffset = FVector(0.0f,0.0f,0.0f);
 	SpringArm->bEnableCameraLag = true;
@@ -16,7 +16,7 @@ ACosmicSafariPawn::ACosmicSafariPawn()
 
 	// Create camera component 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera0"));
-	Camera->AttachTo(SpringArm, USpringArmComponent::SocketName);
+	Camera->AttachToComponent(SpringArm, FAttachmentTransformRules::KeepRelativeTransform);
 	Camera->bUsePawnControlRotation = false; // Don't rotate camera with controller
 
 	MoveSpeed = 2000.0f;
