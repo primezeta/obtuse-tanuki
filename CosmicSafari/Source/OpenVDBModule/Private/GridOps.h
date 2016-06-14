@@ -523,9 +523,9 @@ namespace Vdb
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
-					uvs.Add(FVector2D(0.0f, 0.0f));
-					uvs.Add(FVector2D(0.0f, 1.0f/3.0f));
-					uvs.Add(FVector2D(1.0f/3.0f, 1.0f/3.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));//Front face
 					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));
@@ -533,9 +533,9 @@ namespace Vdb
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f/3.0f, 1.0f/3.0f));
-					uvs.Add(FVector2D(1.0f/3.0f, 0.0f));
-					uvs.Add(FVector2D(0.0f, 0.0f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));//Right face
 					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));
@@ -543,9 +543,9 @@ namespace Vdb
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
-					uvs.Add(FVector2D(0.0f, 0.0f));
-					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
-					uvs.Add(FVector2D(1.0f / 3.0f, 1.0f / 3.0f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
+					uvs.Add(FVector2D(1.0f, 1.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Right face
 					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));
@@ -553,9 +553,9 @@ namespace Vdb
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f / 3.0f, 1.0f / 3.0f));
-					uvs.Add(FVector2D(1.0f / 3.0f, 0.0f));
-					uvs.Add(FVector2D(0.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f, 1.0f));
+					uvs.Add(FVector2D(2.0f/3.0f, 3.0f/4.0f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));//Back face
 					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));
@@ -563,9 +563,9 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f / 3.0f, 0.0f));
-					uvs.Add(FVector2D(0.0f, 0.0f));
-					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 3.0f/4.0f));
+					uvs.Add(FVector2D(2.0f/3.0f, 3.0f/4.0f));
+					uvs.Add(FVector2D(1.0f, 1.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Back face
 					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));
@@ -573,9 +573,9 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
-					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
-					uvs.Add(FVector2D(1.0f / 3.0f, 1.0f / 3.0f));
-					uvs.Add(FVector2D(1.0f / 3.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f, 1.0f));
+					uvs.Add(FVector2D(0.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 3.0f/4.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));//Left face
 					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));
@@ -583,9 +583,9 @@ namespace Vdb
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 1.0f/2.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 3.0f/4.0f));
 					uvs.Add(FVector2D(0.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f / 3.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f / 3.0f, 1.0f / 3.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));//Left face
 					polygons.Add(vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())));
@@ -593,9 +593,9 @@ namespace Vdb
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f / 3.0f, 1.0f / 3.0f));
-					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
 					uvs.Add(FVector2D(0.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 1.0f/4.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())));//Top face
 					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));
@@ -603,9 +603,9 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
-					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
-					uvs.Add(FVector2D(1.0f / 3.0f, 1.0f / 3.0f));
-					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 1.0f/4.0f));
+					uvs.Add(FVector2D(0.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f, 1.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Top face
 					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));
@@ -613,9 +613,9 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
-					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
-					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
-					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
+					uvs.Add(FVector2D(1.0f, 1.0f));
+					uvs.Add(FVector2D(2.0f/3.0f, 1.0f/2.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 1.0f/4.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));//Bottom face
 					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));
@@ -623,9 +623,9 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
-					uvs.Add(FVector2D(0.0f, 0.0f));
-					uvs.Add(FVector2D(0.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f / 3.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 1.0f/2.0f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
+					uvs.Add(FVector2D(2.0f/3.0f, 3.0f/4.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));//Bottom face
 					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));
@@ -633,9 +633,9 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
-					uvs.Add(FVector2D(1.0f / 3.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f / 3.0f, 0.0f));
-					uvs.Add(FVector2D(0.0f, 0.0f));
+					uvs.Add(FVector2D(2.0f/3.0f, 3.0f/4.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 3.0f/4.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
 
 					//Add dummy values for now TODO
 					colors.Add(FColor());
