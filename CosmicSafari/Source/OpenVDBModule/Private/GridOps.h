@@ -114,30 +114,10 @@ namespace Vdb
 				DestValueType outValue;
 				GetValue(coord, outValue);
 				acc.setValueOnly(coord, outValue);
-				//if (!isActiveValue)
-				//{
-				//	//If the mask value is false then that means it is not part of the surface, however we still need
-				//	//a value so that each voxel has a value at each of 12 surrounding voxels when extracting the surface
-				//	acc.setValueOff(coord, outValue);
-				//}
-				//else
-				//{
-				//	//Set the value to on so that it is part of the extractable surface
-				//	acc.setValueOn(coord, outValue);
-				//}
 			}
 
 			FORCEINLINE void GetValue(const openvdb::Coord &coord, DestValueType &outValue)
 			{
-				//double prevLacunarity = valueSource.GetLacunarity();
-				//int32 prevOctaveCount = valueSource.GetOctaveCount();
-				//valueSource.SetLacunarity(prevLacunarity*0.004);
-				//valueSource.SetOctaveCount(2);
-				//const openvdb::Vec3d vec = DestGridPtr->transform().indexToWorld(coord);
-				//double warp = valueSource.GetValue(vec.x(), vec.y(), vec.z()) * 8;
-				//valueSource.SetLacunarity(prevLacunarity);
-				//valueSource.SetOctaveCount(prevOctaveCount);
-				//outValue.Data = (DestValueType::DataType)(warp + valueSource.GetValue(vec.x(), vec.y(), vec.z()) + vec.z());
 				const openvdb::Vec3d vec = DestGridPtr->transform().indexToWorld(coord);
 				outValue.Data = (DestValueType::DataType)(valueSource.GetValue(vec.x(), vec.y(), vec.z()) + vec.z());
 
@@ -540,54 +520,124 @@ namespace Vdb
 					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));//Front face
 					polygons.Add(vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())));
 					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));
+					normals.Add(FVector(0.0f, -1.0f, 0.0f));
+					normals.Add(FVector(0.0f, -1.0f, 0.0f));
+					normals.Add(FVector(0.0f, -1.0f, 0.0f));
+					uvs.Add(FVector2D(0.0f, 0.0f));
+					uvs.Add(FVector2D(0.0f, 1.0f/3.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 1.0f/3.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));//Front face
 					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));
 					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));
+					normals.Add(FVector(0.0f, -1.0f, 0.0f));
+					normals.Add(FVector(0.0f, -1.0f, 0.0f));
+					normals.Add(FVector(0.0f, -1.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 1.0f/3.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.0f));
+					uvs.Add(FVector2D(0.0f, 0.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));//Right face
 					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));
+					normals.Add(FVector(1.0f, 0.0f, 0.0f));
+					normals.Add(FVector(1.0f, 0.0f, 0.0f));
+					normals.Add(FVector(1.0f, 0.0f, 0.0f));
+					uvs.Add(FVector2D(0.0f, 0.0f));
+					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
+					uvs.Add(FVector2D(1.0f / 3.0f, 1.0f / 3.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Right face
 					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));
 					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));
+					normals.Add(FVector(1.0f, 0.0f, 0.0f));
+					normals.Add(FVector(1.0f, 0.0f, 0.0f));
+					normals.Add(FVector(1.0f, 0.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f / 3.0f, 1.0f / 3.0f));
+					uvs.Add(FVector2D(1.0f / 3.0f, 0.0f));
+					uvs.Add(FVector2D(0.0f, 0.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));//Back face
 					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));
+					normals.Add(FVector(0.0f, 1.0f, 0.0f));
+					normals.Add(FVector(0.0f, 1.0f, 0.0f));
+					normals.Add(FVector(0.0f, 1.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f / 3.0f, 0.0f));
+					uvs.Add(FVector2D(0.0f, 0.0f));
+					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Back face
 					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));
 					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));
+					normals.Add(FVector(0.0f, 1.0f, 0.0f));
+					normals.Add(FVector(0.0f, 1.0f, 0.0f));
+					normals.Add(FVector(0.0f, 1.0f, 0.0f));
+					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
+					uvs.Add(FVector2D(1.0f / 3.0f, 1.0f / 3.0f));
+					uvs.Add(FVector2D(1.0f / 3.0f, 0.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));//Left face
 					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));
 					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));
+					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
+					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
+					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
+					uvs.Add(FVector2D(0.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f / 3.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f / 3.0f, 1.0f / 3.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));//Left face
 					polygons.Add(vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())));
 					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));
+					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
+					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
+					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f / 3.0f, 1.0f / 3.0f));
+					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
+					uvs.Add(FVector2D(0.0f, 0.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())));//Top face
 					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));
+					normals.Add(FVector(0.0f, 0.0f, 1.0f));
+					normals.Add(FVector(0.0f, 0.0f, 1.0f));
+					normals.Add(FVector(0.0f, 0.0f, 1.0f));
+					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
+					uvs.Add(FVector2D(1.0f / 3.0f, 1.0f / 3.0f));
+					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Top face
 					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));
 					polygons.Add(vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())));
+					normals.Add(FVector(0.0f, 0.0f, 1.0f));
+					normals.Add(FVector(0.0f, 0.0f, 1.0f));
+					normals.Add(FVector(0.0f, 0.0f, 1.0f));
+					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
+					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
+					uvs.Add(FVector2D(0.0f, 1.0f / 3.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));//Bottom face
 					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));
 					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));
+					normals.Add(FVector(0.0f, 0.0f, -1.0f));
+					normals.Add(FVector(0.0f, 0.0f, -1.0f));
+					normals.Add(FVector(0.0f, 0.0f, -1.0f));
+					uvs.Add(FVector2D(0.0f, 0.0f));
+					uvs.Add(FVector2D(0.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f / 3.0f, 0.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));//Bottom face
 					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));
 					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));
+					normals.Add(FVector(0.0f, 0.0f, -1.0f));
+					normals.Add(FVector(0.0f, 0.0f, -1.0f));
+					normals.Add(FVector(0.0f, 0.0f, -1.0f));
+					uvs.Add(FVector2D(1.0f / 3.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f / 3.0f, 0.0f));
+					uvs.Add(FVector2D(0.0f, 0.0f));
 
 					//Add dummy values for now TODO
-					normals.Add(FVector());
-					uvs.Add(FVector2D());
 					colors.Add(FColor());
 					tangents.Add(FProcMeshTangent());
 				}
