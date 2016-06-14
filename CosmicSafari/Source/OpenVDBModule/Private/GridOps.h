@@ -7,6 +7,7 @@
 #include <openvdb/tools/GridOperators.h>
 #include <noise.h>
 #include <noiseutils.h>
+#include "FastNoise.h"
 #include "MarchingCubes.h"
 
 namespace Vdb
@@ -87,10 +88,16 @@ namespace Vdb
 				: DestGridPtr(destGridPtr)
 			{
 				sourceGridPtr->tree().voxelizeActiveTiles();
+				//valueSource.SetNoiseType(FastNoise::NoiseType::GradientFractal);
+				//valueSource.SetSeed(seed);
+				//valueSource.SetFrequency(frequency);
+				//valueSource.SetFractalLacunarity(lacunarity);
+				//valueSource.SetFractalGain(persistence);
+				//valueSource.SetFractalOctaves(octaveCount);
 				valueSource.SetSeed(seed);
-				valueSource.SetFrequency((double)frequency);
-				valueSource.SetLacunarity((double)lacunarity);
-				valueSource.SetPersistence((double)persistence);
+				valueSource.SetFrequency(frequency);
+				valueSource.SetLacunarity(lacunarity);
+				valueSource.SetPersistence(persistence);
 				valueSource.SetOctaveCount(octaveCount);
 			}
 
@@ -152,6 +159,7 @@ namespace Vdb
 		private:
 			const DestGridTypePtr DestGridPtr;
 			noise::module::Perlin valueSource;
+			//FastNoise valueSource;
 		};
 
 		//Operator to extract an isosurface from a grid
