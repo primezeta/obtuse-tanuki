@@ -10,6 +10,8 @@
 #include "FastNoise.h"
 #include "MarchingCubes.h"
 
+#define PRAGMA_DISABLE_OPTIMIZATION
+
 namespace Vdb
 {
 	namespace GridOps
@@ -257,6 +259,7 @@ namespace Vdb
 					//This voxel is right on the surface so set to type GRASS
 					values[0].VoxelType = EVoxelType::VOXEL_GRASS;
 				}
+				iter.setValue(values[0]);
 				IsMaterialActive[(int32)values[0].VoxelType] = true;
 			}
 
@@ -583,7 +586,8 @@ namespace Vdb
 			{
 			}
 
-			FORCEINLINE void operator()(const SourceIterType& iter)
+			//FORCEINLINE void operator()(const SourceIterType& iter)
+			void operator()(const SourceIterType& iter)
 			{
 				//Mesh the voxel as a simple cube with 6 equal sized quads
 				const openvdb::BBoxd bbox = GridPtr->transform().indexToWorld(openvdb::CoordBBox::createCube(iter.getCoord(), 2));

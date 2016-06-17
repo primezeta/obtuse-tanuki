@@ -334,7 +334,7 @@ public:
 	void MeshRegionCubes(const FString &gridName, TArray<FGridMeshBuffers> &MeshBuffers)
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
-		InitMeshSection(gridPtr, MeshBuffers);
+		InitMeshSection(gridPtr, MeshBuffers); //TODO: If InitMeshSection is kept here, should just return the mesher op from InitMeshSection instead of using a map
 		TSharedPtr<Vdb::GridOps::CubeMesher<GridTreeType>> mesherOp = CubesMeshOps.FindChecked(gridName);
 		const bool threaded = true;
 		mesherOp->doMeshOp(threaded);

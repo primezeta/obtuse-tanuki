@@ -94,11 +94,11 @@ void AProceduralTerrain::BeginPlay()
 
 			UProceduralTerrainMeshComponent &TerrainMeshComponent = *TerrainMeshComponents[regionName];
 			VdbHandle->MeshGrid(TerrainMeshComponent.MeshID, meshBuffers);
-			for (auto j = 0; j < TerrainMeshComponent.SectionCount; ++j)
+			for (auto j = TerrainMeshComponent.MeshTypes.CreateConstIterator(); j; ++j)
 			{
-				FGridMeshBuffers &buffers = meshBuffers[(int32)TerrainMeshComponent.MeshTypes[j]];
+				FGridMeshBuffers &buffers = meshBuffers[(int32)j.Value()];
 				TerrainMeshComponent.CreateMeshSection(
-					j,
+					j.Key(),
 					buffers.VertexBuffer,
 					buffers.PolygonBuffer,
 					buffers.NormalBuffer,
@@ -108,7 +108,7 @@ void AProceduralTerrain::BeginPlay()
 					bCreateCollision);
 				//TODO: Create logic for using UpdateMeshSection
 				//TODO: Use non-deprecated CreateMeshSection_Linear
-				TerrainMeshComponent.SetMeshSectionVisible(j, true);
+				TerrainMeshComponent.SetMeshSectionVisible(j.Key(), true);
 			}
 
 			FVector worldStart;
