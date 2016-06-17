@@ -264,7 +264,10 @@ namespace Vdb
 			{
 				for (int32 i = 0; i < FVoxelData::NumMaterials(); ++i)
 				{
-					activeMaterials.Add((EVoxelType)i);
+					if (IsMaterialActive[i])
+					{
+						activeMaterials.Add((EVoxelType)i);
+					}
 				}
 			}
 

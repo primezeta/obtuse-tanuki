@@ -51,6 +51,7 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 	const FString gridID = VdbHandle->AddGrid(regionName, gridIndex, VoxelSize);
 	UProceduralTerrainMeshComponent * TerrainMesh = NewObject<UProceduralTerrainMeshComponent>(this, FName(*gridID));
 	check(TerrainMesh != nullptr);
+	TerrainMesh->MeshID = gridID;
 	TerrainMesh->bGenerateOverlapEvents = true;
 	TerrainMesh->IsGridSectionMeshed = false;
 	TerrainMesh->CreateCollision = bCreateCollision;
