@@ -608,8 +608,8 @@ private:
 		CachedGrid = GridsPtr->end();		
 		const std::string maskName = gridPtr->getName() + ".mask";
 		auto i = MasksPtr->begin();
-		for (; i != MaskPtr->end(); ++i);
-		check(i == MaskPtr->end()); //TODO: Better handling of same names
+		for (; i != MasksPtr->end(); ++i);
+		check(i == MasksPtr->end()); //TODO: Better handling of same names
 		openvdb::BoolGrid::Ptr valuesMask = openvdb::BoolGrid::create(false);
 		valuesMask->setName(maskName);
 		MasksPtr->push_back(valuesMask);
