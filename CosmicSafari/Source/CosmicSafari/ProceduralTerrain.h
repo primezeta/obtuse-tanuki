@@ -28,7 +28,9 @@ public:
 		UVdbHandle * VdbHandle;
 
 	UPROPERTY(BlueprintReadOnly, Category = "VDB Handle", Meta = (ToolTip = "Terrain mesh component of each grid"))
-		TArray<UProceduralTerrainMeshComponent*> TerrainMeshComponents;
+		TArray<FString> GridRegions;
+	//Terrain mesh with a mesh section per material ID
+	TMap<FString, UProceduralTerrainMeshComponent*> TerrainMeshComponents;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain")
 		FString VolumeName;
@@ -42,9 +44,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Dimensions of a single voxel"))
 		FVector VoxelSize;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Material to apply to each terrain component"))
-		UMaterial * Material;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Material to apply according to material ID"))
+		TArray<UMaterial*> MeshMaterials;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Name of the region on which the player will start play")
+		FString StartRegion;
 
 	UFUNCTION()
-		void AddTerrainComponent(const FString &name, const FIntVector &gridIndex);
+		FString AddTerrainComponent(const FIntVector &gridIndex);
 };

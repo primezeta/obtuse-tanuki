@@ -5,5 +5,4 @@
 
 UProceduralTerrainMeshComponent::UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer)
 {
-	MeshName = TEXT("DefaultMeshName");
 }

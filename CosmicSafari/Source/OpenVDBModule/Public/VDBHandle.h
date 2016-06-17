@@ -8,94 +8,6 @@
 #include "ProceduralTerrainMeshComponent.h"
 #include "VdbHandle.generated.h"
 
-//USTRUCT()
-//struct FScaleTransformStruct
-//{
-//	GENERATED_USTRUCT_BODY()
-//
-//	UPROPERTY(EditAnywhere, Category = "Scale Transform Struct")
-//	FVector Scale;
-//};
-//
-//USTRUCT()
-//struct FTranslateTransformStruct
-//{
-//	GENERATED_USTRUCT_BODY()
-//
-//	UPROPERTY(EditAnywhere, Category = "Translate Transform Struct")
-//	FVector Translation;
-//};
-//
-//USTRUCT()
-//struct FScaleTranslateTransformStruct
-//{
-//	GENERATED_USTRUCT_BODY()
-//
-//	UPROPERTY(EditAnywhere, Category = "Scale Translate Transform Struct")
-//	FVector Scale;
-//	UPROPERTY(EditAnywhere, Category = "Scale Translate Transform Struct")
-//	FVector Translation;
-//};
-//
-//USTRUCT()
-//struct FUniformScaleTransformStruct
-//{
-//	GENERATED_USTRUCT_BODY()
-//
-//	UPROPERTY(EditAnywhere, Category = "Uniform Scale Transform Struct")
-//	double UniformScale;
-//};
-//
-//USTRUCT()
-//struct FUniformScaleTranslateTransformStruct
-//{
-//	GENERATED_USTRUCT_BODY()
-//
-//	UPROPERTY(EditAnywhere, Category = "Uniform Scale Translate Transform Struct")
-//	double UniformScale;
-//	UPROPERTY(EditAnywhere, Category = "Uniform Scale Translate Transform Struct")
-//	FVector Translation;
-//};
-//
-//USTRUCT()
-//struct FAffineTransformStruct
-//{
-//	GENERATED_USTRUCT_BODY()
-//
-//	UPROPERTY(EditAnywhere, Category = "Affine Transform Struct")
-//	FVector MatrixColumnA;
-//	UPROPERTY(EditAnywhere, Category = "Affine Transform Struct")
-//	FVector MatrixColumnB;
-//	UPROPERTY(EditAnywhere, Category = "Affine Transform Struct")
-//	FVector MatrixColumnC;
-//};
-//
-//USTRUCT()
-//struct FUnitaryTransformStruct
-//{
-//	GENERATED_USTRUCT_BODY()
-//
-//	UPROPERTY(EditAnywhere, Category = "Unitary Transform Struct")
-//	FVector Axis;
-//	UPROPERTY(EditAnywhere, Category = "Unitary Transform Struct")
-//	double Radians;
-//};
-//
-//USTRUCT()
-//struct FNonlinearFrustumTransformStruct
-//{
-//	GENERATED_USTRUCT_BODY()
-//
-//	UPROPERTY(EditAnywhere, Category = "Nonlinear Frustum Transform Struct")
-//	FVector Position;
-//	UPROPERTY(EditAnywhere, Category = "Nonlinear Frustum Transform Struct")
-//	FVector Size;
-//	UPROPERTY(EditAnywhere, Category = "Nonlinear Frustum Transform Struct")
-//	double Taper;
-//	UPROPERTY(EditAnywhere, Category = "Nonlinear Frustum Transform Struct")
-//	double Depth;
-//};
-
 UCLASS()
 class OPENVDBMODULE_API UVdbHandle : public UActorComponent //, public IVdbInterface TODO
 {
@@ -147,17 +59,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void SetRegionScale(const FIntVector &regionScale);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void ReadGridTree(const FString &gridID);
+		virtual void ReadGridTree(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord);
-	//UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void MeshGrid(const FString &gridID,
-			TSharedPtr<VertexBufferType> &VertexBuffer,
-			TSharedPtr<PolygonBufferType> &PolygonBuffer,
-			TSharedPtr<NormalBufferType> &NormalBuffer,
-			TSharedPtr<UVMapBufferType> &UVMapBuffer,
-			TSharedPtr<VertexColorBufferType> &VertexColorBuffer,
-			TSharedPtr<TangentBufferType> &TangentBuffer);	
+	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
+		virtual void MeshGrid(const FString &gridID, TArray<FGridMeshBuffers> &MeshBuffers);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		void GetGridDimensions(const FString &gridID, FVector &worldStart, FVector &worldEnd, FVector &firstActive);
 

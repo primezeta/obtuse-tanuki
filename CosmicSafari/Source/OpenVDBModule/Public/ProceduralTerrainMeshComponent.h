@@ -3,14 +3,9 @@
 #pragma once
 
 #include "ProceduralMeshComponent.h"
+#include "GridMeshBuffers.h"
+#include "VoxelData.h"
 #include "ProceduralTerrainMeshComponent.generated.h"
-
-typedef TArray<FVector> VertexBufferType;
-typedef TArray<int32> PolygonBufferType;
-typedef TArray<FVector> NormalBufferType;
-typedef TArray<FVector2D> UVMapBufferType;
-typedef TArray<FColor> VertexColorBufferType;
-typedef TArray<FProcMeshTangent> TangentBufferType;
 
 UENUM(BlueprintType)		//"BlueprintType" is essential to include
 enum class EMeshType : uint8
@@ -31,15 +26,15 @@ public:
 	UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer);
 	
 	UPROPERTY()
-		FString MeshName;
-	UPROPERTY()
 		FString MeshID;
 	UPROPERTY()
 		bool IsGridSectionMeshed;
 	UPROPERTY()
 		bool CreateCollision;
 	UPROPERTY()
-		int32 SectionCount;
+		TMap<int32, EVoxelType> MeshTypes;
 	UPROPERTY()
 		FVector StartLocation;
+	UPROPERTY()
+		int32 SectionCount;
 };

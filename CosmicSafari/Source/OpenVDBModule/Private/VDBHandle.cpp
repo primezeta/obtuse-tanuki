@@ -70,13 +70,13 @@ void UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 	}
 }
 
-void UVdbHandle::ReadGridTree(const FString &gridID)
+void UVdbHandle::ReadGridTree(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
 {
 	if (isRegistered)
 	{
 		FIntVector StartFill; //dummy value (not used)
 		FIntVector EndFill; //dummy value (not used)
-		FOpenVDBModule::ReadGridTree(this, gridID, MeshMethod, StartFill, EndFill);
+		FOpenVDBModule::ReadGridTree(this, gridID, MeshMethod, StartFill, EndFill, sectionMaterialIDs);
 	}
 }
 
@@ -88,26 +88,11 @@ void UVdbHandle::GetVoxelCoord(const FString &gridID, const FVector &worldLocati
 	}
 }
 
-void UVdbHandle::MeshGrid(const FString &gridID,
-	TSharedPtr<VertexBufferType> &VertexBuffer,
-	TSharedPtr<PolygonBufferType> &PolygonBuffer,
-	TSharedPtr<NormalBufferType> &NormalBuffer,
-	TSharedPtr<UVMapBufferType> &UVMapBuffer,
-	TSharedPtr<VertexColorBufferType> &VertexColorBuffer,
-	TSharedPtr<TangentBufferType> &TangentBuffer)
+void UVdbHandle::MeshGrid(const FString &gridID, TArray<FGridMeshBuffers> &MeshBuffers)
 {
 	if (isRegistered)
 	{
-		FOpenVDBModule::MeshGrid(
-			this,
-			gridID,
-			VertexBuffer,
-			PolygonBuffer,
-			NormalBuffer,
-			UVMapBuffer,
-			VertexColorBuffer,
-			TangentBuffer,
-			MeshMethod);
+		FOpenVDBModule::MeshGrid(this, gridID, MeshMethod, MeshBuffers);
 	}
 }
 

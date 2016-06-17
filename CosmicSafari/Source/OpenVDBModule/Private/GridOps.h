@@ -120,20 +120,7 @@ namespace Vdb
 			{
 				const openvdb::Vec3d vec = DestGridPtr->transform().indexToWorld(coord);
 				outValue.Data = (DestValueType::DataType)(valueSource.GetValue(vec.x(), vec.y(), vec.z()) + vec.z());
-
-				//Set a material ID according to vertical height
-				if (coord.z() < 1)
-				{
-					outValue.MaterialID = 0;
-				}
-				else if (coord.z() < 128)
-				{
-					outValue.MaterialID = 1;
-				}
-				else
-				{
-					outValue.MaterialID = 2;
-				}
+				outValue.VoxelType = EVoxelType::VOXEL_NONE;
 			}
 
 		private:
@@ -160,29 +147,130 @@ namespace Vdb
 			FORCEINLINE void operator()(const IterType& iter)
 			{
 				//Note that no special consideration is done for tile voxels, so the grid tiles must be voxelized prior to this op [tree().voxelizeActiveTiles()]
-				uint8 insideBits = 0;
-				ValueType value = iter.getValue();
+				auto acc = GridPtr->getAccessor();
 				const openvdb::Coord &coord = iter.getCoord();
-				auto acc = GridPtr->getConstAccessor();
-				if (acc.getValue(coord).Data < SurfaceValue.Data) { insideBits |= 1; }
-				if (acc.getValue(coord.offsetBy(1, 0, 0)).Data < SurfaceValue.Data) { insideBits |= 2; }
-				if (acc.getValue(coord.offsetBy(0, 1, 0)).Data < SurfaceValue.Data) { insideBits |= 4; }
-				if (acc.getValue(coord.offsetBy(0, 0, 1)).Data < SurfaceValue.Data) { insideBits |= 8; }
-				if (acc.getValue(coord.offsetBy(1, 1, 0)).Data < SurfaceValue.Data) { insideBits |= 16; }
-				if (acc.getValue(coord.offsetBy(1, 0, 1)).Data < SurfaceValue.Data) { insideBits |= 32; }
-				if (acc.getValue(coord.offsetBy(0, 1, 1)).Data < SurfaceValue.Data) { insideBits |= 64; }
-				if (acc.getValue(coord.offsetBy(1, 1, 1)).Data < SurfaceValue.Data) { insideBits |= 128; }
-				//Turn the voxel off if it is completely outside or completely inside the surface
+				const openvdb::Coord coords[8] = {
+					iter.getCoord(),
+					coord.offsetBy(1, 0, 0),
+					coord.offsetBy(0, 1, 0),
+					coord.offsetBy(0, 0, 1),
+					coord.offsetBy(1, 1, 0),
+					coord.offsetBy(1, 0, 1),
+					coord.offsetBy(0, 1, 1),
+					coord.offsetBy(1, 1, 1),
+				};
+				const ValueType values[8] = {
+					iter.getValue(),
+					acc.getValue(coords[1]),
+					acc.getValue(coords[2]),
+					acc.getValue(coords[3]),
+					acc.getValue(coords[4]),
+					acc.getValue(coords[5]),
+					acc.getValue(coords[6]),
+					acc.getValue(coords[7]),
+				};
+
+				//Flag a vertex as inside the surface if the data value is less than the surface data value
+				uint8 insideBits = 0;
+				if (values[0].Data < SurfaceValue.Data) { insideBits |= 1; }
+				if (values[1].Data < SurfaceValue.Data) { insideBits |= 2; }
+				if (values[2].Data < SurfaceValue.Data) { insideBits |= 4; }
+				if (values[3].Data < SurfaceValue.Data) { insideBits |= 8; }
+				if (values[4].Data < SurfaceValue.Data) { insideBits |= 16; }
+				if (values[5].Data < SurfaceValue.Data) { insideBits |= 32; }
+				if (values[6].Data < SurfaceValue.Data) { insideBits |= 64; }
+				if (values[7].Data < SurfaceValue.Data) { insideBits |= 128; }
 				if (insideBits == 0 || insideBits == 255)
 				{
+					//Completely inside or completely outside surface - turn voxel off
 					iter.setValueOff();
 				}
 			}
 
 		private:
-			FCriticalSection CriticalSection;
 			GridTypePtr GridPtr;
 			const ValueType &SurfaceValue;
+		};
+
+		//Operator to process initial voxel types of a grid after surface extraction
+		template <typename TreeType, typename IterType>
+		class BasicSetVoxelTypeOp
+		{
+		public:
+			typedef typename openvdb::Grid<TreeType> GridType;
+			typedef typename GridType::Ptr GridTypePtr;
+			typedef typename GridType::Accessor AccessorType;
+			typedef typename TreeType::ValueType ValueType;
+
+			BasicSetVoxelTypeOp(const GridTypePtr gridPtr)
+				: GridPtr(gridPtr)
+			{
+				for (int32 i = 0; i < FVoxelData::NumMaterials(); ++i)
+				{
+					IsMaterialActive.Add(false);
+				}
+			}
+
+			FORCEINLINE void operator()(const IterType& iter)
+			{
+				//Note that no special consideration is done for tile voxels, so the grid tiles must be voxelized prior to this op [tree().voxelizeActiveTiles()]
+				auto acc = GridPtr->getAccessor();
+				const openvdb::Coord &coord = iter.getCoord();
+				const openvdb::Coord coords[8] = {
+					coord,
+					coord.offsetBy(1, 0, 0),
+					coord.offsetBy(0, 1, 0),
+					coord.offsetBy(0, 0, 1),
+					coord.offsetBy(1, 1, 0),
+					coord.offsetBy(1, 0, 1),
+					coord.offsetBy(0, 1, 1),
+					coord.offsetBy(1, 1, 1),
+				};
+				const bool isActive[8] = {
+					iter.isValueOn(),
+					acc.isValueOn(coords[1]),
+					acc.isValueOn(coords[2]),
+					acc.isValueOn(coords[3]),
+					acc.isValueOn(coords[4]),
+					acc.isValueOn(coords[5]),
+					acc.isValueOn(coords[6]),
+					acc.isValueOn(coords[7]),
+				};
+				ValueType values[8] = {
+					iter.getValue(),
+					acc.getValue(coords[1]),
+					acc.getValue(coords[2]),
+					acc.getValue(coords[3]),
+					acc.getValue(coords[4]),
+					acc.getValue(coords[5]),
+					acc.getValue(coords[6]),
+					acc.getValue(coords[7]),
+				};
+
+				if (isActive[3])
+				{
+					//The voxel immediately above is on which means we are on the side of a cliff or incline so set to type DIRT
+					values[0].VoxelType = EVoxelType::VOXEL_DIRT;
+				}
+				else
+				{
+					//This voxel is right on the surface so set to type GRASS
+					values[0].VoxelType = EVoxelType::VOXEL_GRASS;
+				}
+				IsMaterialActive[(int32)values[0].VoxelType] = true;
+			}
+
+			void GetActiveMaterials(TArray<TEnumAsByte<EVoxelType>> &activeMaterials)
+			{
+				for (int32 i = 0; i < FVoxelData::NumMaterials(); ++i)
+				{
+					activeMaterials.Add((EVoxelType)i);
+				}
+			}
+
+		private:
+			GridTypePtr GridPtr;
+			TArray<bool> IsMaterialActive;
 		};
 
 		//Operator to extract an isosurface from a grid and set an output grid to contain the inside bits mask
@@ -487,15 +575,8 @@ namespace Vdb
 			typedef typename GridType::ValueType ValueType;
 			typedef typename IterType SourceIterType;
 
-			CubesMeshOp(const GridTypePtr gridPtr,
-				VertexBufferType &vertexBuffer,
-				PolygonBufferType &polygonBuffer,
-				NormalBufferType &normalBuffer,
-				UVMapBufferType &uvBuffer,
-				VertexColorBufferType &colorBuffer,
-				TangentBufferType &tangentBuffer)
-				: GridPtr(gridPtr), GridAcc(gridPtr->tree()), UnvisitedVertexIndex(GridPtr->tree().background()),
-				vertices(vertexBuffer), polygons(polygonBuffer), normals(normalBuffer), uvs(uvBuffer), colors(colorBuffer), tangents(tangentBuffer)
+			CubesMeshOp(const GridTypePtr gridPtr, TArray<FGridMeshBuffers> &meshBuffers)
+				: GridPtr(gridPtr), GridAcc(gridPtr->tree()), UnvisitedVertexIndex(GridPtr->tree().background()), MeshBuffers(meshBuffers)
 			{
 			}
 
@@ -514,6 +595,13 @@ namespace Vdb
 					bbox.max()
 				};
 
+				const auto value = iter.getValue();
+				VertexBufferType &vertices = MeshBuffers[(int32)value.VoxelType].VertexBuffer;
+				PolygonBufferType &polygons = MeshBuffers[(int32)value.VoxelType].PolygonBuffer;
+				NormalBufferType &normals = MeshBuffers[(int32)value.VoxelType].NormalBuffer;
+				UVMapBufferType &uvs = MeshBuffers[(int32)value.VoxelType].UVMapBuffer;
+				VertexColorBufferType &colors = MeshBuffers[(int32)value.VoxelType].VertexColorBuffer;
+				TangentBufferType &tangents = MeshBuffers[(int32)value.VoxelType].TangentBuffer;
 				{
 					FScopeLock lock(&CriticalSection);
 					//Add polygons each with unique vertices (vertex indices added clockwise order on each quad face)
@@ -524,8 +612,8 @@ namespace Vdb
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
-					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
-					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.25f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.25f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));//Front face
 					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));
@@ -533,7 +621,7 @@ namespace Vdb
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
-					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.25f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
 
@@ -544,8 +632,8 @@ namespace Vdb
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
-					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
-					uvs.Add(FVector2D(1.0f, 1.0f));
+					uvs.Add(FVector2D(1.0f, 0.5f));
+					uvs.Add(FVector2D(1.0f, 0.75f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Right face
 					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));
@@ -553,8 +641,8 @@ namespace Vdb
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f, 1.0f));
-					uvs.Add(FVector2D(2.0f/3.0f, 3.0f/4.0f));
+					uvs.Add(FVector2D(1.0f, 0.75f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.75f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));//Back face
@@ -563,9 +651,9 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f/3.0f, 3.0f/4.0f));
-					uvs.Add(FVector2D(2.0f/3.0f, 3.0f/4.0f));
-					uvs.Add(FVector2D(1.0f, 1.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.75f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.75f));
+					uvs.Add(FVector2D(2.0f/3.0f, 1.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Back face
 					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));
@@ -573,9 +661,9 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f, 1.0f));
-					uvs.Add(FVector2D(0.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f/3.0f, 3.0f/4.0f));
+					uvs.Add(FVector2D(2.0f/3.0f, 1.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 1.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.75f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));//Left face
 					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));
@@ -583,9 +671,9 @@ namespace Vdb
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f/3.0f, 1.0f/2.0f));
-					uvs.Add(FVector2D(1.0f/3.0f, 3.0f/4.0f));
-					uvs.Add(FVector2D(0.0f, 0.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.75f));
+					uvs.Add(FVector2D(0.0f, 0.75f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));//Left face
 					polygons.Add(vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())));
@@ -593,8 +681,8 @@ namespace Vdb
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
-					uvs.Add(FVector2D(0.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f/3.0f, 1.0f/4.0f));
+					uvs.Add(FVector2D(0.0f, 0.75f));
+					uvs.Add(FVector2D(0.0f, 0.5f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())));//Top face
@@ -603,9 +691,9 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
-					uvs.Add(FVector2D(1.0f/3.0f, 1.0f/4.0f));
-					uvs.Add(FVector2D(0.0f, 0.0f));
-					uvs.Add(FVector2D(1.0f, 1.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.25f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.0f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.0f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Top face
 					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));
@@ -613,9 +701,9 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
-					uvs.Add(FVector2D(1.0f, 1.0f));
-					uvs.Add(FVector2D(2.0f/3.0f, 1.0f/2.0f));
-					uvs.Add(FVector2D(1.0f/3.0f, 1.0f/4.0f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.0f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.25f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.25f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));//Bottom face
 					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));
@@ -623,9 +711,9 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
-					uvs.Add(FVector2D(1.0f/3.0f, 1.0f/2.0f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
-					uvs.Add(FVector2D(2.0f/3.0f, 3.0f/4.0f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.75f));
 
 					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));//Bottom face
 					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));
@@ -633,8 +721,8 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
-					uvs.Add(FVector2D(2.0f/3.0f, 3.0f/4.0f));
-					uvs.Add(FVector2D(1.0f/3.0f, 3.0f/4.0f));
+					uvs.Add(FVector2D(2.0f/3.0f, 0.75f));
+					uvs.Add(FVector2D(1.0f/3.0f, 0.75f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
 
 					//Add dummy values for now TODO
@@ -648,12 +736,7 @@ namespace Vdb
 			const GridTypePtr GridPtr;
 			AccessorType GridAcc;
 			const ValueType &UnvisitedVertexIndex;
-			VertexBufferType &vertices;
-			PolygonBufferType &polygons;
-			NormalBufferType &normals;
-			UVMapBufferType &uvs;
-			VertexColorBufferType &colors;
-			TangentBufferType &tangents;
+			TArray<FGridMeshBuffers> &MeshBuffers;
 		};
 
 		//Helper struct to hold the associated basic cubes meshing info
@@ -664,16 +747,11 @@ namespace Vdb
 		public:
 			typedef typename openvdb::Grid<SourceTreeType> SourceGridType;
 			typedef typename SourceGridType::Ptr SourceGridTypePtr;
+			typedef typename SourceGridType::ValueType SourceValueType;
 			const SourceGridTypePtr SourceGridPtr;
 
-			CubeMesher(const SourceGridTypePtr sourceGridPtr,
-				VertexBufferType &vertexBuffer,
-				PolygonBufferType &polygonBuffer,
-				NormalBufferType &normalBuffer,
-				UVMapBufferType &uvBuffer,
-				VertexColorBufferType &colorBuffer,
-				TangentBufferType &tangentBuffer)
-				: isChanged(true), SourceGridPtr(sourceGridPtr), CubesMeshOp(GridType::create(UNVISITED_VERTEX_INDEX), vertexBuffer, polygonBuffer, normalBuffer, uvBuffer, colorBuffer, tangentBuffer)
+			CubeMesher(const SourceGridTypePtr sourceGridPtr, TArray<FGridMeshBuffers> &meshBuffers)
+				: isChanged(true), SourceGridPtr(sourceGridPtr), CubesMeshOp(GridType::create(UNVISITED_VERTEX_INDEX), meshBuffers)
 			{
 				GridPtr->setName(SourceGridPtr->getName() + ".indices");
 				GridPtr->setTransform(SourceGridPtr->transformPtr());
@@ -681,12 +759,10 @@ namespace Vdb
 
 			FORCEINLINE void clearBuffers()
 			{
-				vertices.Empty();
-				polygons.Empty();
-				normals.Empty();
-				uvs.Empty();
-				colors.Empty();
-				tangents.Empty();
+				for (auto i = MeshBuffers.CreateIterator(); i; ++i)
+				{
+					i->ClearBuffers();
+				}
 			}
 
 			FORCEINLINE void doMeshOp(const bool &threaded)

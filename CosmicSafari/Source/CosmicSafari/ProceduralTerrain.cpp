@@ -9,8 +9,14 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 {
 	VdbHandle = ObjectInitializer.CreateDefaultSubobject<UVdbHandle>(this, TEXT("VDBHandle"));
 	check(VdbHandle != nullptr);
-	Material = ObjectInitializer.CreateDefaultSubobject<UMaterial>(this, TEXT("TerrainMaterial"));
-	check(Material != nullptr);
+
+	MeshMaterials.SetNum(VOXEL_TYPE_COUNT);
+	for (int32 i = 0; i < FVoxelData::NumMaterials(); ++i)
+	{
+		UMaterial * Material = ObjectInitializer.CreateDefaultSubobject<UMaterial>(this, *FString::Printf(TEXT("TerrainMaterial.%d"), i));
+		check(Material != nullptr);
+		MeshMaterials[i] = Material;
+	}
 
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -27,41 +33,49 @@ void AProceduralTerrain::PostInitializeComponents()
 	VdbHandle->SetRegionScale(RegionDimensions);
 
 	//Add the first grid region and all 8 surrounding regions
-	AddTerrainComponent(TEXT("Region[0,0,0]"), FIntVector(0, 0, 0));
-	AddTerrainComponent(TEXT("Region[1,0,0]"), FIntVector(1, 0, 0));
-	AddTerrainComponent(TEXT("Region[1,-1,0]"), FIntVector(1, -1, 0));
-	AddTerrainComponent(TEXT("Region[0,-1,0]"), FIntVector(0, -1, 0));
-	AddTerrainComponent(TEXT("Region[-1,-1,0]"), FIntVector(-1, -1, 0));
-	AddTerrainComponent(TEXT("Region[-1,0,0]"), FIntVector(-1, 0, 0));
-	AddTerrainComponent(TEXT("Region[-1,1,0]"), FIntVector(-1, 1, 0));
-	AddTerrainComponent(TEXT("Region[0,1,0]"), FIntVector(0, 1, 0));
-	AddTerrainComponent(TEXT("Region[1,1,0]"), FIntVector(1, 1, 0));
-
-	//Read all added grids from file
-	for (TArray<UProceduralTerrainMeshComponent*>::TConstIterator i = TerrainMeshComponents.CreateConstIterator(); i; ++i)
-	{
-		VdbHandle->ReadGridTree((*i)->MeshID);
-	}
+	StartRegion = AddTerrainComponent(FIntVector(0, 0, 0));
+	AddTerrainComponent(FIntVector(1, 0, 0));
+	AddTerrainComponent(FIntVector(1, -1, 0));
+	AddTerrainComponent(FIntVector(0, -1, 0));
+	AddTerrainComponent(FIntVector(-1, -1, 0));
+	AddTerrainComponent(FIntVector(-1, 0, 0));
+	AddTerrainComponent(FIntVector(-1, 1, 0));
+	AddTerrainComponent(FIntVector(0, 1, 0));
+	AddTerrainComponent(FIntVector(1, 1, 0));
 }
 
-void AProceduralTerrain::AddTerrainComponent(const FString &name, const FIntVector &gridIndex)
+FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 {
 	//TODO: Check if terrain component already exists
-	UProceduralTerrainMeshComponent * TerrainMesh = NewObject<UProceduralTerrainMeshComponent>(this, FName(*name));
+	const FString regionName = TEXT("Region.") + gridIndex.ToString();
+	const FString gridID = VdbHandle->AddGrid(regionName, gridIndex, VoxelSize);
+	UProceduralTerrainMeshComponent * TerrainMesh = NewObject<UProceduralTerrainMeshComponent>(this, FName(*gridID));
 	check(TerrainMesh != nullptr);
 	TerrainMesh->bGenerateOverlapEvents = true;
-	TerrainMesh->MeshName = name;
 	TerrainMesh->IsGridSectionMeshed = false;
 	TerrainMesh->CreateCollision = bCreateCollision;
-	TerrainMesh->SectionCount = 1; //TODO: One section per material?
-	TerrainMesh->MeshID = VdbHandle->AddGrid(name, gridIndex, VoxelSize);
 	TerrainMesh->RegisterComponent();
 	TerrainMesh->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
-	if (Material)
+	GridRegions.Add(regionName);
+
+	//Read the grid from file
+	TArray<TEnumAsByte<EVoxelType>> sectionMaterialIDs;
+	VdbHandle->ReadGridTree(gridID, sectionMaterialIDs);
+
+	//Create a mesh section index for each material ID that exists in this grid region
+	int32 sectionIndex = 0;
+	for (auto i = sectionMaterialIDs.CreateConstIterator(); i; ++i, ++sectionIndex)
 	{
-		TerrainMesh->SetMaterial(0, Material);
+		TerrainMesh->MeshTypes.Add(sectionIndex, *i);
+		TerrainMesh->SectionCount++;
+		UMaterial * sectionMat = MeshMaterials[i.GetIndex()];
+		if (sectionMat != nullptr)
+		{
+			TerrainMesh->SetMaterial(sectionIndex, sectionMat);
+		}
 	}
-	TerrainMeshComponents.Add(TerrainMesh);
+	TerrainMeshComponents.Add(regionName, TerrainMesh);
+	return regionName;
 }
 
 // Called when the game starts or when spawned
@@ -69,61 +83,39 @@ void AProceduralTerrain::BeginPlay()
 {
 	Super::BeginPlay();
 
-	for (auto i = TerrainMeshComponents.CreateIterator(); i; ++i)
+	for (auto i = GridRegions.CreateConstIterator(); i; ++i)
 	{
-		UProceduralTerrainMeshComponent &TerrainMeshComponent = **i;
-		for (auto j = 0; j < TerrainMeshComponent.SectionCount; ++j)
+		const FString &regionName = *i;
+		if (TerrainMeshComponents.Contains(regionName))
 		{
-			TSharedPtr<VertexBufferType> VertexBufferPtr;
-			TSharedPtr<PolygonBufferType> PolygonBufferPtr;
-			TSharedPtr<NormalBufferType> NormalBufferPtr;
-			TSharedPtr<UVMapBufferType> UVMapBufferPtr;
-			TSharedPtr<VertexColorBufferType> VertexColorsBufferPtr;
-			TSharedPtr<TangentBufferType> TangentsBufferPtr;
-			VdbHandle->MeshGrid(
-				TerrainMeshComponent.MeshID,
-				VertexBufferPtr,
-				PolygonBufferPtr,
-				NormalBufferPtr,
-				UVMapBufferPtr,
-				VertexColorsBufferPtr,
-				TangentsBufferPtr);
-			check(VertexBufferPtr.IsValid() && PolygonBufferPtr.IsValid() && NormalBufferPtr.IsValid() && UVMapBufferPtr.IsValid() && VertexColorsBufferPtr.IsValid() && TangentsBufferPtr.IsValid());
+			TArray<FGridMeshBuffers> meshBuffers;
+			meshBuffers.SetNum(VOXEL_TYPE_COUNT);
 
-			//TODO: Move IsGridSectionMeshed flag to OpenVDBModule so that state is retained over play cycles?
-			if (!TerrainMeshComponent.IsGridSectionMeshed)
+			UProceduralTerrainMeshComponent &TerrainMeshComponent = *TerrainMeshComponents[regionName];
+			VdbHandle->MeshGrid(TerrainMeshComponent.MeshID, meshBuffers);
+			for (auto j = 0; j < TerrainMeshComponent.SectionCount; ++j)
 			{
-				//First time, copy mesh geometry to the procedural mesh renderer
+				FGridMeshBuffers &buffers = meshBuffers[(int32)TerrainMeshComponent.MeshTypes[j]];
 				TerrainMeshComponent.CreateMeshSection(
 					j,
-					*VertexBufferPtr,
-					*PolygonBufferPtr,
-					*NormalBufferPtr,
-					*UVMapBufferPtr,
-					*VertexColorsBufferPtr,
-					*TangentsBufferPtr,
+					buffers.VertexBuffer,
+					buffers.PolygonBuffer,
+					buffers.NormalBuffer,
+					buffers.UVMapBuffer,
+					buffers.VertexColorBuffer,
+					buffers.TangentBuffer,
 					bCreateCollision);
-				TerrainMeshComponent.IsGridSectionMeshed = true;
+				//TODO: Create logic for using UpdateMeshSection
+				//TODO: Use non-deprecated CreateMeshSection_Linear
+				TerrainMeshComponent.SetMeshSectionVisible(j, true);
 			}
-			else
-			{
-				//Already meshed, just update dynamic geometry
-				TerrainMeshComponent.UpdateMeshSection(
-					j,
-					*VertexBufferPtr,
-					*NormalBufferPtr,
-					*UVMapBufferPtr,
-					*VertexColorsBufferPtr,
-					*TangentsBufferPtr);
-			}
-			TerrainMeshComponent.SetMeshSectionVisible(j, TerrainMeshComponent.IsGridSectionMeshed);
-		}
 
-		FVector worldStart;
-		FVector worldEnd;
-		FVector firstActive;
-		VdbHandle->GetGridDimensions(TerrainMeshComponent.MeshID, worldStart, worldEnd, firstActive);
-		TerrainMeshComponent.StartLocation = firstActive;
+			FVector worldStart;
+			FVector worldEnd;
+			FVector firstActive;
+			VdbHandle->GetGridDimensions(TerrainMeshComponent.MeshID, worldStart, worldEnd, firstActive);
+			TerrainMeshComponent.StartLocation = firstActive;
+		}
 	}
 
 	//If there's a character position the terrain under the character
@@ -132,7 +124,7 @@ void AProceduralTerrain::BeginPlay()
 	FVector TerrainLocation;
 	if (Character)
 	{
-		TerrainLocation = Character->GetActorLocation() - TerrainMeshComponents[0]->StartLocation;
+		TerrainLocation = Character->GetActorLocation() - TerrainMeshComponents[StartRegion]->StartLocation;
 	}
 	SetActorRelativeLocation(TerrainLocation);
 }

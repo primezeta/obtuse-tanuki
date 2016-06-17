@@ -118,11 +118,6 @@ public:
 		GridsPtr = FilePtr->readAllGridMetadata(); //Initially just read metadata but not tree data values
 		FileMetaPtr = FilePtr->getMetadata(); //Read file-level metadata
 		MasksPtr = openvdb::GridPtrVecPtr(new openvdb::GridPtrVec());
-
-		for (auto i = GridsPtr->begin(); i != GridsPtr->end(); ++i)
-		{
-			InitMeshSection(openvdb::gridPtrCast<GridType>(*i));
-		}
 		CachedGrid = GridsPtr->end();
 
 		//Start in a clean state
@@ -136,7 +131,10 @@ public:
 		return gridPtr;
 	}
 
-	void AddGrid(const FString &gridName, const FIntVector &indexStart, const FIntVector &indexEnd, const FVector &voxelSize)
+	void AddGrid(const FString &gridName,
+		const FIntVector &indexStart,
+		const FIntVector &indexEnd,
+		const FVector &voxelSize)
 	{
 		GridTypePtr gridPtr = GetGridPtr(gridName);	
 		const openvdb::Vec3d start(indexStart.X, indexStart.Y, indexStart.Z);
@@ -253,12 +251,6 @@ public:
 		{
 			if (gridName == UTF8_TO_TCHAR((*i)->getName().c_str()))
 			{
-				VertexSectionBuffers.Remove(gridName);
-				PolygonSectionBuffers.Remove(gridName);
-				NormalSectionBuffers.Remove(gridName);
-				UVMapSectionBuffers.Remove(gridName);
-				VertexColorsSectionBuffers.Remove(gridName);
-				TangentsSectionBuffers.Remove(gridName);
 				CubesMeshOps.Remove(gridName);
 				MarchingCubesMeshOps.Remove(gridName);
 				i->reset();
@@ -339,9 +331,10 @@ public:
 		}
 	}
 
-	void MeshRegionCubes(const FString &gridName) const
+	void MeshRegionCubes(const FString &gridName, TArray<FGridMeshBuffers> &MeshBuffers)
 	{
-		GridTypePtr gridPtr = GetGridPtrChecked(gridName);		
+		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
+		InitMeshSection(gridPtr, MeshBuffers);
 		TSharedPtr<Vdb::GridOps::CubeMesher<GridTreeType>> mesherOp = CubesMeshOps.FindChecked(gridName);
 		const bool threaded = true;
 		mesherOp->doMeshOp(threaded);
@@ -433,16 +426,24 @@ public:
 		return isChanged;
 	}
 
-	void ExtractGridSurface_Cubes(const FString &gridName, bool threaded)
+	void ExtractGridSurface_Cubes(const FString &gridName, bool threaded, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
 	{
 		typedef typename Vdb::GridOps::BasicExtractSurfaceOp<GridTreeType, GridTreeType::ValueOnIter> BasicExtractSurfaceOpType;
 		typedef typename openvdb::tools::valxform::SharedOpApplier<GridTreeType::ValueOnIter, BasicExtractSurfaceOpType> BasicExtractSurfaceProcessor;
+		typedef typename Vdb::GridOps::BasicSetVoxelTypeOp<GridTreeType, GridTreeType::ValueOnIter> BasicSetVoxelTypeOpType;
+		typedef typename openvdb::tools::valxform::SharedOpApplier<GridTreeType::ValueOnIter, BasicSetVoxelTypeOpType> BasicSetVoxelProcessor;
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
+
 		BasicExtractSurfaceOpType BasicExtractSurfaceOp(gridPtr);
 		BasicExtractSurfaceProcessor BasicExtractSurfaceProc(gridPtr->beginValueOn(), BasicExtractSurfaceOp);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre basic surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		BasicExtractSurfaceProc.process(threaded);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post basic surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
+		
+		BasicSetVoxelTypeOpType BasicSetVoxelTypeOp(gridPtr);
+		BasicSetVoxelProcessor BasicSetVoxelProc(gridPtr->beginValueOn(), BasicSetVoxelTypeOp);
+		BasicSetVoxelProc.process(threaded);
+		BasicSetVoxelTypeOp.GetActiveMaterials(sectionMaterialIDs);
 	}
 
 	void ExtractGridSurface_MarchingCubes(const FString &gridName, bool threaded)
@@ -469,29 +470,6 @@ public:
 		{
 			OutGridIDs.Add(FString::Printf(TEXT("%s"), UTF8_TO_TCHAR((*i)->getName().c_str())));
 		}
-	}
-
-	void BindGridSectionBuffers(const FString &gridName,
-		TSharedPtr<VertexBufferType> &OutVertexBufferPtr,
-		TSharedPtr<PolygonBufferType> &OutPolygonBufferPtr,
-		TSharedPtr<NormalBufferType> &OutNormalBufferPtr,
-		TSharedPtr<UVMapBufferType> &OutUVMapBufferPtr,
-		TSharedPtr<VertexColorBufferType> &OutVertexColorsBufferPtr,
-		TSharedPtr<TangentBufferType> &OutTangentsBufferPtr)
-	{
-		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
-		check(VertexSectionBuffers.Contains(gridName));
-		check(PolygonSectionBuffers.Contains(gridName));
-		check(NormalSectionBuffers.Contains(gridName));
-		check(UVMapSectionBuffers.Contains(gridName));
-		check(VertexColorsSectionBuffers.Contains(gridName));
-		check(TangentsSectionBuffers.Contains(gridName));
-		OutVertexBufferPtr = TSharedPtr<VertexBufferType>(VertexSectionBuffers[gridName]);
-		OutPolygonBufferPtr = TSharedPtr<PolygonBufferType>(PolygonSectionBuffers[gridName]);
-		OutNormalBufferPtr = TSharedPtr<NormalBufferType>(NormalSectionBuffers[gridName]);
-		OutUVMapBufferPtr = TSharedPtr<UVMapBufferType>(UVMapSectionBuffers[gridName]);
-		OutVertexColorsBufferPtr = TSharedPtr<VertexColorBufferType>(VertexColorsSectionBuffers[gridName]);
-		OutTangentsBufferPtr = TSharedPtr<TangentBufferType>(TangentsSectionBuffers[gridName]);
 	}
 
 	void GetGridDimensions(const FString &gridName, FVector &worldStart, FVector &worldEnd, FVector &firstActive)
@@ -583,12 +561,6 @@ private:
 	openvdb::GridPtrVecPtr MasksPtr;
 	openvdb::MetaMap::Ptr FileMetaPtr;
 	mutable openvdb::GridPtrVec::iterator CachedGrid;
-	TMap<FString, TSharedRef<VertexBufferType>> VertexSectionBuffers;
-	TMap<FString, TSharedRef<PolygonBufferType>> PolygonSectionBuffers;
-	TMap<FString, TSharedRef<NormalBufferType>> NormalSectionBuffers;
-	TMap<FString, TSharedRef<UVMapBufferType>> UVMapSectionBuffers;
-	TMap<FString, TSharedRef<VertexColorBufferType>> VertexColorsSectionBuffers;
-	TMap<FString, TSharedRef<TangentBufferType>> TangentsSectionBuffers;
 	TMap<FString, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>> CubesMeshOps;
 	TMap<FString, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>> MarchingCubesMeshOps;
 
@@ -617,28 +589,24 @@ private:
 		return gridPtr;
 	}
 
-	void InitMeshSection(GridTypePtr gridPtr)
+	void InitMeshSection(GridTypePtr gridPtr, TArray<FGridMeshBuffers> &MeshBuffers)
 	{
 		const FString gridName = UTF8_TO_TCHAR(gridPtr->getName().c_str());
-		auto VertexBufferRef = VertexSectionBuffers.Emplace(gridName, TSharedRef<VertexBufferType>(new VertexBufferType()));
-		auto PolygonBufferRef = PolygonSectionBuffers.Emplace(gridName, TSharedRef<PolygonBufferType>(new PolygonBufferType()));
-		auto NormalBufferRef = NormalSectionBuffers.Emplace(gridName, TSharedRef<NormalBufferType>(new NormalBufferType()));
-		auto UVMapBufferRef = UVMapSectionBuffers.Emplace(gridName, TSharedRef<UVMapBufferType>(new UVMapBufferType()));
-		auto VertexColorsBufferRef = VertexColorsSectionBuffers.Emplace(gridName, TSharedRef<VertexColorBufferType>(new VertexColorBufferType()));
-		auto TangentsBufferRef = TangentsSectionBuffers.Emplace(gridName, TSharedRef<TangentBufferType>(new TangentBufferType()));
-		CubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(gridPtr, VertexBufferRef.Get(), PolygonBufferRef.Get(), NormalBufferRef.Get(), UVMapBufferRef.Get(), VertexColorsBufferRef.Get(), TangentsBufferRef.Get())));
+		CubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(gridPtr, MeshBuffers)));
 		//MarchingCubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>(new Vdb::GridOps::MarchingCubesMesher<GridTreeType>(gridPtr, VertexBufferRef.Get(), PolygonBufferRef.Get(), NormalBufferRef.Get(), UVMapBufferRef.Get(), VertexColorsBufferRef.Get(), TangentsBufferRef.Get())));
 		openvdb::BoolGrid::Ptr valuesMask = openvdb::BoolGrid::create(false);
 		valuesMask->setName(gridPtr->getName() + ".mask");
 		MasksPtr->push_back(valuesMask);
 	}
 
-	GridTypePtr CreateGrid(const FString &gridName, const FIntVector &indexStart, const FIntVector &indexEnd, openvdb::math::Transform::Ptr xform)
+	GridTypePtr CreateGrid(const FString &gridName,
+		const FIntVector &indexStart,
+		const FIntVector &indexEnd,
+		openvdb::math::Transform::Ptr xform)
 	{
 		GridTypePtr gridPtr = GridType::create();
 		gridPtr->setName(TCHAR_TO_UTF8(*gridName));
 		gridPtr->setTransform(xform);
-		InitMeshSection(gridPtr);
 		GridsPtr->push_back(gridPtr);
 		CachedGrid = GridsPtr->end();
 		SetIsFileInSync(false);
