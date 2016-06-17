@@ -594,9 +594,6 @@ private:
 		const FString gridName = UTF8_TO_TCHAR(gridPtr->getName().c_str());
 		CubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(gridPtr, MeshBuffers)));
 		//MarchingCubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>(new Vdb::GridOps::MarchingCubesMesher<GridTreeType>(gridPtr, VertexBufferRef.Get(), PolygonBufferRef.Get(), NormalBufferRef.Get(), UVMapBufferRef.Get(), VertexColorsBufferRef.Get(), TangentsBufferRef.Get())));
-		openvdb::BoolGrid::Ptr valuesMask = openvdb::BoolGrid::create(false);
-		valuesMask->setName(gridPtr->getName() + ".mask");
-		MasksPtr->push_back(valuesMask);
 	}
 
 	GridTypePtr CreateGrid(const FString &gridName,
@@ -608,7 +605,14 @@ private:
 		gridPtr->setName(TCHAR_TO_UTF8(*gridName));
 		gridPtr->setTransform(xform);
 		GridsPtr->push_back(gridPtr);
-		CachedGrid = GridsPtr->end();
+		CachedGrid = GridsPtr->end();		
+		const std::string maskName = gridPtr->getName() + ".mask";
+		auto i = MasksPtr->begin();
+		for (; i != MaskPtr->end(); ++i);
+		check(i == MaskPtr->end()); //TODO: Better handling of same names
+		openvdb::BoolGrid::Ptr valuesMask = openvdb::BoolGrid::create(false);
+		valuesMask->setName(maskName);
+		MasksPtr->push_back(valuesMask);
 		SetIsFileInSync(false);
 		return gridPtr;
 	}
