@@ -69,7 +69,7 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 	{
 		TerrainMesh->MeshTypes.Add(sectionIndex, *i);
 		TerrainMesh->SectionCount++;
-		UMaterial * sectionMat = MeshMaterials[i.GetIndex()];
+		UMaterial * sectionMat = MeshMaterials[(int32)i->GetValue()-1];
 		if (sectionMat != nullptr)
 		{
 			TerrainMesh->SetMaterial(sectionIndex, sectionMat);
@@ -96,9 +96,12 @@ void AProceduralTerrain::BeginPlay()
 			VdbHandle->MeshGrid(TerrainMeshComponent.MeshID, meshBuffers);
 			for (auto j = TerrainMeshComponent.MeshTypes.CreateConstIterator(); j; ++j)
 			{
-				FGridMeshBuffers &buffers = meshBuffers[(int32)j.Value()];
+				const EVoxelType voxelType = j.Value();
+				const int32 &buffIdx = (int32)voxelType;
+				const int32 &meshIdx = j.Key();
+				FGridMeshBuffers &buffers = meshBuffers[buffIdx];
 				TerrainMeshComponent.CreateMeshSection(
-					j.Key(),
+					meshIdx,
 					buffers.VertexBuffer,
 					buffers.PolygonBuffer,
 					buffers.NormalBuffer,
@@ -108,7 +111,7 @@ void AProceduralTerrain::BeginPlay()
 					bCreateCollision);
 				//TODO: Create logic for using UpdateMeshSection
 				//TODO: Use non-deprecated CreateMeshSection_Linear
-				TerrainMeshComponent.SetMeshSectionVisible(j.Key(), true);
+				TerrainMeshComponent.SetMeshSectionVisible(meshIdx, true);
 			}
 
 			FVector worldStart;
