@@ -32,29 +32,37 @@ void AProceduralTerrain::PostInitializeComponents()
 	//Set the number of voxels per grid region index
 	VdbHandle->SetRegionScale(RegionDimensions);
 
+	int32 testRegionDim = 2;
 	//Add the first grid region and all 8 surrounding regions
-	StartRegion = AddTerrainComponent(FIntVector(0, 0, 0));
-	AddTerrainComponent(FIntVector(1, 0, 0));
-	AddTerrainComponent(FIntVector(1, -1, 0));
-	AddTerrainComponent(FIntVector(0, -1, 0));
-	AddTerrainComponent(FIntVector(-1, -1, 0));
-	AddTerrainComponent(FIntVector(-1, 0, 0));
-	AddTerrainComponent(FIntVector(-1, 1, 0));
-	AddTerrainComponent(FIntVector(0, 1, 0));
-	AddTerrainComponent(FIntVector(1, 1, 0));
+	for (int32 x = -(testRegionDim-1); x < testRegionDim; ++x)
+	{
+		for (int32 y = -(testRegionDim - 1); y < testRegionDim; ++y)
+		{
+			int32 z = 0;
+			if (x == 0 && y == 0)
+			{
+				StartRegion = AddTerrainComponent(FIntVector(x, y, z));
+			}
+			else
+			{
+				AddTerrainComponent(FIntVector(x, y, z));
+			}
+		}
+	}
 }
 
 FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 {
 	//TODO: Check if terrain component already exists
 	const FString regionName = TEXT("Region.") + gridIndex.ToString();
-	const FString gridID = VdbHandle->AddGrid(regionName, gridIndex, VoxelSize);
+	const FString gridID = VdbHandle->AddGrid(regionName, gridIndex, FVector(1.0f));
 	UProceduralTerrainMeshComponent * TerrainMesh = NewObject<UProceduralTerrainMeshComponent>(this, FName(*gridID));
 	check(TerrainMesh != nullptr);
 	TerrainMesh->MeshID = gridID;
 	TerrainMesh->bGenerateOverlapEvents = true;
 	TerrainMesh->IsGridSectionMeshed = false;
 	TerrainMesh->CreateCollision = bCreateCollision;
+	TerrainMesh->SetWorldScale3D(VoxelSize);
 	TerrainMesh->RegisterComponent();
 	TerrainMesh->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 	GridRegions.Add(regionName);
@@ -108,7 +116,7 @@ void AProceduralTerrain::BeginPlay()
 					buffers.UVMapBuffer,
 					buffers.VertexColorBuffer,
 					buffers.TangentBuffer,
-					bCreateCollision);
+					bCreateCollision && voxelType != EVoxelType::VOXEL_WATER);
 				//TODO: Create logic for using UpdateMeshSection
 				//TODO: Use non-deprecated CreateMeshSection_Linear
 				TerrainMeshComponent.SetMeshSectionVisible(meshIdx, true);

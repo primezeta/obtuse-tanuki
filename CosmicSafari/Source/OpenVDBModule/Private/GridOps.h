@@ -122,7 +122,16 @@ namespace Vdb
 			{
 				const openvdb::Vec3d vec = DestGridPtr->transform().indexToWorld(coord);
 				outValue.Data = (DestValueType::DataType)(valueSource.GetValue(vec.x(), vec.y(), vec.z()) + vec.z());
-				outValue.VoxelType = EVoxelType::VOXEL_NONE;
+
+				//Initialize to water or none
+				if (coord.z() < 20)
+				{
+					outValue.VoxelType = EVoxelType::VOXEL_WATER;
+				}
+				else
+				{
+					outValue.VoxelType = EVoxelType::VOXEL_NONE;
+				}
 			}
 
 		private:
@@ -148,9 +157,15 @@ namespace Vdb
 
 			FORCEINLINE void operator()(const IterType& iter)
 			{
+				//If at the lowest level do nothing (leaving the voxel on) so that there is a base ground floor
+				const openvdb::Coord &coord = iter.getCoord();
+				if (coord.z() == 0)
+				{
+					return;
+				}
+
 				//Note that no special consideration is done for tile voxels, so the grid tiles must be voxelized prior to this op [tree().voxelizeActiveTiles()]
 				auto acc = GridPtr->getAccessor();
-				const openvdb::Coord &coord = iter.getCoord();
 				const openvdb::Coord coords[8] = {
 					iter.getCoord(),
 					coord.offsetBy(1, 0, 0),
@@ -184,7 +199,7 @@ namespace Vdb
 				if (values[7].Data < SurfaceValue.Data) { insideBits |= 128; }
 				if (insideBits == 0 || insideBits == 255)
 				{
-					//Completely inside or completely outside surface - turn voxel off
+					//Completely inside or completely outside surface and not at the lowest level - turn voxel off
 					iter.setValueOff();
 				}
 			}
@@ -249,15 +264,22 @@ namespace Vdb
 					acc.getValue(coords[7]),
 				};
 
-				if (isActive[3])
+				if (coord.z() == 0)
 				{
-					//The voxel immediately above is on which means we are on the side of a cliff or incline so set to type DIRT
-					values[0].VoxelType = EVoxelType::VOXEL_DIRT;
+					values[0].VoxelType = EVoxelType::VOXEL_ROCK;
 				}
-				else
+				else if (values[0].VoxelType != EVoxelType::VOXEL_WATER)
 				{
-					//This voxel is right on the surface so set to type GRASS
-					values[0].VoxelType = EVoxelType::VOXEL_GRASS;
+					if (isActive[3])
+					{
+						//The voxel immediately above is on which means we are on the side of a cliff or incline so set to type DIRT
+						values[0].VoxelType = EVoxelType::VOXEL_DIRT;
+					}
+					else
+					{
+						//This voxel is right on the surface so set to type GRASS
+						values[0].VoxelType = EVoxelType::VOXEL_GRASS;
+					}
 				}
 				iter.setValue(values[0]);
 				IsMaterialActive[(int32)values[0].VoxelType] = true;
