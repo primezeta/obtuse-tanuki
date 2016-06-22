@@ -331,23 +331,6 @@ public:
 		}
 	}
 
-	void MeshRegionCubes(const FString &gridName, TArray<FGridMeshBuffers> &MeshBuffers)
-	{
-		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
-		InitMeshSection(gridPtr, MeshBuffers); //TODO: If InitMeshSection is kept here, should just return the mesher op from InitMeshSection instead of using a map
-		TSharedPtr<Vdb::GridOps::CubeMesher<GridTreeType>> mesherOp = CubesMeshOps.FindChecked(gridName);
-		const bool threaded = true;
-		mesherOp->doMeshOp(threaded);
-	}
-
-	void MeshRegionMarchingCubes(const FString &gridName) const
-	{
-		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
-		TSharedPtr<Vdb::GridOps::MarchingCubesMesher<GridTreeType>> mesherOp = MarchingCubesMeshOps.FindChecked(gridName);
-		const bool threaded = true;
-		mesherOp->doMeshOp(threaded);
-	}
-
 	bool FillGrid_PerlinDensity(const FString &gridName, bool threaded, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount)
 	{
 		bool isChanged = false;
@@ -426,42 +409,60 @@ public:
 		return isChanged;
 	}
 
-	void ExtractGridSurface_Cubes(const FString &gridName, bool threaded, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
+	void ExtractGridSurface_Cubes(const FString &gridName, bool threaded, TArray<FGridMeshBuffers> &MeshBuffers)
 	{
 		typedef typename Vdb::GridOps::BasicExtractSurfaceOp<GridTreeType, GridTreeType::ValueOnIter> BasicExtractSurfaceOpType;
 		typedef typename openvdb::tools::valxform::SharedOpApplier<GridTreeType::ValueOnIter, BasicExtractSurfaceOpType> BasicExtractSurfaceProcessor;
-		typedef typename Vdb::GridOps::BasicSetVoxelTypeOp<GridTreeType, GridTreeType::ValueOnIter> BasicSetVoxelTypeOpType;
-		typedef typename openvdb::tools::valxform::SharedOpApplier<GridTreeType::ValueOnIter, BasicSetVoxelTypeOpType> BasicSetVoxelProcessor;
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
+		CubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(gridPtr, MeshBuffers)));
 
 		BasicExtractSurfaceOpType BasicExtractSurfaceOp(gridPtr);
 		BasicExtractSurfaceProcessor BasicExtractSurfaceProc(gridPtr->beginValueOn(), BasicExtractSurfaceOp);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre basic surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		BasicExtractSurfaceProc.process(threaded);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post basic surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
-		
+	}
+
+	void ExtractGridSurface_MarchingCubes(const FString &gridName, bool threaded, TArray<FGridMeshBuffers> &MeshBuffers)
+	{
+		typedef typename Vdb::GridOps::ExtractSurfaceOp<GridTreeType, GridTreeType::ValueOnIter, Vdb::GridOps::BitTreeType> ExtractSurfaceOpType;
+		typedef typename openvdb::TreeAdapter<openvdb::Grid<Vdb::GridOps::BitTreeType>> Adapter;
+		typedef typename openvdb::tools::valxform::SharedOpTransformer<GridTreeType::ValueOnIter, Adapter::TreeType, ExtractSurfaceOpType> ExtractSurfaceProcessor;
+		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
+		auto mesherOp = MarchingCubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>(new Vdb::GridOps::MarchingCubesMesher<GridTreeType>(gridPtr, MeshBuffers)));
+
+		ExtractSurfaceOpType ExtractSurfaceOp(gridPtr);
+		ExtractSurfaceProcessor ExtractSurfaceProc(gridPtr->beginValueOn(), Adapter::tree(*(mesherOp->GridPtr)), ExtractSurfaceOp, openvdb::MERGE_ACTIVE_STATES);
+		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
+		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(mesherOp->GridPtr->getName().c_str()), mesherOp->GridPtr->activeVoxelCount()));
+		ExtractSurfaceProc.process(threaded);
+		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
+		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(mesherOp->GridPtr->getName().c_str()), mesherOp->GridPtr->activeVoxelCount()));
+	}
+
+	void ApplyVoxelTypes(const FString &gridName, bool threaded, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
+	{
+		typedef typename Vdb::GridOps::BasicSetVoxelTypeOp<GridTreeType, GridTreeType::ValueOnIter> BasicSetVoxelTypeOpType;
+		typedef typename openvdb::tools::valxform::SharedOpApplier<GridTreeType::ValueOnIter, BasicSetVoxelTypeOpType> BasicSetVoxelProcessor;
+		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		BasicSetVoxelTypeOpType BasicSetVoxelTypeOp(gridPtr);
 		BasicSetVoxelProcessor BasicSetVoxelProc(gridPtr->beginValueOn(), BasicSetVoxelTypeOp);
 		BasicSetVoxelProc.process(threaded);
 		BasicSetVoxelTypeOp.GetActiveMaterials(sectionMaterialIDs);
 	}
 
-	void ExtractGridSurface_MarchingCubes(const FString &gridName, bool threaded)
+	void MeshRegionCubes(const FString &gridName)
 	{
-		typedef typename Vdb::GridOps::ExtractSurfaceOp<GridTreeType, GridTreeType::ValueOnIter, Vdb::GridOps::BitTreeType> ExtractSurfaceOpType;
-		typedef typename openvdb::TreeAdapter<openvdb::Grid<Vdb::GridOps::BitTreeType>> Adapter;
-		typedef typename openvdb::tools::valxform::SharedOpTransformer<GridTreeType::ValueOnIter, Adapter::TreeType, ExtractSurfaceOpType> ExtractSurfaceProcessor;
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
-		TSharedPtr<Vdb::GridOps::MarchingCubesMesher<GridTreeType>> mesherOp = MarchingCubesMeshOps.FindChecked(gridName);
-		mesherOp->GridPtr->setTransform(gridPtr->transformPtr());
+		const bool threaded = true;
+		CubesMeshOps.FindChecked(gridName)->doMeshOp(threaded);
+	}
 
-		ExtractSurfaceOpType ExtractSurfaceOp(gridPtr);
-		ExtractSurfaceProcessor ExtractSurfaceProc(gridPtr->beginValueOn(), Adapter::tree(*(mesherOp->GridPtr)), ExtractSurfaceOp, openvdb::MERGE_ACTIVE_STATES_AND_NODES);
-		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
-		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(mesherOp->GridPtr->getName().c_str()), mesherOp->GridPtr->activeVoxelCount()));
-		ExtractSurfaceProc.process(threaded);
-		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
-		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(mesherOp->GridPtr->getName().c_str()), mesherOp->GridPtr->activeVoxelCount()));
+	void MeshRegionMarchingCubes(const FString &gridName)
+	{
+		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
+		const bool threaded = true;
+		MarchingCubesMeshOps.FindChecked(gridName)->doMeshOp(threaded);
 	}
 
 	void GetAllGridIDs(TArray<FString> &OutGridIDs) const
@@ -587,13 +588,6 @@ private:
 			}
 		}
 		return gridPtr;
-	}
-
-	void InitMeshSection(GridTypePtr gridPtr, TArray<FGridMeshBuffers> &MeshBuffers)
-	{
-		const FString gridName = UTF8_TO_TCHAR(gridPtr->getName().c_str());
-		CubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(gridPtr, MeshBuffers)));
-		//MarchingCubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>(new Vdb::GridOps::MarchingCubesMesher<GridTreeType>(gridPtr, VertexBufferRef.Get(), PolygonBufferRef.Get(), NormalBufferRef.Get(), UVMapBufferRef.Get(), VertexColorsBufferRef.Get(), TangentsBufferRef.Get())));
 	}
 
 	GridTypePtr CreateGrid(const FString &gridName,

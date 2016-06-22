@@ -66,10 +66,12 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 	TerrainMesh->RegisterComponent();
 	TerrainMesh->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 	GridRegions.Add(regionName);
+	MeshBuffers.Add(regionName);
+	MeshBuffers[regionName].SetNum(VOXEL_TYPE_COUNT);
 
 	//Read the grid from file
 	TArray<TEnumAsByte<EVoxelType>> sectionMaterialIDs;
-	VdbHandle->ReadGridTree(gridID, sectionMaterialIDs);
+	VdbHandle->ReadGridTree(gridID, MeshBuffers[regionName], sectionMaterialIDs);
 
 	//Create a mesh section index for each material ID that exists in this grid region
 	int32 sectionIndex = 0;
@@ -97,11 +99,9 @@ void AProceduralTerrain::BeginPlay()
 		const FString &regionName = *i;
 		if (TerrainMeshComponents.Contains(regionName))
 		{
-			TArray<FGridMeshBuffers> meshBuffers;
-			meshBuffers.SetNum(VOXEL_TYPE_COUNT);
-
+			auto &meshBuffers = MeshBuffers[regionName];
 			UProceduralTerrainMeshComponent &TerrainMeshComponent = *TerrainMeshComponents[regionName];
-			VdbHandle->MeshGrid(TerrainMeshComponent.MeshID, meshBuffers);
+			VdbHandle->MeshGrid(TerrainMeshComponent.MeshID);
 			for (auto j = TerrainMeshComponent.MeshTypes.CreateConstIterator(); j; ++j)
 			{
 				const EVoxelType voxelType = j.Value();
@@ -117,6 +117,7 @@ void AProceduralTerrain::BeginPlay()
 					buffers.VertexColorBuffer,
 					buffers.TangentBuffer,
 					bCreateCollision && voxelType != EVoxelType::VOXEL_WATER);
+				buffers.ClearBuffers(); //Clear buffers after copying to the mesh section
 				//TODO: Create logic for using UpdateMeshSection
 				//TODO: Use non-deprecated CreateMeshSection_Linear
 				TerrainMeshComponent.SetMeshSectionVisible(meshIdx, true);

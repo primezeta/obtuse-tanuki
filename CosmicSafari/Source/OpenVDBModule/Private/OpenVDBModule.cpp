@@ -187,7 +187,7 @@ void FOpenVDBModule::SetRegionScale(UVdbHandle const * VdbHandle, const FIntVect
 	}
 }
 
-void FOpenVDBModule::ReadGridTree(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod, FIntVector &startFill, FIntVector &endFill, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
+void FOpenVDBModule::ReadGridTree(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod, FIntVector &startFill, FIntVector &endFill, TArray<FGridMeshBuffers> &meshBuffers, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
 {
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(VdbHandle->GetReadableName());
 	try
@@ -197,17 +197,18 @@ void FOpenVDBModule::ReadGridTree(UVdbHandle const * VdbHandle, const FString &g
 		VdbHandlePrivatePtr->FillGrid_PerlinDensity(gridID, threaded, startFill, endFill, VdbHandle->PerlinSeed, VdbHandle->PerlinFrequency, VdbHandle->PerlinLacunarity, VdbHandle->PerlinPersistence, VdbHandle->PerlinOctaveCount);
 		if (MeshMethod == EMeshType::MESH_TYPE_CUBES)
 		{
-			VdbHandlePrivatePtr->ExtractGridSurface_Cubes(gridID, threaded, sectionMaterialIDs);
+			VdbHandlePrivatePtr->ExtractGridSurface_Cubes(gridID, threaded, meshBuffers);
 		}
 		else if(MeshMethod == EMeshType::MESH_TYPE_MARCHING_CUBES)
 		{
 			//TODO sectionMaterialIDs
-			VdbHandlePrivatePtr->ExtractGridSurface_MarchingCubes(gridID, threaded);
+			VdbHandlePrivatePtr->ExtractGridSurface_MarchingCubes(gridID, threaded, meshBuffers);
 		}
 		else
 		{
 			throw(std::string("Invalid mesh type!"));
 		}
+		VdbHandlePrivatePtr->ApplyVoxelTypes(gridID, threaded, sectionMaterialIDs);
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -252,7 +253,7 @@ void FOpenVDBModule::GetVoxelCoord(UVdbHandle const * VdbHandle, const FString &
 	}
 }
 
-void FOpenVDBModule::MeshGrid(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod, TArray<FGridMeshBuffers> &MeshBuffers)
+void FOpenVDBModule::MeshGrid(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod)
 {
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(VdbHandle->GetReadableName());
 	try
@@ -260,7 +261,7 @@ void FOpenVDBModule::MeshGrid(UVdbHandle const * VdbHandle, const FString &gridI
 		FVector firstActiveLocation;
 		if (MeshMethod == EMeshType::MESH_TYPE_CUBES)
 		{
-			VdbHandlePrivatePtr->MeshRegionCubes(gridID, MeshBuffers);
+			VdbHandlePrivatePtr->MeshRegionCubes(gridID);
 		}
 		else if (MeshMethod == EMeshType::MESH_TYPE_MARCHING_CUBES)
 		{

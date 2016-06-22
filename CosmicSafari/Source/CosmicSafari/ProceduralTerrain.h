@@ -31,6 +31,7 @@ public:
 		TArray<FString> GridRegions;
 	//Terrain mesh with a mesh section per material ID
 	TMap<FString, UProceduralTerrainMeshComponent*> TerrainMeshComponents;
+	TMap<FString, TArray<FGridMeshBuffers>> MeshBuffers;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain")
 		FString VolumeName;

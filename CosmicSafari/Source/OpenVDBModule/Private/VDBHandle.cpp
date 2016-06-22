@@ -70,13 +70,13 @@ void UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 	}
 }
 
-void UVdbHandle::ReadGridTree(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
+void UVdbHandle::ReadGridTree(const FString &gridID, TArray<FGridMeshBuffers> &meshBuffers, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
 {
 	if (isRegistered)
 	{
 		FIntVector StartFill; //dummy value (not used)
 		FIntVector EndFill; //dummy value (not used)
-		FOpenVDBModule::ReadGridTree(this, gridID, MeshMethod, StartFill, EndFill, sectionMaterialIDs);
+		FOpenVDBModule::ReadGridTree(this, gridID, MeshMethod, StartFill, EndFill, meshBuffers, sectionMaterialIDs);
 	}
 }
 
@@ -88,11 +88,11 @@ void UVdbHandle::GetVoxelCoord(const FString &gridID, const FVector &worldLocati
 	}
 }
 
-void UVdbHandle::MeshGrid(const FString &gridID, TArray<FGridMeshBuffers> &MeshBuffers)
+void UVdbHandle::MeshGrid(const FString &gridID)
 {
 	if (isRegistered)
 	{
-		FOpenVDBModule::MeshGrid(this, gridID, MeshMethod, MeshBuffers);
+		FOpenVDBModule::MeshGrid(this, gridID, MeshMethod);
 	}
 }
 
