@@ -53,13 +53,13 @@ public:
 #endif
 
 	UFUNCTION(BlueprintCallable, Category="VDB Handle")
-		virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize);
+		virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FGridMeshBuffers> &meshBuffers);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void RemoveGrid(const FString &gridID);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void SetRegionScale(const FIntVector &regionScale);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void ReadGridTree(const FString &gridID, TArray<FGridMeshBuffers> &meshBuffers, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs);
+		virtual void ReadGridTree(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")

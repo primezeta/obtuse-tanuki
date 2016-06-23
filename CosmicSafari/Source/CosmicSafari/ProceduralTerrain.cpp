@@ -32,7 +32,7 @@ void AProceduralTerrain::PostInitializeComponents()
 	//Set the number of voxels per grid region index
 	VdbHandle->SetRegionScale(RegionDimensions);
 
-	int32 testRegionDim = 2;
+	int32 testRegionDim = 3;
 	//Add the first grid region and all 8 surrounding regions
 	for (int32 x = -(testRegionDim-1); x < testRegionDim; ++x)
 	{
@@ -55,7 +55,11 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 {
 	//TODO: Check if terrain component already exists
 	const FString regionName = TEXT("Region.") + gridIndex.ToString();
-	const FString gridID = VdbHandle->AddGrid(regionName, gridIndex, FVector(1.0f));
+
+	GridRegions.Add(regionName);
+	MeshBuffers.Add(regionName);
+	MeshBuffers[regionName].SetNum(VOXEL_TYPE_COUNT);
+	const FString gridID = VdbHandle->AddGrid(regionName, gridIndex, FVector(1.0f), MeshBuffers[regionName]);
 	UProceduralTerrainMeshComponent * TerrainMesh = NewObject<UProceduralTerrainMeshComponent>(this, FName(*gridID));
 	check(TerrainMesh != nullptr);
 	TerrainMesh->MeshID = gridID;
@@ -65,13 +69,10 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 	TerrainMesh->SetWorldScale3D(VoxelSize);
 	TerrainMesh->RegisterComponent();
 	TerrainMesh->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
-	GridRegions.Add(regionName);
-	MeshBuffers.Add(regionName);
-	MeshBuffers[regionName].SetNum(VOXEL_TYPE_COUNT);
 
 	//Read the grid from file
 	TArray<TEnumAsByte<EVoxelType>> sectionMaterialIDs;
-	VdbHandle->ReadGridTree(gridID, MeshBuffers[regionName], sectionMaterialIDs);
+	VdbHandle->ReadGridTree(gridID, sectionMaterialIDs);
 
 	//Create a mesh section index for each material ID that exists in this grid region
 	int32 sectionIndex = 0;
@@ -117,10 +118,10 @@ void AProceduralTerrain::BeginPlay()
 					buffers.VertexColorBuffer,
 					buffers.TangentBuffer,
 					bCreateCollision && voxelType != EVoxelType::VOXEL_WATER);
+				TerrainMeshComponent.SetMeshSectionVisible(meshIdx, true);
 				buffers.ClearBuffers(); //Clear buffers after copying to the mesh section
 				//TODO: Create logic for using UpdateMeshSection
 				//TODO: Use non-deprecated CreateMeshSection_Linear
-				TerrainMeshComponent.SetMeshSectionVisible(meshIdx, true);
 			}
 
 			FVector worldStart;

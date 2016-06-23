@@ -19,11 +19,11 @@ public:
 
 	static bool RegisterVdb(UVdbHandle const * VdbHandle);
 	static void UnregisterVdb(UVdbHandle const * VdbHandle);
-	static FString AddGrid(UVdbHandle const * VdbHandle, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize);
+	static FString AddGrid(UVdbHandle const * VdbHandle, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FGridMeshBuffers> &meshBuffers);
 	static TArray<FString> GetAllGridIDs(UVdbHandle const * VdbHandle);
 	static void RemoveGrid(UVdbHandle const * VdbHandle, const FString &gridID);
 	static void SetRegionScale(UVdbHandle const * VdbHandle, const FIntVector &regionScale);
-	static void ReadGridTree(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod, FIntVector &startFill, FIntVector &endFill, TArray<FGridMeshBuffers> &meshBuffers, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs);
+	static void ReadGridTree(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod, FIntVector &startFill, FIntVector &endFill, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs);
 	static void GetVoxelCoord(UVdbHandle const * VdbHandle, const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord);
 	static void MeshGrid(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod);
 	static void GetGridDimensions(UVdbHandle const * VdbHandle, const FString &gridID, FVector &worldStart, FVector &worldEnd, FVector &firstActive);

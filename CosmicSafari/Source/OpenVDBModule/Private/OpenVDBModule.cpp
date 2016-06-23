@@ -67,7 +67,7 @@ void FOpenVDBModule::UnregisterVdb(UVdbHandle const * VdbHandle)
 	}
 }
 
-FString FOpenVDBModule::AddGrid(UVdbHandle const * VdbHandle, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize)
+FString FOpenVDBModule::AddGrid(UVdbHandle const * VdbHandle, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FGridMeshBuffers> &meshBuffers)
 {
 	FString gridID;
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(VdbHandle->GetReadableName());
@@ -84,7 +84,7 @@ FString FOpenVDBModule::AddGrid(UVdbHandle const * VdbHandle, const FString &gri
 		const FIntVector indexEnd = FIntVector(regionEnd.x(), regionEnd.y(), regionEnd.z()) - FIntVector(1, 1, 1);
 
 		gridID = gridName + TEXT(".") + indexStart.ToString() + TEXT(",") + indexEnd.ToString();
-		VdbHandlePrivatePtr->AddGrid(gridID, indexStart, indexEnd, voxelSize);
+		VdbHandlePrivatePtr->AddGrid(gridID, indexStart, indexEnd, voxelSize, meshBuffers);
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -187,7 +187,7 @@ void FOpenVDBModule::SetRegionScale(UVdbHandle const * VdbHandle, const FIntVect
 	}
 }
 
-void FOpenVDBModule::ReadGridTree(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod, FIntVector &startFill, FIntVector &endFill, TArray<FGridMeshBuffers> &meshBuffers, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
+void FOpenVDBModule::ReadGridTree(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod, FIntVector &startFill, FIntVector &endFill, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
 {
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(VdbHandle->GetReadableName());
 	try
@@ -197,12 +197,12 @@ void FOpenVDBModule::ReadGridTree(UVdbHandle const * VdbHandle, const FString &g
 		VdbHandlePrivatePtr->FillGrid_PerlinDensity(gridID, threaded, startFill, endFill, VdbHandle->PerlinSeed, VdbHandle->PerlinFrequency, VdbHandle->PerlinLacunarity, VdbHandle->PerlinPersistence, VdbHandle->PerlinOctaveCount);
 		if (MeshMethod == EMeshType::MESH_TYPE_CUBES)
 		{
-			VdbHandlePrivatePtr->ExtractGridSurface_Cubes(gridID, threaded, meshBuffers);
+			VdbHandlePrivatePtr->ExtractGridSurface_Cubes(gridID, threaded);
 		}
 		else if(MeshMethod == EMeshType::MESH_TYPE_MARCHING_CUBES)
 		{
 			//TODO sectionMaterialIDs
-			VdbHandlePrivatePtr->ExtractGridSurface_MarchingCubes(gridID, threaded, meshBuffers);
+			VdbHandlePrivatePtr->ExtractGridSurface_MarchingCubes(gridID, threaded);
 		}
 		else
 		{
