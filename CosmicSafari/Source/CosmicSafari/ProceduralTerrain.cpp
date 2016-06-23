@@ -10,8 +10,8 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 	VdbHandle = ObjectInitializer.CreateDefaultSubobject<UVdbHandle>(this, TEXT("VDBHandle"));
 	check(VdbHandle != nullptr);
 
-	MeshMaterials.SetNum(VOXEL_TYPE_COUNT);
-	for (int32 i = 0; i < FVoxelData::NumMaterials(); ++i)
+	MeshMaterials.SetNum(FVoxelData::VOXEL_TYPE_COUNT);
+	for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
 	{
 		UMaterial * Material = ObjectInitializer.CreateDefaultSubobject<UMaterial>(this, *FString::Printf(TEXT("TerrainMaterial.%d"), i));
 		check(Material != nullptr);
@@ -58,7 +58,7 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 
 	GridRegions.Add(regionName);
 	MeshBuffers.Add(regionName);
-	MeshBuffers[regionName].SetNum(VOXEL_TYPE_COUNT);
+	MeshBuffers[regionName].SetNum(FVoxelData::VOXEL_TYPE_COUNT);
 	const FString gridID = VdbHandle->AddGrid(regionName, gridIndex, FVector(1.0f), MeshBuffers[regionName]);
 	UProceduralTerrainMeshComponent * TerrainMesh = NewObject<UProceduralTerrainMeshComponent>(this, FName(*gridID));
 	check(TerrainMesh != nullptr);

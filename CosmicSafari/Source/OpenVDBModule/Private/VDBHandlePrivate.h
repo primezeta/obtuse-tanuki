@@ -393,7 +393,6 @@ public:
 			openvdb::CoordBBox maskBBox = fillBBox;
 			maskBBox.expand(1);
 			valuesMaskPtr->fill(maskBBox, /*value*/false, /*state*/true);
-			valuesMaskPtr->tree().voxelizeActiveTiles();
 			valuesMaskPtr->fill(fillBBox, /*value*/true, /*state*/true);
 
 			//openvdb transformValues requires that ops are copyable even if shared = true, so instead call only the shared op applier here (code adapted from openvdb transformValues() in ValueTransformer.h)
@@ -420,6 +419,8 @@ public:
 		BasicExtractSurfaceProcessor BasicExtractSurfaceProc(gridPtr->beginValueOn(), BasicExtractSurfaceOp);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre basic surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		BasicExtractSurfaceProc.process(threaded);
+		gridPtr->tree().voxelizeActiveTiles();
+		CubesMeshOps[gridName]->GridPtr->tree().voxelizeActiveTiles();
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post basic surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 	}
 
@@ -434,6 +435,8 @@ public:
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(MarchingCubesMeshOps[gridName]->GridPtr->getName().c_str()), MarchingCubesMeshOps[gridName]->GridPtr->activeVoxelCount()));
 		ExtractSurfaceProc.process(threaded);
+		gridPtr->tree().voxelizeActiveTiles();
+		MarchingCubesMeshOps[gridName]->GridPtr->tree().voxelizeActiveTiles();
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(MarchingCubesMeshOps[gridName]->GridPtr->getName().c_str()), MarchingCubesMeshOps[gridName]->GridPtr->activeVoxelCount()));
 	}
@@ -453,14 +456,16 @@ public:
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		const bool threaded = true;
-		CubesMeshOps.FindChecked(gridName)->doMeshOp(threaded);
+		check(CubesMeshOps.Contains(gridName));
+		CubesMeshOps[gridName]->doMeshOp(threaded);
 	}
 
 	void MeshRegionMarchingCubes(const FString &gridName)
 	{
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		const bool threaded = true;
-		MarchingCubesMeshOps.FindChecked(gridName)->doMeshOp(threaded);
+		check(MarchingCubesMeshOps.Contains(gridName));
+		MarchingCubesMeshOps[gridName]->doMeshOp(threaded);
 	}
 
 	void GetAllGridIDs(TArray<FString> &OutGridIDs) const

@@ -106,47 +106,34 @@ namespace Vdb
 			//FORCEINLINE void operator()(const InIterType& iter, DestAccessorType& acc)
 			void operator()(const InIterType& iter, DestAccessorType& acc)
 			{
-				const openvdb::Coord &coord = iter.getCoord();
-				if (iter.isVoxelValue())
+				openvdb::CoordBBox bbox;
+				if (iter.getBoundingBox(bbox))
 				{
-					DoCoord(coord, iter.getValue(), acc);
-				}
-				else
-				{
-					openvdb::CoordBBox tileBBox;
-					SourceGridType::Accessor srcAcc = SrcGridPtr->getAccessor();
-					if (iter.getBoundingBox(tileBBox))
+					SourceGridType::ConstAccessor srcAcc = SrcGridPtr->getConstAccessor();
+					openvdb::Coord coord;
+					for (int32 x = bbox.min().x(); x <= bbox.max().x(); ++x)
 					{
-						openvdb::Coord tileCoord;
-						for (int32 x = tileBBox.min().x(); x <= tileBBox.max().x(); ++x)
+						coord.setX(x);
+						for (int32 y = bbox.min().y(); y <= bbox.max().y(); ++y)
 						{
-							tileCoord.setX(x);
-							for (int32 y = tileBBox.min().y(); y <= tileBBox.max().y(); ++y)
+							coord.setY(y);
+							for (int32 z = bbox.min().z(); z <= bbox.max().z(); ++z)
 							{
-								tileCoord.setY(y);
-								for (int32 z = tileBBox.min().z(); z <= tileBBox.max().z(); ++z)
+								coord.setZ(z);
+								//Set the value and active state for the destination
+								DestValueType value;
+								GetValue(coord, value);
+								if (!srcAcc.getValue(coord))
 								{
-									tileCoord.setZ(z);
-									DoCoord(tileCoord, srcAcc.getValue(tileCoord), acc);
+									acc.setValueOff(coord, value);
+								}
+								else
+								{
+									acc.setValueOn(coord, value);
 								}
 							}
 						}
 					}
-				}
-			}
-
-			FORCEINLINE void DoCoord(const openvdb::Coord &coord, const bool &isActiveValue, DestAccessorType& acc)
-			{
-				//Set the value and active state for the destination
-				DestValueType value;
-				GetValue(coord, value);
-				if (!isActiveValue)
-				{
-					acc.setValueOff(coord, value);
-				}
-				else
-				{
-					acc.setValueOn(coord, value);
 				}
 			}
 
@@ -188,55 +175,70 @@ namespace Vdb
 			{
 			}
 
-			FORCEINLINE void operator()(const IterType& iter)
+			//FORCEINLINE void operator()(const IterType& iter)
+			void operator()(const IterType& iter)
 			{
-				//If at the lowest level do nothing (leaving the voxel on) so that there is a base ground floor
-				const openvdb::Coord &coord = iter.getCoord();
-				if (coord.z() == 0)
-				{
-					return;
-				}
-
-				//Note that no special consideration is done for tile voxels, so the grid tiles must be voxelized prior to this op [tree().voxelizeActiveTiles()]
 				auto acc = GridPtr->getAccessor();
-				const openvdb::Coord coords[8] = {
-					coord,
-					coord.offsetBy(1, 0, 0),
-					coord.offsetBy(0, 1, 0),
-					coord.offsetBy(0, 0, 1),
-					coord.offsetBy(1, 1, 0),
-					coord.offsetBy(1, 0, 1),
-					coord.offsetBy(0, 1, 1),
-					coord.offsetBy(1, 1, 1),
-				};
-				const ValueType values[8] = {
-					iter.getValue(),
-					acc.getValue(coords[1]),
-					acc.getValue(coords[2]),
-					acc.getValue(coords[3]),
-					acc.getValue(coords[4]),
-					acc.getValue(coords[5]),
-					acc.getValue(coords[6]),
-					acc.getValue(coords[7]),
-				};
-
-				//Flag a vertex as inside the surface if the data value is less than the surface data value
-				uint8 insideBits = 0;
-				if (values[0].Data < SurfaceValue.Data) { insideBits |= 1; }
-				if (values[1].Data < SurfaceValue.Data) { insideBits |= 2; }
-				if (values[2].Data < SurfaceValue.Data) { insideBits |= 4; }
-				if (values[3].Data < SurfaceValue.Data) { insideBits |= 8; }
-				if (values[4].Data < SurfaceValue.Data) { insideBits |= 16; }
-				if (values[5].Data < SurfaceValue.Data) { insideBits |= 32; }
-				if (values[6].Data < SurfaceValue.Data) { insideBits |= 64; }
-				if (values[7].Data < SurfaceValue.Data) { insideBits |= 128; }
-				if (insideBits == 0 || insideBits == 255)
+				openvdb::CoordBBox bbox;
+				if (iter.getBoundingBox(bbox))
 				{
-					//In the special case that the voxel is exactly on the surface, do nothing (leaving the voxel on)
-					if (!openvdb::math::isExactlyEqual(values[0].Data, SurfaceValue.Data))
+					openvdb::Coord coord;
+					for (int32 x = bbox.min().x(); x <= bbox.max().x(); ++x)
 					{
-						//Completely inside or completely outside surface and not at the lowest level - turn voxel off
-						iter.setValueOff();
+						coord.setX(x);
+						for (int32 y = bbox.min().y(); y <= bbox.max().y(); ++y)
+						{
+							coord.setY(y);
+							for (int32 z = bbox.min().z(); z <= bbox.max().z(); ++z)
+							{
+								if (z == 0)
+								{
+									//If at the lowest level do nothing (leaving the voxel on) so that there is a base ground floor
+									continue;
+								}
+								coord.setZ(z);
+								const openvdb::Coord coords[8] = {
+									coord,
+									coord.offsetBy(1, 0, 0),
+									coord.offsetBy(0, 1, 0),
+									coord.offsetBy(0, 0, 1),
+									coord.offsetBy(1, 1, 0),
+									coord.offsetBy(1, 0, 1),
+									coord.offsetBy(0, 1, 1),
+									coord.offsetBy(1, 1, 1),
+								};
+								const ValueType values[8] = {
+									acc.getValue(coord),
+									acc.getValue(coords[1]),
+									acc.getValue(coords[2]),
+									acc.getValue(coords[3]),
+									acc.getValue(coords[4]),
+									acc.getValue(coords[5]),
+									acc.getValue(coords[6]),
+									acc.getValue(coords[7]),
+								};
+
+								//Flag a vertex as inside the surface if the data value is less than the surface data value
+								uint8 insideBits = 0;
+								if (values[0].Data < SurfaceValue.Data) { insideBits |= 1; }
+								if (values[1].Data < SurfaceValue.Data) { insideBits |= 2; }
+								if (values[2].Data < SurfaceValue.Data) { insideBits |= 4; }
+								if (values[3].Data < SurfaceValue.Data) { insideBits |= 8; }
+								if (values[4].Data < SurfaceValue.Data) { insideBits |= 16; }
+								if (values[5].Data < SurfaceValue.Data) { insideBits |= 32; }
+								if (values[6].Data < SurfaceValue.Data) { insideBits |= 64; }
+								if (values[7].Data < SurfaceValue.Data) { insideBits |= 128; }
+								if (insideBits == 0 || insideBits == 255)
+								{
+									//In the special case that the voxel is exactly on the surface, do nothing (leaving the voxel on)
+									if (!openvdb::math::isExactlyEqual(values[0].Data, SurfaceValue.Data))
+									{
+										//Completely inside or completely outside surface and not at the lowest level - turn voxel off
+										acc.setValueOff(coord);
+									}
+								}
+							}
+						}
 					}
 				}
 			}
@@ -269,64 +271,70 @@ namespace Vdb
 			//FORCEINLINE void operator()(const SourceIterType& iter, DestAccessorType& destAcc)
 			void operator()(const SourceIterType& iter, DestAccessorType& destAcc)
 			{
-				//If at the lowest level do nothing (leaving the voxel on) so that there is a base ground floor
-				const openvdb::Coord &coord = iter.getCoord();
-				if (coord.z() == 0)
-				{
-					//Set insidebits as if the 4 bottom vertices were on the surface (coords 0, 1, 2, 4)
-					destAcc.setValueOn(coord, (uint8)0 | 1 | 2 | 4 | 16);
-					return;
-				}
-
-				//Note that no special consideration is done for tile voxels, so the grid tiles must be voxelized prior to this op [tree().voxelizeActiveTiles()]
 				auto srcAcc = SourceGridPtr->getAccessor();
-				const openvdb::Coord coords[8] = {
-					coord,
-					coord.offsetBy(1, 0, 0),
-					coord.offsetBy(0, 1, 0),
-					coord.offsetBy(0, 0, 1),
-					coord.offsetBy(1, 1, 0),
-					coord.offsetBy(1, 0, 1),
-					coord.offsetBy(0, 1, 1),
-					coord.offsetBy(1, 1, 1),
-				};
-				const SourceValueType values[8] = {
-					iter.getValue(),
-					srcAcc.getValue(coords[1]),
-					srcAcc.getValue(coords[2]),
-					srcAcc.getValue(coords[3]),
-					srcAcc.getValue(coords[4]),
-					srcAcc.getValue(coords[5]),
-					srcAcc.getValue(coords[6]),
-					srcAcc.getValue(coords[7]),
-				};
+				openvdb::CoordBBox bbox;
+				if (iter.getBoundingBox(bbox))
+				{
+					openvdb::Coord coord;
+					for (int32 x = bbox.min().x(); x <= bbox.max().x(); ++x)
+					{
+						coord.setX(x);
+						for (int32 y = bbox.min().y(); y <= bbox.max().y(); ++y)
+						{
+							coord.setY(y);
+							for (int32 z = bbox.min().z(); z <= bbox.max().z(); ++z)
+							{
+								coord.setZ(z);
+								if (z == 0)
+								{
+									//If at the lowest level set insidebits as if the 4 bottom vertices were on the surface (coords 0, 1, 2, 4) to create a ground floor
+									destAcc.setValueOn(coord, (uint8)0 | 1 | 2 | 4 | 16);
+									return;
+								}
 
-				uint8 insideBits = 0;
-				if (values[0].Data < SurfaceValue.Data) { insideBits |= 1; }
-				if (values[1].Data < SurfaceValue.Data) { insideBits |= 2; }
-				if (values[2].Data < SurfaceValue.Data) { insideBits |= 4; }
-				if (values[3].Data < SurfaceValue.Data) { insideBits |= 8; }
-				if (values[4].Data < SurfaceValue.Data) { insideBits |= 16; }
-				if (values[5].Data < SurfaceValue.Data) { insideBits |= 32; }
-				if (values[6].Data < SurfaceValue.Data) { insideBits |= 64; }
-				if (values[7].Data < SurfaceValue.Data) { insideBits |= 128; }
-				if (insideBits == 0 || insideBits == 255)
-				{
-					if (openvdb::math::isExactlyEqual(values[0].Data, SurfaceValue.Data))
-					{
-						//In the special case when the value is exactly on the surface set insidebits to the 4 bottom vertices (coords 0, 1, 2, 4)
-						destAcc.setValueOn(coord, (uint8)0 | 1 | 2 | 4 | 16);
+								const openvdb::Coord coords[8] = {
+									coord,
+									coord.offsetBy(1, 0, 0),
+									coord.offsetBy(0, 1, 0),
+									coord.offsetBy(0, 0, 1),
+									coord.offsetBy(1, 1, 0),
+									coord.offsetBy(1, 0, 1),
+									coord.offsetBy(0, 1, 1),
+									coord.offsetBy(1, 1, 1),
+								};
+								const SourceValueType values[8] = {
+									srcAcc.getValue(coord),
+									srcAcc.getValue(coords[1]),
+									srcAcc.getValue(coords[2]),
+									srcAcc.getValue(coords[3]),
+									srcAcc.getValue(coords[4]),
+									srcAcc.getValue(coords[5]),
+									srcAcc.getValue(coords[6]),
+									srcAcc.getValue(coords[7]),
+								};
+
+								uint8 insideBits = 0;
+								if (values[0].Data < SurfaceValue.Data) { insideBits |= 1; }
+								if (values[1].Data < SurfaceValue.Data) { insideBits |= 2; }
+								if (values[2].Data < SurfaceValue.Data) { insideBits |= 4; }
+								if (values[3].Data < SurfaceValue.Data) { insideBits |= 8; }
+								if (values[4].Data < SurfaceValue.Data) { insideBits |= 16; }
+								if (values[5].Data < SurfaceValue.Data) { insideBits |= 32; }
+								if (values[6].Data < SurfaceValue.Data) { insideBits |= 64; }
+								if (values[7].Data < SurfaceValue.Data) { insideBits |= 128; }
+								if (insideBits == 0 || insideBits == 255)
+								{
+									//Voxel is completely outside or completely inside the surface, turn it off
+									destAcc.setValueOff(coord, insideBits);
+								}
+								else
+								{
+									//Voxel is on the surface, turn it on
+									destAcc.setValueOn(coord, insideBits);
+								}
+							}
+						}
 					}
-					else
-					{
-						//Voxel is completely outside or completely inside the surface, turn it off
-						destAcc.setValueOff(coord, insideBits);
-					}
-				}
-				else
-				{
-					//Voxel is on the surface, turn it on
-					destAcc.setValueOn(coord, insideBits);
 				}
 			}
 
@@ -348,7 +356,7 @@ namespace Vdb
 			BasicSetVoxelTypeOp(const GridTypePtr gridPtr)
 				: GridPtr(gridPtr)
 			{
-				for (int32 i = 0; i < FVoxelData::NumMaterials(); ++i)
+				for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
 				{
 					IsMaterialActive.Add(false);
 				}
@@ -356,64 +364,51 @@ namespace Vdb
 
 			FORCEINLINE void operator()(const IterType& iter)
 			{
-				//Note that no special consideration is done for tile voxels, so the grid tiles must be voxelized prior to this op [tree().voxelizeActiveTiles()]
 				auto acc = GridPtr->getAccessor();
-				const openvdb::Coord &coord = iter.getCoord();
-				const openvdb::Coord coords[8] = {
-					coord,
-					coord.offsetBy(1, 0, 0),
-					coord.offsetBy(0, 1, 0),
-					coord.offsetBy(0, 0, 1),
-					coord.offsetBy(1, 1, 0),
-					coord.offsetBy(1, 0, 1),
-					coord.offsetBy(0, 1, 1),
-					coord.offsetBy(1, 1, 1),
-				};
-				const bool isActive[8] = {
-					iter.isValueOn(),
-					acc.isValueOn(coords[1]),
-					acc.isValueOn(coords[2]),
-					acc.isValueOn(coords[3]),
-					acc.isValueOn(coords[4]),
-					acc.isValueOn(coords[5]),
-					acc.isValueOn(coords[6]),
-					acc.isValueOn(coords[7]),
-				};
-				ValueType values[8] = {
-					iter.getValue(),
-					acc.getValue(coords[1]),
-					acc.getValue(coords[2]),
-					acc.getValue(coords[3]),
-					acc.getValue(coords[4]),
-					acc.getValue(coords[5]),
-					acc.getValue(coords[6]),
-					acc.getValue(coords[7]),
-				};
+				openvdb::CoordBBox bbox;
+				if (iter.getBoundingBox(bbox))
+				{
+					GridType::Accessor acc = GridPtr->getAccessor();
+					openvdb::Coord coord;
+					for (int32 x = bbox.min().x(); x <= bbox.max().x(); ++x)
+					{
+						coord.setX(x);
+						for (int32 y = bbox.min().y(); y <= bbox.max().y(); ++y)
+						{
+							coord.setY(y);
+							for (int32 z = bbox.min().z(); z <= bbox.max().z(); ++z)
+							{
+								coord.setZ(z);
+								ValueType value = acc.getValue(coord);
 
-				if (coord.z() == 0)
-				{
-					values[0].VoxelType = EVoxelType::VOXEL_ROCK;
-				}
-				else if (values[0].VoxelType != EVoxelType::VOXEL_WATER)
-				{
-					if (isActive[3])
-					{
-						//The voxel immediately above is on which means we are on the side of a cliff or incline so set to type DIRT
-						values[0].VoxelType = EVoxelType::VOXEL_DIRT;
+								if (coord.z() == 0)
+								{
+									value.VoxelType = EVoxelType::VOXEL_ROCK;
+								}
+								else if (value.VoxelType != EVoxelType::VOXEL_WATER)
+								{
+									if (acc.isValueOn(coord.offsetBy(0,0,1)))
+									{
+										//The voxel immediately above is on which means we are on the side of a cliff or incline so set to type DIRT
+										value.VoxelType = EVoxelType::VOXEL_DIRT;
+									}
+									else
+									{
+										//This voxel is right on the surface so set to type GRASS
+										value.VoxelType = EVoxelType::VOXEL_GRASS;
+									}
+								}
+								acc.setValue(coord, value);
+								IsMaterialActive[(int32)value.VoxelType] = true;
+							}
+						}
 					}
-					else
-					{
-						//This voxel is right on the surface so set to type GRASS
-						values[0].VoxelType = EVoxelType::VOXEL_GRASS;
-					}
 				}
-				iter.setValue(values[0]);
-				IsMaterialActive[(int32)values[0].VoxelType] = true;
 			}
 
 			void GetActiveMaterials(TArray<TEnumAsByte<EVoxelType>> &activeMaterials)
 			{
-				for (int32 i = 0; i < FVoxelData::NumMaterials(); ++i)
+				for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
 				{
 					if (IsMaterialActive[i])
 					{
@@ -452,7 +447,7 @@ namespace Vdb
 				//GradientGridPtr->setName(DataGridPtr->getName() + ".gradient");
 				//GradientGridPtr->setTransform(DataGridPtr->transformPtr());
 				//GradientGridPtr->setVectorType(openvdb::VEC_COVARIANT);
-				for (int32 i = 0; i < VOXEL_TYPE_COUNT; ++i)
+				for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
 				{
 					VisitedVertexIndicesPtr[i] = openvdb::Grid<IndexTreeType>::create(UNVISITED_VERTEX_INDEX);
 				}
@@ -682,13 +677,13 @@ namespace Vdb
 			const GridTypePtr GridPtr;
 
 		protected:
-			FCriticalSection CriticalSections[VOXEL_TYPE_COUNT];
+			FCriticalSection CriticalSections[FVoxelData::VOXEL_TYPE_COUNT];
 			AccessorType Acc;
 			const openvdb::math::Transform Xform;
 			const DataType &SurfaceValue;
 			const DataGridTypePtr DataGridPtr;
 			DataAccessorType DataAcc;
-			openvdb::Grid<IndexTreeType>::Ptr VisitedVertexIndicesPtr[VOXEL_TYPE_COUNT];
+			openvdb::Grid<IndexTreeType>::Ptr VisitedVertexIndicesPtr[FVoxelData::VOXEL_TYPE_COUNT];
 			//openvdb::Vec3fGrid::Ptr GradientGridPtr;
 			TArray<FGridMeshBuffers> &MeshBuffers;
 		};
@@ -866,10 +861,10 @@ namespace Vdb
 			}
 
 			const SourceGridTypePtr SourceGridPtr;
+			const GridTypePtr GridPtr;
 
 		protected:
 			FCriticalSection CriticalSection;
-			const GridTypePtr GridPtr;
 			AccessorType GridAcc;
 			const ValueType &UnvisitedVertexIndex;
 			TArray<FGridMeshBuffers> &MeshBuffers;

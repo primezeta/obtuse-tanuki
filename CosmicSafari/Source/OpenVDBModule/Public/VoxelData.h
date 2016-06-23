@@ -12,7 +12,6 @@ enum class EVoxelType : uint8
 	VOXEL_GRASS		UMETA(DisplayName = "Grass"),
 	VOXEL_SNOW		UMETA(DisplayName = "Snow"),
 };
-const static int32 VOXEL_TYPE_COUNT = (int32)EVoxelType::VOXEL_SNOW;
 
 USTRUCT()
 struct FVoxelData
@@ -37,5 +36,5 @@ struct FVoxelData
 	{
 	}
 
-	static int32 NumMaterials() { return VOXEL_TYPE_COUNT; }
+	const static int32 VOXEL_TYPE_COUNT = (int32)EVoxelType::VOXEL_SNOW;
 };
