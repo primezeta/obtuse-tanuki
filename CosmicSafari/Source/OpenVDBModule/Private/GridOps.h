@@ -456,160 +456,173 @@ namespace Vdb
 			//FORCEINLINE void operator()(const IterType& iter)
 			void operator()(const IterType& iter)
 			{
-				if (iter.isTileValue())
+				openvdb::CoordBBox bbox;
+				if (iter.getBoundingBox(bbox))
 				{
-					return;
-				}
-
-				const uint8 &insideBits = iter.getValue();
-				if (insideBits == 0 || insideBits == 255)
-				{
-					//This voxel is not on the surface so do nothing
-					return;
-				}
-
-				const openvdb::Coord &coord = iter.getCoord();
-				const openvdb::Coord p[8] =
-				{					coord,					coord.offsetBy(1, 0, 0),					coord.offsetBy(0, 1, 0),					coord.offsetBy(0, 0, 1),					coord.offsetBy(1, 1, 0),					coord.offsetBy(1, 0, 1),					coord.offsetBy(0, 1, 1),					coord.offsetBy(1, 1, 1),				};
-				const openvdb::Vec3d vec[8] =
-				{
-					Xform.indexToWorld(p[0]),
-					Xform.indexToWorld(p[1]),
-					Xform.indexToWorld(p[2]),
-					Xform.indexToWorld(p[3]),
-					Xform.indexToWorld(p[4]),
-					Xform.indexToWorld(p[5]),
-					Xform.indexToWorld(p[6]),
-					Xform.indexToWorld(p[7]),
-				};
-				const DataValueType val[8] =
-				{
-					DataAcc.getValue(p[0]),
-					DataAcc.getValue(p[1]),
-					DataAcc.getValue(p[2]),
-					DataAcc.getValue(p[3]),
-					DataAcc.getValue(p[4]),
-					DataAcc.getValue(p[5]),
-					DataAcc.getValue(p[6]),
-					DataAcc.getValue(p[7]),
-				};
-				const DataType data[8] =
-				{
-					val[0].Data,
-					val[1].Data,
-					val[2].Data,
-					val[3].Data,
-					val[4].Data,
-					val[5].Data,
-					val[6].Data,
-					val[7].Data,
-				};
-
-				int32 idx = (int32)val[0].VoxelType;
-				VertexBufferType &vertices = MeshBuffers[idx].VertexBuffer;
-				PolygonBufferType &polygons = MeshBuffers[idx].PolygonBuffer;
-				NormalBufferType &normals = MeshBuffers[idx].NormalBuffer;
-				UVMapBufferType &uvs = MeshBuffers[idx].UVMapBuffer;
-				VertexColorBufferType &colors = MeshBuffers[idx].VertexColorBuffer;
-				TangentBufferType &tangents = MeshBuffers[idx].TangentBuffer;
-				openvdb::Grid<IndexTreeType>::Accessor indices = VisitedVertexIndicesPtr[idx]->getAccessor();
-				FCriticalSection &vtxCriticalSection = VtxCriticalSections[idx];
-				FCriticalSection &triCriticalSection = TriCriticalSections[idx];
-
-				//Find the vertices where the surface intersects the cube, always using the lower coord first
-				IndexType vertlist[12];
-				if (MC_EdgeTable[insideBits] & 1)
-				{
-					vertlist[0] = VertexInterp(vec[0], vec[1], data[0], data[1], p[0], p[1], SurfaceValue, vtxCriticalSection, vertices, indices);
-				}
-				if (MC_EdgeTable[insideBits] & 2)
-				{
-					vertlist[1] = VertexInterp(vec[1], vec[2], data[1], data[2], p[1], p[2], SurfaceValue, vtxCriticalSection, vertices, indices);
-				}
-				if (MC_EdgeTable[insideBits] & 4)
-				{
-					vertlist[2] = VertexInterp(vec[2], vec[3], data[2], data[3], p[2], p[3], SurfaceValue, vtxCriticalSection, vertices, indices);
-				}
-				if (MC_EdgeTable[insideBits] & 8)
-				{
-					vertlist[3] = VertexInterp(vec[0], vec[3], data[0], data[3], p[0], p[3], SurfaceValue, vtxCriticalSection, vertices, indices);
-				}
-				if (MC_EdgeTable[insideBits] & 16)
-				{
-					vertlist[4] = VertexInterp(vec[4], vec[5], data[4], data[5], p[4], p[5], SurfaceValue, vtxCriticalSection, vertices, indices);
-				}
-				if (MC_EdgeTable[insideBits] & 32)
-				{
-					vertlist[5] = VertexInterp(vec[5], vec[6], data[5], data[6], p[5], p[6], SurfaceValue, vtxCriticalSection, vertices, indices);
-				}
-				if (MC_EdgeTable[insideBits] & 64)
-				{
-					vertlist[6] = VertexInterp(vec[6], vec[7], data[6], data[7], p[6], p[7], SurfaceValue, vtxCriticalSection, vertices, indices);
-				}
-				if (MC_EdgeTable[insideBits] & 128)
-				{
-					vertlist[7] = VertexInterp(vec[4], vec[7], data[4], data[7], p[4], p[7], SurfaceValue, vtxCriticalSection, vertices, indices);
-				}
-				if (MC_EdgeTable[insideBits] & 256)
-				{
-					vertlist[8] = VertexInterp(vec[0], vec[4], data[0], data[4], p[0], p[4], SurfaceValue, vtxCriticalSection, vertices, indices);
-				}
-				if (MC_EdgeTable[insideBits] & 512)
-				{
-					vertlist[9] = VertexInterp(vec[1], vec[5], data[1], data[5], p[1], p[5], SurfaceValue, vtxCriticalSection, vertices, indices);
-				}
-				if (MC_EdgeTable[insideBits] & 1024)
-				{
-					vertlist[10] = VertexInterp(vec[2], vec[6], data[2], data[6], p[2], p[6], SurfaceValue, vtxCriticalSection, vertices, indices);
-				}
-				if (MC_EdgeTable[insideBits] & 2048)
-				{
-					vertlist[11] = VertexInterp(vec[3], vec[7], data[3], data[7], p[3], p[7], SurfaceValue, vtxCriticalSection, vertices, indices);
-				}
-
-				////Calculate the gradient of this point
-				//openvdb::Vec3f Gradient;
-				//{
-				//	FScopeLock lock(&CriticalSection);
-				//	auto gradAcc = GradientGridPtr->getAccessor();
-				//	if (!gradAcc.isValueOn(p[0]))
-				//	{
-				//		//TODO: Get the real map type (for now I know that the grid has a ScaleTranslateMap)
-				//		openvdb::Vec3f iGradient(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(DataAcc, p[0]));
-				//		Gradient = DataGridPtr->transform().baseMap()->applyIJT(iGradient, p[0].asVec3d());
-				//	}
-				//	else
-				//	{
-				//		Gradient = gradAcc.getValue(p[0]);
-				//	}
-				//}
-
-				// Create the triangle
-				for (int32_t i = 0; MC_TriTable[insideBits][i] != -1; i += 3)
-				{
-					check(i > -1 && i < 16);
+					GridType::Accessor acc = GridPtr->getAccessor();
+					openvdb::Coord coord;
+					for (int32 x = bbox.min().x(); x <= bbox.max().x(); ++x)
 					{
-						const IndexType &vertex0 = vertlist[MC_TriTable[insideBits][i]];
-						const IndexType &vertex1 = vertlist[MC_TriTable[insideBits][i + 1]];
-						const IndexType &vertex2 = vertlist[MC_TriTable[insideBits][i + 2]];
+						coord.setX(x);
+						for (int32 y = bbox.min().y(); y <= bbox.max().y(); ++y)
 						{
-							FScopeLock lock(&triCriticalSection);
-							polygons.Add(vertex0);
-							polygons.Add(vertex1);
-							polygons.Add(vertex2);
-						}
+							coord.setY(y);
+							for (int32 z = bbox.min().z(); z <= bbox.max().z(); ++z)
+							{
+								coord.setZ(z);
 
-						//TODO
-						//Nx = UyVz - UzVy
-						//Ny = UzVx - UxVz
-						//Nz = UxVy - UyVx
-						//const FVector u = vertices[vertex1] - vertices[vertex0];
-						//const FVector v = vertices[vertex2] - vertices[vertex0];
-						//normals.Add(FVector(u.Y*v.Z - u.Z*v.Y, u.Z*v.X - u.X*v.Z, u.X*v.Y - u.Y*v.X));
-						//normals.Add(FVector(Gradient.x(), Gradient.y(), Gradient.z()));
-						//uvs.Add(FVector2D());
-						//colors.Add(FColor());
-						//tangents.Add(FProcMeshTangent());
+								const uint8 &insideBits = acc.getValue(coord);
+								if (insideBits == 0 || insideBits == 255)
+								{
+									//This voxel is not on the surface so do nothing
+									continue;
+								}
+
+								const openvdb::Coord p[8] =
+								{									coord,									coord.offsetBy(1, 0, 0),									coord.offsetBy(0, 1, 0),									coord.offsetBy(0, 0, 1),									coord.offsetBy(1, 1, 0),									coord.offsetBy(1, 0, 1),									coord.offsetBy(0, 1, 1),									coord.offsetBy(1, 1, 1),								};
+								const openvdb::Vec3d vec[8] =
+								{
+									Xform.indexToWorld(p[0]),
+									Xform.indexToWorld(p[1]),
+									Xform.indexToWorld(p[2]),
+									Xform.indexToWorld(p[3]),
+									Xform.indexToWorld(p[4]),
+									Xform.indexToWorld(p[5]),
+									Xform.indexToWorld(p[6]),
+									Xform.indexToWorld(p[7]),
+								};
+								const DataValueType val[8] =
+								{
+									DataAcc.getValue(p[0]),
+									DataAcc.getValue(p[1]),
+									DataAcc.getValue(p[2]),
+									DataAcc.getValue(p[3]),
+									DataAcc.getValue(p[4]),
+									DataAcc.getValue(p[5]),
+									DataAcc.getValue(p[6]),
+									DataAcc.getValue(p[7]),
+								};
+								const DataType data[8] =
+								{
+									val[0].Data,
+									val[1].Data,
+									val[2].Data,
+									val[3].Data,
+									val[4].Data,
+									val[5].Data,
+									val[6].Data,
+									val[7].Data,
+								};
+
+								int32 idx = (int32)val[0].VoxelType;
+								VertexBufferType &vertices = MeshBuffers[idx].VertexBuffer;
+								PolygonBufferType &polygons = MeshBuffers[idx].PolygonBuffer;
+								NormalBufferType &normals = MeshBuffers[idx].NormalBuffer;
+								UVMapBufferType &uvs = MeshBuffers[idx].UVMapBuffer;
+								VertexColorBufferType &colors = MeshBuffers[idx].VertexColorBuffer;
+								TangentBufferType &tangents = MeshBuffers[idx].TangentBuffer;
+								openvdb::Grid<IndexTreeType>::Accessor indices = VisitedVertexIndicesPtr[idx]->getAccessor();
+								FCriticalSection &vtxCriticalSection = VtxCriticalSections[idx];
+								FCriticalSection &triCriticalSection = TriCriticalSections[idx];
+
+								//Find the vertices where the surface intersects the cube, always using the lower coord first
+								IndexType vertlist[12];
+								if (MC_EdgeTable[insideBits] & 1)
+								{
+									vertlist[0] = VertexInterp(vec[0], vec[1], data[0], data[1], p[0], p[1], SurfaceValue, vtxCriticalSection, vertices, indices);
+								}
+								if (MC_EdgeTable[insideBits] & 2)
+								{
+									vertlist[1] = VertexInterp(vec[1], vec[2], data[1], data[2], p[1], p[2], SurfaceValue, vtxCriticalSection, vertices, indices);
+								}
+								if (MC_EdgeTable[insideBits] & 4)
+								{
+									vertlist[2] = VertexInterp(vec[2], vec[3], data[2], data[3], p[2], p[3], SurfaceValue, vtxCriticalSection, vertices, indices);
+								}
+								if (MC_EdgeTable[insideBits] & 8)
+								{
+									vertlist[3] = VertexInterp(vec[0], vec[3], data[0], data[3], p[0], p[3], SurfaceValue, vtxCriticalSection, vertices, indices);
+								}
+								if (MC_EdgeTable[insideBits] & 16)
+								{
+									vertlist[4] = VertexInterp(vec[4], vec[5], data[4], data[5], p[4], p[5], SurfaceValue, vtxCriticalSection, vertices, indices);
+								}
+								if (MC_EdgeTable[insideBits] & 32)
+								{
+									vertlist[5] = VertexInterp(vec[5], vec[6], data[5], data[6], p[5], p[6], SurfaceValue, vtxCriticalSection, vertices, indices);
+								}
+								if (MC_EdgeTable[insideBits] & 64)
+								{
+									vertlist[6] = VertexInterp(vec[6], vec[7], data[6], data[7], p[6], p[7], SurfaceValue, vtxCriticalSection, vertices, indices);
+								}
+								if (MC_EdgeTable[insideBits] & 128)
+								{
+									vertlist[7] = VertexInterp(vec[4], vec[7], data[4], data[7], p[4], p[7], SurfaceValue, vtxCriticalSection, vertices, indices);
+								}
+								if (MC_EdgeTable[insideBits] & 256)
+								{
+									vertlist[8] = VertexInterp(vec[0], vec[4], data[0], data[4], p[0], p[4], SurfaceValue, vtxCriticalSection, vertices, indices);
+								}
+								if (MC_EdgeTable[insideBits] & 512)
+								{
+									vertlist[9] = VertexInterp(vec[1], vec[5], data[1], data[5], p[1], p[5], SurfaceValue, vtxCriticalSection, vertices, indices);
+								}
+								if (MC_EdgeTable[insideBits] & 1024)
+								{
+									vertlist[10] = VertexInterp(vec[2], vec[6], data[2], data[6], p[2], p[6], SurfaceValue, vtxCriticalSection, vertices, indices);
+								}
+								if (MC_EdgeTable[insideBits] & 2048)
+								{
+									vertlist[11] = VertexInterp(vec[3], vec[7], data[3], data[7], p[3], p[7], SurfaceValue, vtxCriticalSection, vertices, indices);
+								}
+
+								////Calculate the gradient of this point
+								//openvdb::Vec3f Gradient;
+								//{
+								//	FScopeLock lock(&CriticalSection);
+								//	auto gradAcc = GradientGridPtr->getAccessor();
+								//	if (!gradAcc.isValueOn(p[0]))
+								//	{
+								//		//TODO: Get the real map type (for now I know that the grid has a ScaleTranslateMap)
+								//		openvdb::Vec3f iGradient(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(DataAcc, p[0]));
+								//		Gradient = DataGridPtr->transform().baseMap()->applyIJT(iGradient, p[0].asVec3d());
+								//	}
+								//	else
+								//	{
+								//		Gradient = gradAcc.getValue(p[0]);
+								//	}
+								//}
+
+								// Create the triangle
+								for (int32 i = 0; MC_TriTable[insideBits][i] != -1; i += 3)
+								{
+									check(i > -1 && i < 16);
+									{
+										const IndexType &vertex0 = vertlist[MC_TriTable[insideBits][i]];
+										const IndexType &vertex1 = vertlist[MC_TriTable[insideBits][i + 1]];
+										const IndexType &vertex2 = vertlist[MC_TriTable[insideBits][i + 2]];
+										{
+											FScopeLock lock(&triCriticalSection);
+											polygons.Add(vertex0);
+											polygons.Add(vertex1);
+											polygons.Add(vertex2);
+										}
+
+										//TODO
+										//Nx = UyVz - UzVy
+										//Ny = UzVx - UxVz
+										//Nz = UxVy - UyVx
+										//const FVector u = vertices[vertex1] - vertices[vertex0];
+										//const FVector v = vertices[vertex2] - vertices[vertex0];
+										//normals.Add(FVector(u.Y*v.Z - u.Z*v.Y, u.Z*v.X - u.X*v.Z, u.X*v.Y - u.Y*v.X));
+										//normals.Add(FVector(Gradient.x(), Gradient.y(), Gradient.z()));
+										//uvs.Add(FVector2D());
+										//colors.Add(FColor());
+										//tangents.Add(FProcMeshTangent());
+									}
+								}
+							}
+						}
 					}
 				}
 			}
