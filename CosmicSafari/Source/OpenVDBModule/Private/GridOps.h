@@ -285,12 +285,12 @@ namespace Vdb
 							for (int32 z = bbox.min().z(); z <= bbox.max().z(); ++z)
 							{
 								coord.setZ(z);
-								if (z == 0)
-								{
-									//If at the lowest level set insidebits as if the 4 bottom vertices were on the surface (coords 0, 1, 2, 4) to create a ground floor
-									destAcc.setValueOn(coord, (uint8)0 | 1 | 2 | 4 | 16);
-									return;
-								}
+								//if (z == 0)
+								//{
+								//	//If at the lowest level set insidebits as if the 4 bottom vertices were on the surface (coords 0, 1, 2, 4) to create a ground floor
+								//	destAcc.setValueOn(coord, (uint8)0 | 1 | 2 | 4 | 16);
+								//	return;
+								//}
 
 								const openvdb::Coord coords[8] = {
 									coord,
@@ -398,7 +398,7 @@ namespace Vdb
 										value.VoxelType = EVoxelType::VOXEL_GRASS;
 									}
 								}
-								acc.setValue(coord, value);
+								acc.setValueOnly(coord, value);
 								IsMaterialActive[(int32)value.VoxelType] = true;
 							}
 						}
@@ -456,6 +456,11 @@ namespace Vdb
 			//FORCEINLINE void operator()(const IterType& iter)
 			void operator()(const IterType& iter)
 			{
+				if (iter.isTileValue())
+				{
+					return;
+				}
+
 				const uint8 &insideBits = iter.getValue();
 				if (insideBits == 0 || insideBits == 255)
 				{
@@ -516,7 +521,7 @@ namespace Vdb
 				UVMapBufferType &uvs = MeshBuffers[idx].UVMapBuffer;
 				VertexColorBufferType &colors = MeshBuffers[idx].VertexColorBuffer;
 				TangentBufferType &tangents = MeshBuffers[idx].TangentBuffer;
-				openvdb::Grid<IndexTreeType> &indices = *(VisitedVertexIndicesPtr[idx]);
+				openvdb::Grid<IndexTreeType>::Accessor indices = VisitedVertexIndicesPtr[idx]->getAccessor();
 				FCriticalSection &criticalSection = CriticalSections[idx];
 
 				//Find the vertices where the surface intersects the cube
@@ -590,6 +595,7 @@ namespace Vdb
 				// Create the triangle
 				for (int32_t i = 0; MC_TriTable[insideBits][i] != -1; i += 3)
 				{
+					check(i > -1 && i < 16);
 					{
 						FScopeLock lock(&criticalSection);
 						const IndexType &vertex0 = vertlist[MC_TriTable[insideBits][i]];
@@ -599,7 +605,7 @@ namespace Vdb
 						polygons.Add(vertex1);
 						polygons.Add(vertex2);
 
-						//Add dummy values for now TODO
+						//TODO
 						//Nx = UyVz - UzVy
 						//Ny = UzVx - UxVz
 						//Nz = UxVy - UyVx
@@ -607,69 +613,67 @@ namespace Vdb
 						//const FVector v = vertices[vertex2] - vertices[vertex0];
 						//normals.Add(FVector(u.Y*v.Z - u.Z*v.Y, u.Z*v.X - u.X*v.Z, u.X*v.Y - u.Y*v.X));
 						//normals.Add(FVector(Gradient.x(), Gradient.y(), Gradient.z()));
-						normals.Add(FVector());
-						uvs.Add(FVector2D());
-						colors.Add(FColor());
-						tangents.Add(FProcMeshTangent());
+						//uvs.Add(FVector2D());
+						//colors.Add(FColor());
+						//tangents.Add(FProcMeshTangent());
 					}
 				}
 			}
 
 			//FORCEINLINE static void VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, const openvdb::Coord &c1, const openvdb::Coord &c2, FCriticalSection &criticalSection, const DataType &surfaceValue, IndexType &outVertex, VertexBufferType &vertices, openvdb::Grid<IndexTreeType> &indices)
-			static void VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, const openvdb::Coord &c1, const openvdb::Coord &c2, FCriticalSection &criticalSection, const DataType &surfaceValue, IndexType &outVertex, VertexBufferType &vertices, openvdb::Grid<IndexTreeType> &indices)
+			static void VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, const openvdb::Coord &c1, const openvdb::Coord &c2, FCriticalSection &criticalSection, const DataType &surfaceValue, IndexType &outVertex, VertexBufferType &vertices, openvdb::Grid<IndexTreeType>::Accessor &indices)
 			{
-				auto acc = indices.getAccessor();
 				if (openvdb::math::isApproxEqual(valp1, surfaceValue))
 				{
 					FScopeLock lock(&criticalSection);
-					if (acc.isValueOn(c1))
+					if (indices.isValueOn(c1))
 					{
-						outVertex = acc.getValue(c1);
+						outVertex = indices.getValue(c1);
 					}
 					else
 					{
 						outVertex = vertices.Add(FVector(vec1.x(), vec1.y(), vec1.z()));
-						acc.setValueOn(c1, outVertex);
+						indices.setValueOn(c1, outVertex);
 					}
 				}
 				else if (openvdb::math::isApproxEqual(valp2, surfaceValue))
 				{
 					FScopeLock lock(&criticalSection);
-					if (acc.isValueOn(c2))
+					if (indices.isValueOn(c2))
 					{
-						outVertex = acc.getValue(c2);
+						outVertex = indices.getValue(c2);
 					}
 					else
 					{
 						outVertex = vertices.Add(FVector(vec2.x(), vec2.y(), vec2.z()));
-						acc.setValueOn(c2, outVertex);
+						indices.setValueOn(c2, outVertex);
 					}
 				}
 				else if (openvdb::math::isApproxEqual(valp1, valp2))
 				{
 					FScopeLock lock(&criticalSection);
-					if (acc.isValueOn(c1))
+					if (indices.isValueOn(c1))
 					{
-						outVertex = acc.getValue(c1);
+						outVertex = indices.getValue(c1);
 					}
 					else
 					{
 						outVertex = vertices.Add(FVector(vec1.x(), vec1.y(), vec1.z()));
-						acc.setValueOn(c1, outVertex);
+						indices.setValueOn(c1, outVertex);
 					}
 				}
 				else
 				{
 					FScopeLock lock(&criticalSection);
-					if (acc.isValueOn(c1))
+					if (indices.isValueOn(c1))
 					{
-						outVertex = acc.getValue(c1);
+						outVertex = indices.getValue(c1);
 					}
 					else
 					{
 						const double mu = ((double)(surfaceValue - valp1)) / (double)(valp2 - valp1);
 						outVertex = vertices.Add(FVector(vec1.x() + (mu * (vec2.x() - vec1.x())), vec1.y() + (mu * (vec2.y() - vec1.y())), vec1.z() + (mu * (vec2.z() - vec1.z()))));
-						acc.setValueOn(c1, outVertex);
+						indices.setValueOn(c1, outVertex);
 					}
 				}
 			}
@@ -711,6 +715,11 @@ namespace Vdb
 
 			FORCEINLINE void operator()(const SourceIterType& iter)
 			{
+				if (iter.isTileValue())
+				{
+					return;
+				}
+
 				//Mesh the voxel as a simple cube with 6 equal sized quads
 				const openvdb::BBoxd bbox = GridPtr->transform().indexToWorld(openvdb::CoordBBox::createCube(iter.getCoord(), 2));
 				const openvdb::Vec3d vtxs[8] = {

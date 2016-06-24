@@ -384,8 +384,8 @@ public:
 			{
 				valuesMaskPtr->clear();
 				gridPtr->clear();
-				CubesMeshOps.FindChecked(gridName)->markChanged();
-				MarchingCubesMeshOps.FindChecked(gridName)->markChanged();
+				CubesMeshOps[gridName]->markChanged();
+				MarchingCubesMeshOps[gridName]->markChanged();
 			}
 
 			openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
@@ -419,8 +419,8 @@ public:
 		BasicExtractSurfaceProcessor BasicExtractSurfaceProc(gridPtr->beginValueOn(), BasicExtractSurfaceOp);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre basic surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		BasicExtractSurfaceProc.process(threaded);
-		gridPtr->tree().voxelizeActiveTiles();
-		CubesMeshOps[gridName]->GridPtr->tree().voxelizeActiveTiles();
+		//gridPtr->tree().voxelizeActiveTiles();
+		//CubesMeshOps[gridName]->GridPtr->tree().voxelizeActiveTiles();
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post basic surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 	}
 
@@ -431,12 +431,13 @@ public:
 		typedef typename openvdb::tools::valxform::SharedOpTransformer<GridTreeType::ValueOnIter, Adapter::TreeType, ExtractSurfaceOpType> ExtractSurfaceProcessor;
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		ExtractSurfaceOpType ExtractSurfaceOp(gridPtr);
+		//MarchingCubesMeshOps[gridName]->GridPtr->topologyUnion(*gridPtr);
 		ExtractSurfaceProcessor ExtractSurfaceProc(gridPtr->beginValueOn(), Adapter::tree(*(MarchingCubesMeshOps[gridName]->GridPtr)), ExtractSurfaceOp, openvdb::MERGE_ACTIVE_STATES);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(MarchingCubesMeshOps[gridName]->GridPtr->getName().c_str()), MarchingCubesMeshOps[gridName]->GridPtr->activeVoxelCount()));
 		ExtractSurfaceProc.process(threaded);
-		gridPtr->tree().voxelizeActiveTiles();
-		MarchingCubesMeshOps[gridName]->GridPtr->tree().voxelizeActiveTiles();
+		//gridPtr->tree().voxelizeActiveTiles();
+		//MarchingCubesMeshOps[gridName]->GridPtr->tree().voxelizeActiveTiles();
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(MarchingCubesMeshOps[gridName]->GridPtr->getName().c_str()), MarchingCubesMeshOps[gridName]->GridPtr->activeVoxelCount()));
 	}
