@@ -284,14 +284,14 @@ namespace Vdb
 							coord.setY(y);
 							for (int32 z = bbox.min().z(); z <= bbox.max().z(); ++z)
 							{
-								coord.setZ(z);
-								//if (z == 0)
+								//if (z == 0) TODO
 								//{
 								//	//If at the lowest level set insidebits as if the 4 bottom vertices were on the surface (coords 0, 1, 2, 4) to create a ground floor
 								//	destAcc.setValueOn(coord, (uint8)0 | 1 | 2 | 4 | 16);
-								//	return;
+								//	continue;
 								//}
 
+								coord.setZ(z);
 								const openvdb::Coord coords[8] = {
 									coord,
 									coord.offsetBy(1, 0, 0),
@@ -470,16 +470,7 @@ namespace Vdb
 
 				const openvdb::Coord &coord = iter.getCoord();
 				const openvdb::Coord p[8] =
-				{
-					coord,
-					coord.offsetBy(1, 0, 0),
-					coord.offsetBy(0, 1, 0),
-					coord.offsetBy(0, 0, 1),
-					coord.offsetBy(1, 1, 0),
-					coord.offsetBy(1, 0, 1),
-					coord.offsetBy(0, 1, 1),
-					coord.offsetBy(1, 1, 1),
-				};
+				{					coord,					coord.offsetBy(1, 0, 0),					coord.offsetBy(0, 1, 0),					coord.offsetBy(0, 0, 1),					coord.offsetBy(1, 1, 0),					coord.offsetBy(1, 0, 1),					coord.offsetBy(0, 1, 1),					coord.offsetBy(1, 1, 1),				};
 				const openvdb::Vec3d vec[8] =
 				{
 					Xform.indexToWorld(p[0]),
@@ -522,57 +513,58 @@ namespace Vdb
 				VertexColorBufferType &colors = MeshBuffers[idx].VertexColorBuffer;
 				TangentBufferType &tangents = MeshBuffers[idx].TangentBuffer;
 				openvdb::Grid<IndexTreeType>::Accessor indices = VisitedVertexIndicesPtr[idx]->getAccessor();
-				FCriticalSection &criticalSection = CriticalSections[idx];
+				FCriticalSection &vtxCriticalSection = VtxCriticalSections[idx];
+				FCriticalSection &triCriticalSection = TriCriticalSections[idx];
 
-				//Find the vertices where the surface intersects the cube
+				//Find the vertices where the surface intersects the cube, always using the lower coord first
 				IndexType vertlist[12];
 				if (MC_EdgeTable[insideBits] & 1)
 				{
-					VertexInterp(vec[0], vec[1], data[0], data[1], p[0], p[1], criticalSection, SurfaceValue, vertlist[0], vertices, indices);
+					vertlist[0] = VertexInterp(vec[0], vec[1], data[0], data[1], p[0], p[1], SurfaceValue, vtxCriticalSection, vertices, indices);
 				}
 				if (MC_EdgeTable[insideBits] & 2)
 				{
-					VertexInterp(vec[1], vec[2], data[1], data[2], p[1], p[2], criticalSection, SurfaceValue, vertlist[1], vertices, indices);
+					vertlist[1] = VertexInterp(vec[1], vec[2], data[1], data[2], p[1], p[2], SurfaceValue, vtxCriticalSection, vertices, indices);
 				}
 				if (MC_EdgeTable[insideBits] & 4)
 				{
-					VertexInterp(vec[2], vec[3], data[2], data[3], p[2], p[3], criticalSection, SurfaceValue, vertlist[2], vertices, indices);
+					vertlist[2] = VertexInterp(vec[2], vec[3], data[2], data[3], p[2], p[3], SurfaceValue, vtxCriticalSection, vertices, indices);
 				}
 				if (MC_EdgeTable[insideBits] & 8)
 				{
-					VertexInterp(vec[3], vec[0], data[3], data[0], p[3], p[0], criticalSection, SurfaceValue, vertlist[3], vertices, indices);
+					vertlist[3] = VertexInterp(vec[0], vec[3], data[0], data[3], p[0], p[3], SurfaceValue, vtxCriticalSection, vertices, indices);
 				}
 				if (MC_EdgeTable[insideBits] & 16)
 				{
-					VertexInterp(vec[4], vec[5], data[4], data[5], p[4], p[5], criticalSection, SurfaceValue, vertlist[4], vertices, indices);
+					vertlist[4] = VertexInterp(vec[4], vec[5], data[4], data[5], p[4], p[5], SurfaceValue, vtxCriticalSection, vertices, indices);
 				}
 				if (MC_EdgeTable[insideBits] & 32)
 				{
-					VertexInterp(vec[5], vec[6], data[5], data[6], p[5], p[6], criticalSection, SurfaceValue, vertlist[5], vertices, indices);
+					vertlist[5] = VertexInterp(vec[5], vec[6], data[5], data[6], p[5], p[6], SurfaceValue, vtxCriticalSection, vertices, indices);
 				}
 				if (MC_EdgeTable[insideBits] & 64)
 				{
-					VertexInterp(vec[6], vec[7], data[6], data[7], p[6], p[7], criticalSection, SurfaceValue, vertlist[6], vertices, indices);
+					vertlist[6] = VertexInterp(vec[6], vec[7], data[6], data[7], p[6], p[7], SurfaceValue, vtxCriticalSection, vertices, indices);
 				}
 				if (MC_EdgeTable[insideBits] & 128)
 				{
-					VertexInterp(vec[7], vec[4], data[7], data[4], p[7], p[4], criticalSection, SurfaceValue, vertlist[7], vertices, indices);
+					vertlist[7] = VertexInterp(vec[4], vec[7], data[4], data[7], p[4], p[7], SurfaceValue, vtxCriticalSection, vertices, indices);
 				}
 				if (MC_EdgeTable[insideBits] & 256)
 				{
-					VertexInterp(vec[0], vec[4], data[0], data[4], p[0], p[4], criticalSection, SurfaceValue, vertlist[8], vertices, indices);
+					vertlist[8] = VertexInterp(vec[0], vec[4], data[0], data[4], p[0], p[4], SurfaceValue, vtxCriticalSection, vertices, indices);
 				}
 				if (MC_EdgeTable[insideBits] & 512)
 				{
-					VertexInterp(vec[1], vec[5], data[1], data[5], p[1], p[5], criticalSection, SurfaceValue, vertlist[9], vertices, indices);
+					vertlist[9] = VertexInterp(vec[1], vec[5], data[1], data[5], p[1], p[5], SurfaceValue, vtxCriticalSection, vertices, indices);
 				}
 				if (MC_EdgeTable[insideBits] & 1024)
 				{
-					VertexInterp(vec[2], vec[6], data[2], data[6], p[2], p[6], criticalSection, SurfaceValue, vertlist[10], vertices, indices);
+					vertlist[10] = VertexInterp(vec[2], vec[6], data[2], data[6], p[2], p[6], SurfaceValue, vtxCriticalSection, vertices, indices);
 				}
 				if (MC_EdgeTable[insideBits] & 2048)
 				{
-					VertexInterp(vec[3], vec[7], data[3], data[7], p[3], p[7], criticalSection, SurfaceValue, vertlist[11], vertices, indices);
+					vertlist[11] = VertexInterp(vec[3], vec[7], data[3], data[7], p[3], p[7], SurfaceValue, vtxCriticalSection, vertices, indices);
 				}
 
 				////Calculate the gradient of this point
@@ -597,13 +589,15 @@ namespace Vdb
 				{
 					check(i > -1 && i < 16);
 					{
-						FScopeLock lock(&criticalSection);
 						const IndexType &vertex0 = vertlist[MC_TriTable[insideBits][i]];
 						const IndexType &vertex1 = vertlist[MC_TriTable[insideBits][i + 1]];
 						const IndexType &vertex2 = vertlist[MC_TriTable[insideBits][i + 2]];
-						polygons.Add(vertex0);
-						polygons.Add(vertex1);
-						polygons.Add(vertex2);
+						{
+							FScopeLock lock(&triCriticalSection);
+							polygons.Add(vertex0);
+							polygons.Add(vertex1);
+							polygons.Add(vertex2);
+						}
 
 						//TODO
 						//Nx = UyVz - UzVy
@@ -621,11 +615,12 @@ namespace Vdb
 			}
 
 			//FORCEINLINE static void VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, const openvdb::Coord &c1, const openvdb::Coord &c2, FCriticalSection &criticalSection, const DataType &surfaceValue, IndexType &outVertex, VertexBufferType &vertices, openvdb::Grid<IndexTreeType> &indices)
-			static void VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, const openvdb::Coord &c1, const openvdb::Coord &c2, FCriticalSection &criticalSection, const DataType &surfaceValue, IndexType &outVertex, VertexBufferType &vertices, openvdb::Grid<IndexTreeType>::Accessor &indices)
+			static IndexType VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, const openvdb::Coord &c1, const openvdb::Coord &c2, const DataType &surfaceValue, FCriticalSection &criticalSection, VertexBufferType &vertices, openvdb::Grid<IndexTreeType>::Accessor &indices)
 			{
-				if (openvdb::math::isApproxEqual(valp1, surfaceValue))
+				FScopeLock lock(&criticalSection);
+				IndexType outVertex = -1;
+				if (openvdb::math::isApproxEqual(valp1, surfaceValue) || openvdb::math::isApproxEqual(valp1, valp2))
 				{
-					FScopeLock lock(&criticalSection);
 					if (indices.isValueOn(c1))
 					{
 						outVertex = indices.getValue(c1);
@@ -638,7 +633,6 @@ namespace Vdb
 				}
 				else if (openvdb::math::isApproxEqual(valp2, surfaceValue))
 				{
-					FScopeLock lock(&criticalSection);
 					if (indices.isValueOn(c2))
 					{
 						outVertex = indices.getValue(c2);
@@ -649,39 +643,32 @@ namespace Vdb
 						indices.setValueOn(c2, outVertex);
 					}
 				}
-				else if (openvdb::math::isApproxEqual(valp1, valp2))
-				{
-					FScopeLock lock(&criticalSection);
-					if (indices.isValueOn(c1))
-					{
-						outVertex = indices.getValue(c1);
-					}
-					else
-					{
-						outVertex = vertices.Add(FVector(vec1.x(), vec1.y(), vec1.z()));
-						indices.setValueOn(c1, outVertex);
-					}
-				}
 				else
 				{
-					FScopeLock lock(&criticalSection);
 					if (indices.isValueOn(c1))
 					{
 						outVertex = indices.getValue(c1);
 					}
 					else
 					{
-						const double mu = ((double)(surfaceValue - valp1)) / (double)(valp2 - valp1);
-						outVertex = vertices.Add(FVector(vec1.x() + (mu * (vec2.x() - vec1.x())), vec1.y() + (mu * (vec2.y() - vec1.y())), vec1.z() + (mu * (vec2.z() - vec1.z()))));
+						const float mu = (surfaceValue - valp1) / (valp2 - valp1);
+						outVertex = vertices.Add(FVector(
+							vec1.x() + mu * (vec2.x() - vec1.x()),
+							vec1.y() + mu * (vec2.y() - vec1.y()),
+							vec1.z() + mu * (vec2.z() - vec1.z())
+						));
 						indices.setValueOn(c1, outVertex);
 					}
 				}
+				check(outVertex > -1);
+				return outVertex;
 			}
 			
 			const GridTypePtr GridPtr;
 
 		protected:
-			FCriticalSection CriticalSections[FVoxelData::VOXEL_TYPE_COUNT];
+			FCriticalSection VtxCriticalSections[FVoxelData::VOXEL_TYPE_COUNT];
+			FCriticalSection TriCriticalSections[FVoxelData::VOXEL_TYPE_COUNT];
 			AccessorType Acc;
 			const openvdb::math::Transform Xform;
 			const DataType &SurfaceValue;
