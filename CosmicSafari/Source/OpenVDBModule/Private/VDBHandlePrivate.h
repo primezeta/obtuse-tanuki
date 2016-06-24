@@ -652,7 +652,7 @@ private:
 			{
 				firstActive = i.getCoord();
 				//Find the first voxel above that is off
-				for (int32_t z = i.getCoord().z(); z <= activeIndexBBox.max().z(); ++z)
+				for (int32 z = i.getCoord().z(); z <= activeIndexBBox.max().z(); ++z)
 				{
 					firstActive.setZ(z);
 					if (i.getTree()->isValueOff(firstActive))

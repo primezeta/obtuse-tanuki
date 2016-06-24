@@ -5,7 +5,7 @@ namespace Vdb
 {
 	namespace GridOps
 	{
-		static const int32_t MC_EdgeTable[256] =
+		static const int32 MC_EdgeTable[256] =
 		{
 			0x0  , 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
 			0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
@@ -41,7 +41,7 @@ namespace Vdb
 			0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x0
 		};
 
-		static const int32_t MC_TriTable[256][16] =
+		static const int32 MC_TriTable[256][16] =
 		{
 			{ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
 			{ 0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
