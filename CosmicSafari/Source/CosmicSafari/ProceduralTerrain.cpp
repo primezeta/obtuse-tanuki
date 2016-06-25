@@ -58,7 +58,6 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 
 	GridRegions.Add(regionName);
 	MeshBuffers.Add(regionName);
-	MeshBuffers[regionName].SetNum(FVoxelData::VOXEL_TYPE_COUNT);
 	const FString gridID = VdbHandle->AddGrid(regionName, gridIndex, FVector(1.0f), MeshBuffers[regionName]);
 	UProceduralTerrainMeshComponent * TerrainMesh = NewObject<UProceduralTerrainMeshComponent>(this, FName(*gridID));
 	check(TerrainMesh != nullptr);

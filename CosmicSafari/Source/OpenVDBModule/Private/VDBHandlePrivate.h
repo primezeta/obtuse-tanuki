@@ -135,7 +135,7 @@ public:
 		const FIntVector &indexStart,
 		const FIntVector &indexEnd,
 		const FVector &voxelSize,
-		TArray<FGridMeshBuffers> &meshBuffers)
+		FGridMeshBuffers &meshBuffers)
 	{
 		GridTypePtr gridPtr = GetGridPtr(gridName);	
 		const openvdb::Vec3d start(indexStart.X, indexStart.Y, indexStart.Z);
@@ -598,7 +598,7 @@ private:
 		const FIntVector &indexStart,
 		const FIntVector &indexEnd,
 		openvdb::math::Transform::Ptr xform,
-		TArray<FGridMeshBuffers> &meshBuffers)
+		FGridMeshBuffers &meshBuffers)
 	{
 		GridTypePtr gridPtr = GridType::create();
 		gridPtr->setName(TCHAR_TO_UTF8(*gridName));

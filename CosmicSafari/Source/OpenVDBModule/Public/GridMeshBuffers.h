@@ -16,17 +16,21 @@ struct FGridMeshBuffers
 	void ClearBuffers()
 	{
 		VertexBuffer.Empty();
-		PolygonBuffer.Empty();
 		NormalBuffer.Empty();
-		UVMapBuffer.Empty();
 		VertexColorBuffer.Empty();
 		TangentBuffer.Empty();
+		for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
+		{
+			PolygonBuffer[i].Empty();
+			UVMapBuffer[i].Empty();
+		}
 	}
 
 	VertexBufferType VertexBuffer;
-	PolygonBufferType PolygonBuffer;
 	NormalBufferType NormalBuffer;
-	UVMapBufferType UVMapBuffer;
 	VertexColorBufferType VertexColorBuffer;
 	TangentBufferType TangentBuffer;
+	PolygonBufferType PolygonBuffer[FVoxelData::VOXEL_TYPE_COUNT];
+	UVMapBufferType UVMapBuffer[FVoxelData::VOXEL_TYPE_COUNT];
 };
+typedef TMap<FString, FGridMeshBuffers> GridMeshBuffersType;
