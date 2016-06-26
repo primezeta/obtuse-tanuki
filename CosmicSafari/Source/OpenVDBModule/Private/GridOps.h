@@ -525,7 +525,7 @@ namespace Vdb
 								PolygonBufferType &polygons = MeshBuffers.PolygonBuffer[idx];
 								UVMapBufferType &uvs = MeshBuffers.UVMapBuffer[idx];
 								openvdb::Grid<IndexTreeType>::Accessor indices = VisitedVertexIndicesPtr->getAccessor();
-								FCriticalSection &triCriticalSection = TriCriticalSections[idx];
+								//FCriticalSection &triCriticalSection = TriCriticalSections[idx];
 
 								//Calculate the gradient of this point
 								openvdb::Vec3f iGradient(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(DataAcc, p[0]));
@@ -599,16 +599,6 @@ namespace Vdb
 										{
 											continue;
 										}
-
-										{
-											FScopeLock lock(&triCriticalSection);
-											polygons.Add(polyIdxs[0]);
-											polygons.Add(polyIdxs[1]);
-											polygons.Add(polyIdxs[2]);
-										}
-
-										//Store the normal as the sum of all cross products of polygons that share this vertex.
-										//Later the normalized average will be taken as the final normal.
 										const FVector polyVtxs[3] = {
 											vertices[polyIdxs[0]],
 											vertices[polyIdxs[1]],
@@ -619,16 +609,15 @@ namespace Vdb
 											FVector::CrossProduct(polyVtxs[2] - polyVtxs[1], polyVtxs[3] - polyVtxs[1]),
 											FVector::CrossProduct(polyVtxs[2] - polyVtxs[1], polyVtxs[3] - polyVtxs[1])
 										};
-										const int32 currentNumTris[3] = {
-											NumTris[polyIdxs[0]] == 0 ? 1 : NumTris[polyIdxs[0]],
-											NumTris[polyIdxs[1]] == 0 ? 1 : NumTris[polyIdxs[1]],
-											NumTris[polyIdxs[2]] == 0 ? 1 : NumTris[polyIdxs[2]]
-										};
 										{
 											FScopeLock lock(&VtxCriticalSection);
-											normals[polyIdxs[0]] = ((normals[polyIdxs[0]] * currentNumTris[0]) + crossProducts[0]) / (++NumTris[polyIdxs[0]]);
-											normals[polyIdxs[1]] = ((normals[polyIdxs[1]] * currentNumTris[1]) + crossProducts[1]) / (++NumTris[polyIdxs[1]]);
-											normals[polyIdxs[2]] = ((normals[polyIdxs[2]] * currentNumTris[2]) + crossProducts[2]) / (++NumTris[polyIdxs[2]]);
+											//FScopeLock lock(&triCriticalSection);
+											polygons.Add(polyIdxs[0]);
+											polygons.Add(polyIdxs[1]);
+											polygons.Add(polyIdxs[2]);
+											normals[polyIdxs[0]] = ((normals[polyIdxs[0]] * NumTris[0]) + crossProducts[0]) / (++NumTris[polyIdxs[0]]);
+											normals[polyIdxs[1]] = ((normals[polyIdxs[1]] * NumTris[1]) + crossProducts[1]) / (++NumTris[polyIdxs[1]]);
+											normals[polyIdxs[2]] = ((normals[polyIdxs[2]] * NumTris[2]) + crossProducts[2]) / (++NumTris[polyIdxs[2]]);
 										}
 									}
 								}
@@ -651,7 +640,7 @@ namespace Vdb
 					else
 					{
 						outVertex = vertices.Add(FVector(vec1.x(), vec1.y(), vec1.z()));
-						normals.Add(FVector());
+						normals.Add(FVector(0,0,0));
 						colors.Add(FColor()); //TODO
 						tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
 						numTris.Add(0);
@@ -667,7 +656,7 @@ namespace Vdb
 					else
 					{
 						outVertex = vertices.Add(FVector(vec2.x(), vec2.y(), vec2.z()));
-						normals.Add(FVector());
+						normals.Add(FVector(0,0,0));
 						colors.Add(FColor()); //TODO
 						tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
 						numTris.Add(0);
@@ -685,7 +674,7 @@ namespace Vdb
 						float mu = (surfaceValue - valp1) / (valp2 - valp1);
 						openvdb::Vec3d vtx = vec1 + (mu*(vec2 - vec1));
 						outVertex = vertices.Add(FVector(vtx.x(), vtx.y(), vtx.z()));
-						normals.Add(FVector());
+						normals.Add(FVector(0,0,0));
 						colors.Add(FColor()); //TODO
 						tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
 						numTris.Add(0);
@@ -703,7 +692,7 @@ namespace Vdb
 
 		protected:
 			FCriticalSection VtxCriticalSection;
-			FCriticalSection TriCriticalSections[FVoxelData::VOXEL_TYPE_COUNT];
+			//FCriticalSection TriCriticalSections[FVoxelData::VOXEL_TYPE_COUNT];
 			const openvdb::math::Transform Xform;
 			const DataType &SurfaceValue;
 			const DataGridTypePtr DataGridPtr;
@@ -965,7 +954,10 @@ namespace Vdb
 					//Normalize the cross product averages
 					for (auto i = MeshBuffers.NormalBuffer.CreateIterator(); i; ++i)
 					{
-						i->Normalize();
+						if (*i != FVector())
+						{
+							i->Normalize();
+						}
 					}
 				}
 				UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post mesh op) %d active voxels"), UTF8_TO_TCHAR(GridPtr->getName().c_str()), GridPtr->activeVoxelCount()));
