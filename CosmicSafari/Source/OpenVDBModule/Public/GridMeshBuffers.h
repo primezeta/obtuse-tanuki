@@ -1,4 +1,5 @@
 #pragma once
+#include "VoxelData.h"
 #include "GridMeshBuffers.generated.h"
 
 typedef TArray<FVector> VertexBufferType;
@@ -12,20 +13,6 @@ USTRUCT()
 struct FGridMeshBuffers
 {
 	GENERATED_USTRUCT_BODY()
-
-	void ClearBuffers()
-	{
-		VertexBuffer.Empty();
-		NormalBuffer.Empty();
-		VertexColorBuffer.Empty();
-		TangentBuffer.Empty();
-		for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
-		{
-			PolygonBuffer[i].Empty();
-			UVMapBuffer[i].Empty();
-		}
-	}
-
 	VertexBufferType VertexBuffer;
 	NormalBufferType NormalBuffer;
 	VertexColorBufferType VertexColorBuffer;

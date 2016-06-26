@@ -107,18 +107,16 @@ void AProceduralTerrain::BeginPlay()
 				const EVoxelType voxelType = j.Value();
 				const int32 &buffIdx = (int32)voxelType;
 				const int32 &meshIdx = j.Key();
-				FGridMeshBuffers &buffers = meshBuffers[buffIdx];
 				TerrainMeshComponent.CreateMeshSection(
 					meshIdx,
-					buffers.VertexBuffer,
-					buffers.PolygonBuffer,
-					buffers.NormalBuffer,
-					buffers.UVMapBuffer,
-					buffers.VertexColorBuffer,
-					buffers.TangentBuffer,
+					meshBuffers.VertexBuffer,
+					meshBuffers.PolygonBuffer[buffIdx],
+					meshBuffers.NormalBuffer,
+					meshBuffers.UVMapBuffer[buffIdx],
+					meshBuffers.VertexColorBuffer,
+					meshBuffers.TangentBuffer,
 					bCreateCollision && voxelType != EVoxelType::VOXEL_WATER);
 				TerrainMeshComponent.SetMeshSectionVisible(meshIdx, true);
-				buffers.ClearBuffers(); //Clear buffers after copying to the mesh section
 				//TODO: Create logic for using UpdateMeshSection
 				//TODO: Use non-deprecated CreateMeshSection_Linear
 			}

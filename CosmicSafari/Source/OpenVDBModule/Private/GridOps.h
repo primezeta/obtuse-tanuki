@@ -445,7 +445,6 @@ namespace Vdb
 				GridPtr->setName(DataGridPtr->getName() + ".bits");
 				GridPtr->setTransform(DataGridPtr->transformPtr());
 				VisitedVertexIndicesPtr = openvdb::Grid<IndexTreeType>::create(UNVISITED_VERTEX_INDEX);
-				NumTrisUsingVertexGridPtr = openvdb::Int32Grid::create(0);
 			}
 
 			//FORCEINLINE void operator()(const IterType& iter)
@@ -523,65 +522,65 @@ namespace Vdb
 								NormalBufferType &normals = MeshBuffers.NormalBuffer;
 								VertexColorBufferType &colors = MeshBuffers.VertexColorBuffer;
 								TangentBufferType &tangents = MeshBuffers.TangentBuffer;
-								PolygonBufferType &polygons = MeshBuffers[idx].PolygonBuffer;
-								UVMapBufferType &uvs = MeshBuffers[idx].UVMapBuffer;
+								PolygonBufferType &polygons = MeshBuffers.PolygonBuffer[idx];
+								UVMapBufferType &uvs = MeshBuffers.UVMapBuffer[idx];
 								openvdb::Grid<IndexTreeType>::Accessor indices = VisitedVertexIndicesPtr->getAccessor();
-								openvdb::Int32Grid::Accessor numTris = NumTrisUsingVertexGridPtr->getAccessor();
 								FCriticalSection &triCriticalSection = TriCriticalSections[idx];
 
 								//Calculate the gradient of this point
 								openvdb::Vec3f iGradient(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(DataAcc, p[0]));
 								openvdb::Vec3f grad = DataGridPtr->transform().baseMap()->applyIJT(iGradient, p[0].asVec3d());
+								check(grad.normalize()); //normalize returns false if the normal is length 0
 
 								//Find the vertices where the surface intersects the cube, always using the lower coord first
 								IndexType vertlist[12];
 								if (MC_EdgeTable[insideBits] & 1)
 								{
-									vertlist[0] = VertexInterp(vec[0], vec[1], data[0], data[1], p[0], p[1], SurfaceValue, grad, VtxCriticalSection, vertices, indices, numTris, normals, colors, tangents);
+									vertlist[0] = VertexInterp(vec[0], vec[1], data[0], data[1], p[0], p[1], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, indices, normals, colors, tangents);
 								}
 								if (MC_EdgeTable[insideBits] & 2)
 								{
-									vertlist[1] = VertexInterp(vec[1], vec[2], data[1], data[2], p[1], p[2], SurfaceValue, grad, VtxCriticalSection, vertices, indices, numTris, normals);
+									vertlist[1] = VertexInterp(vec[1], vec[2], data[1], data[2], p[1], p[2], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, indices, normals, colors, tangents);
 								}
 								if (MC_EdgeTable[insideBits] & 4)
 								{
-									vertlist[2] = VertexInterp(vec[2], vec[3], data[2], data[3], p[2], p[3], SurfaceValue, grad, VtxCriticalSection, vertices, indices, numTris, normals);
+									vertlist[2] = VertexInterp(vec[2], vec[3], data[2], data[3], p[2], p[3], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, indices, normals, colors, tangents);
 								}
 								if (MC_EdgeTable[insideBits] & 8)
 								{
-									vertlist[3] = VertexInterp(vec[0], vec[3], data[0], data[3], p[0], p[3], SurfaceValue, grad, VtxCriticalSection, vertices, indices, numTris, normals);
+									vertlist[3] = VertexInterp(vec[0], vec[3], data[0], data[3], p[0], p[3], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, indices, normals, colors, tangents);
 								}
 								if (MC_EdgeTable[insideBits] & 16)
 								{
-									vertlist[4] = VertexInterp(vec[4], vec[5], data[4], data[5], p[4], p[5], SurfaceValue, grad, VtxCriticalSection, vertices, indices, numTris, normals);
+									vertlist[4] = VertexInterp(vec[4], vec[5], data[4], data[5], p[4], p[5], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, indices, normals, colors, tangents);
 								}
 								if (MC_EdgeTable[insideBits] & 32)
 								{
-									vertlist[5] = VertexInterp(vec[5], vec[6], data[5], data[6], p[5], p[6], SurfaceValue, grad, VtxCriticalSection, vertices, indices, numTris, normals);
+									vertlist[5] = VertexInterp(vec[5], vec[6], data[5], data[6], p[5], p[6], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, indices, normals, colors, tangents);
 								}
 								if (MC_EdgeTable[insideBits] & 64)
 								{
-									vertlist[6] = VertexInterp(vec[6], vec[7], data[6], data[7], p[6], p[7], SurfaceValue, grad, VtxCriticalSection, vertices, indices, numTris, normals);
+									vertlist[6] = VertexInterp(vec[6], vec[7], data[6], data[7], p[6], p[7], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, indices, normals, colors, tangents);
 								}
 								if (MC_EdgeTable[insideBits] & 128)
 								{
-									vertlist[7] = VertexInterp(vec[4], vec[7], data[4], data[7], p[4], p[7], SurfaceValue, grad, VtxCriticalSection, vertices, indices, numTris, normals);
+									vertlist[7] = VertexInterp(vec[4], vec[7], data[4], data[7], p[4], p[7], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, indices, normals, colors, tangents);
 								}
 								if (MC_EdgeTable[insideBits] & 256)
 								{
-									vertlist[8] = VertexInterp(vec[0], vec[4], data[0], data[4], p[0], p[4], SurfaceValue, grad, VtxCriticalSection, vertices, indices, numTris, normals);
+									vertlist[8] = VertexInterp(vec[0], vec[4], data[0], data[4], p[0], p[4], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, indices, normals, colors, tangents);
 								}
 								if (MC_EdgeTable[insideBits] & 512)
 								{
-									vertlist[9] = VertexInterp(vec[1], vec[5], data[1], data[5], p[1], p[5], SurfaceValue, grad, VtxCriticalSection, vertices, indices, numTris, normals);
+									vertlist[9] = VertexInterp(vec[1], vec[5], data[1], data[5], p[1], p[5], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, indices, normals, colors, tangents);
 								}
 								if (MC_EdgeTable[insideBits] & 1024)
 								{
-									vertlist[10] = VertexInterp(vec[2], vec[6], data[2], data[6], p[2], p[6], SurfaceValue, grad, VtxCriticalSection, vertices, indices, numTris, normals);
+									vertlist[10] = VertexInterp(vec[2], vec[6], data[2], data[6], p[2], p[6], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, indices, normals, colors, tangents);
 								}
 								if (MC_EdgeTable[insideBits] & 2048)
 								{
-									vertlist[11] = VertexInterp(vec[3], vec[7], data[3], data[7], p[3], p[7], SurfaceValue, grad, VtxCriticalSection, vertices, indices, numTris, normals);
+									vertlist[11] = VertexInterp(vec[3], vec[7], data[3], data[7], p[3], p[7], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, indices, normals, colors, tangents);
 								}
 
 								// Create the triangle
@@ -591,33 +590,41 @@ namespace Vdb
 									{
 										check(MC_TriTable[insideBits][i + 1] > -1 && MC_TriTable[insideBits][i + 1] < 12);
 										check(MC_TriTable[insideBits][i + 2] > -1 && MC_TriTable[insideBits][i + 2] < 12);
-										const IndexType polyVtxs[3] = {
+										const IndexType polyIdxs[3] = {
 											vertlist[MC_TriTable[insideBits][i]],
 											vertlist[MC_TriTable[insideBits][i + 1]],
 											vertlist[MC_TriTable[insideBits][i + 2]]
 										};
 										{
 											FScopeLock lock(&triCriticalSection);
-											polygons.Add(polyVtxs[0]);
-											polygons.Add(polyVtxs[1]);
-											polygons.Add(polyVtxs[2]);
+											polygons.Add(polyIdxs[0]);
+											polygons.Add(polyIdxs[1]);
+											polygons.Add(polyIdxs[2]);
+											check(polyIdxs[0] != polyIdxs[1] && polyIdxs[0] != polyIdxs[2] && polyIdxs[1] != polyIdxs[2]);
 										}
 
-										for (int32 j = 0; j < 3; ++j)
+										//Store the normal as the sum of all cross products of polygons that share this vertex.
+										//Later the normalized average will be taken as the final normal.
+										const FVector polyVtxs[3] = {
+											vertices[polyIdxs[0]],
+											vertices[polyIdxs[1]],
+											vertices[polyIdxs[2]]
+										};
+										const FVector crossProducts[3] = {
+											FVector::CrossProduct(polyVtxs[2] - polyVtxs[1], polyVtxs[3] - polyVtxs[1]),
+											FVector::CrossProduct(polyVtxs[2] - polyVtxs[1], polyVtxs[3] - polyVtxs[1]),
+											FVector::CrossProduct(polyVtxs[2] - polyVtxs[1], polyVtxs[3] - polyVtxs[1])
+										};
+										const int32 currentNumTris[3] = {
+											NumTris[polyIdxs[0]] == 0 ? 1 : NumTris[polyIdxs[0]],
+											NumTris[polyIdxs[1]] == 0 ? 1 : NumTris[polyIdxs[1]],
+											NumTris[polyIdxs[2]] == 0 ? 1 : NumTris[polyIdxs[2]]
+										};
 										{
-											//Store the normal as the sum of all cross products of polygons that share this vertex.
-											//Later the normalized average will be taken as the final normal.
-											const FVector pv[3] = {
-												vertices[polyVtxs[0]],
-												vertices[polyVtxs[1]],
-												vertices[polyVtxs[2]]
-											};
-											const FVector norm = FVector::CrossProduct(pv[2] - pv[1], pv[3] - pv[1]);
-											const FVector crossSum = normals[outVertex] + (norm);
-											{
-												FScopeLock lock(&VtxCriticalSection);
-												normals[pv[0]];
-											}
+											FScopeLock lock(&VtxCriticalSection);
+											normals[polyIdxs[0]] = ((normals[polyIdxs[0]] * currentNumTris[0]) + crossProducts[0]) / (++NumTris[polyIdxs[0]]);
+											normals[polyIdxs[1]] = ((normals[polyIdxs[1]] * currentNumTris[1]) + crossProducts[1]) / (++NumTris[polyIdxs[1]]);
+											normals[polyIdxs[2]] = ((normals[polyIdxs[2]] * currentNumTris[2]) + crossProducts[2]) / (++NumTris[polyIdxs[2]]);
 										}
 									}
 								}
@@ -627,7 +634,7 @@ namespace Vdb
 				}
 			}
 
-			static IndexType VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, const openvdb::Coord &c1, const openvdb::Coord &c2, const DataType &surfaceValue, const openvdb::Vec3f &gradient, FCriticalSection &criticalSection, VertexBufferType &vertices, openvdb::Grid<IndexTreeType>::Accessor &indices, openvdb::Int32Grid::Accessor &numTris, NormalBufferType &normals, VertexColorBufferType &colors, TangentBufferType &tangents)
+			static IndexType VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, const openvdb::Coord &c1, const openvdb::Coord &c2, const DataType &surfaceValue, const openvdb::Vec3f &gradient, FCriticalSection &criticalSection, TArray<int32> &numTris, VertexBufferType &vertices, openvdb::Grid<IndexTreeType>::Accessor &indices, NormalBufferType &normals, VertexColorBufferType &colors, TangentBufferType &tangents)
 			{
 				FScopeLock lock(&criticalSection);
 				IndexType outVertex = -1;
@@ -643,6 +650,7 @@ namespace Vdb
 						normals.Add(FVector());
 						colors.Add(FColor()); //TODO
 						tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
+						numTris.Add(0);
 						indices.setValueOn(c1, outVertex);
 					}
 				}
@@ -658,6 +666,7 @@ namespace Vdb
 						normals.Add(FVector());
 						colors.Add(FColor()); //TODO
 						tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
+						numTris.Add(0);
 						indices.setValueOn(c2, outVertex);
 					}
 				}
@@ -675,6 +684,7 @@ namespace Vdb
 						normals.Add(FVector());
 						colors.Add(FColor()); //TODO
 						tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
+						numTris.Add(0);
 						indices.setValueOn(c1, outVertex);
 						//indices.setValueOn(c2, outVertex);
 					}
@@ -685,7 +695,7 @@ namespace Vdb
 			
 			const GridTypePtr GridPtr;
 			openvdb::Grid<IndexTreeType>::Ptr VisitedVertexIndicesPtr;
-			openvdb::Int32Grid::Ptr NumTrisUsingVertexGridPtr;
+			TArray<int32> NumTris;
 
 		protected:
 			FCriticalSection VtxCriticalSection;
@@ -695,69 +705,6 @@ namespace Vdb
 			const DataGridTypePtr DataGridPtr;
 			DataAccessorType DataAcc;
 			FGridMeshBuffers &MeshBuffers;
-		};
-
-		//Operator to fill a normals buffer from the mean curvature
-		template <typename TreeType, typename IterType, typename DataTreeType>
-		class FillNormalsBufferOp
-		{
-		public:
-			typedef typename openvdb::Grid<TreeType> GridType;
-			typedef typename GridType::Ptr GridTypePtr;
-			typedef typename GridType::Accessor AccessorType;
-			typedef typename GridType::ValueType ValueType;
-			typedef typename IterType SourceIterType;
-			typedef typename openvdb::Grid<DataTreeType> DataGridType;
-			typedef typename DataGridType::Ptr DataGridTypePtr;
-			typedef typename DataGridType::Accessor DataAccessorType;
-			typedef typename DataGridType::ValueType DataValueType;
-
-			MarchingCubesMeshOp(const GridTypePtr gridPtr, const DataGridTypePtr dataGridPtr, NormalBufferType &normals)
-				: GridPtr(gridPtr), DataGridPtr(dataGridPtr), Normals(normals)
-			{
-			}
-
-			//void CalcMeanCurvature()
-			//{
-			//	//TODO: Manually calculate the mean curvature in the operator() similar to MarchingCubesMeshOp where the gradient is calculated there
-			//	//For now, depend on calling this function prior to running the op
-			//	DataGridPtr = openvdb::tools::meanCurvature<GridType>(*GridPtr, true);
-			//	DataAcc = DataGridPtr->getAccessor();
-			//}
-
-			//FORCEINLINE void operator()(const IterType& iter)
-			void operator()(const IterType& iter)
-			{
-				openvdb::CoordBBox bbox;
-				if (iter.getBoundingBox(bbox))
-				{
-					GridType::ConstAccessor acc = GridPtr->getConstAccessor();
-					GridType::ConstAccessor dataAcc = DataGridPtr->getConstAccessor();
-					openvdb::Coord coord;
-					for (int32 x = bbox.min().x(); x <= bbox.max().x(); ++x)
-					{
-						coord.setX(x);
-						for (int32 y = bbox.min().y(); y <= bbox.max().y(); ++y)
-						{
-							coord.setY(y);
-							for (int32 z = bbox.min().z(); z <= bbox.max().z(); ++z)
-							{
-								coord.setZ(z);
-								ValueType vertexIndex = acc.getValue(coord);
-								DataValueType normalVec = dataAcc.getValue(coord);
-								Normals[vertexIndex] = FVector(normalVec.x(), normalVec.y(), ;
-							}
-						}
-					}
-				}
-			}
-
-			const GridTypePtr GridPtr;
-			const DataGridTypePtr DataGridPtr;
-
-		protected:
-			FCriticalSection NrmCriticalSections[FVoxelData::VOXEL_TYPE_COUNT];
-			NormalBufferType &Normals;
 		};
 
 		//Operator to mesh a cube at each active voxel from a previously extracted isosurface
@@ -807,8 +754,8 @@ namespace Vdb
 				NormalBufferType &normals = MeshBuffers.NormalBuffer;
 				VertexColorBufferType &colors = MeshBuffers.VertexColorBuffer;
 				TangentBufferType &tangents = MeshBuffers.TangentBuffer;
-				PolygonBufferType &polygons = MeshBuffers[idx].PolygonBuffer;
-				UVMapBufferType &uvs = MeshBuffers[idx].UVMapBuffer;
+				PolygonBufferType &polygons = MeshBuffers.PolygonBuffer[idx];
+				UVMapBufferType &uvs = MeshBuffers.UVMapBuffer[idx];
 				{
 					FScopeLock lock(&CriticalSection);
 					//Add polygons each with unique vertices (vertex indices added clockwise order on each quad face)
@@ -991,7 +938,7 @@ namespace Vdb
 			public MarchingCubesMeshOp<BitTreeType, typename BitTreeType::ValueOnCIter, SourceTreeType>
 		{
 		public:
-			MarchingCubesMesher(const DataGridTypePtr dataGridPtr, TArray<FGridMeshBuffers> &meshBuffers)
+			MarchingCubesMesher(const DataGridTypePtr dataGridPtr, FGridMeshBuffers &meshBuffers)
 				: isChanged(true), MarchingCubesMeshOp(GridType::create(0), dataGridPtr, meshBuffers)
 			{
 			}
@@ -1010,6 +957,12 @@ namespace Vdb
 					openvdb::tools::valxform::SharedOpApplier<SourceIterType, MarchingCubesMesher<SourceTreeType>> proc(GridPtr->cbeginValueOn(), *this);
 					UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre mesh op) %d active voxels"), UTF8_TO_TCHAR(GridPtr->getName().c_str()), GridPtr->activeVoxelCount()));
 					proc.process(threaded);
+
+					//Normalize the cross product averages
+					for (auto i = MeshBuffers.NormalBuffer.CreateIterator(); i; ++i)
+					{
+						i->Normalize();
+					}
 				}
 				UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post mesh op) %d active voxels"), UTF8_TO_TCHAR(GridPtr->getName().c_str()), GridPtr->activeVoxelCount()));
 				isChanged = false;
