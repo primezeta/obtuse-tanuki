@@ -595,12 +595,16 @@ namespace Vdb
 											vertlist[MC_TriTable[insideBits][i + 1]],
 											vertlist[MC_TriTable[insideBits][i + 2]]
 										};
+										if (polyIdxs[0] == polyIdxs[1] || polyIdxs[0] == polyIdxs[2] || polyIdxs[1] == polyIdxs[2])
+										{
+											continue;
+										}
+
 										{
 											FScopeLock lock(&triCriticalSection);
 											polygons.Add(polyIdxs[0]);
 											polygons.Add(polyIdxs[1]);
 											polygons.Add(polyIdxs[2]);
-											check(polyIdxs[0] != polyIdxs[1] && polyIdxs[0] != polyIdxs[2] && polyIdxs[1] != polyIdxs[2]);
 										}
 
 										//Store the normal as the sum of all cross products of polygons that share this vertex.
