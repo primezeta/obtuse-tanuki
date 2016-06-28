@@ -129,10 +129,10 @@ void AProceduralTerrain::BeginPlay()
 	//If there's a character position the terrain under the character
 	UWorld * World = GetWorld();
 	ACharacter* Character = UGameplayStatics::GetPlayerCharacter(World, 0);
-	FVector TerrainLocation;
+	FVector TerrainLocation = -TerrainMeshComponents[StartRegion]->StartLocation;
 	if (Character)
 	{
-		TerrainLocation = Character->GetActorLocation() - TerrainMeshComponents[StartRegion]->StartLocation;
+		TerrainLocation += Character->GetActorLocation();
 	}
 	SetActorRelativeLocation(TerrainLocation);
 }
