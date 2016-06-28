@@ -110,6 +110,7 @@ namespace Vdb
 				openvdb::CoordBBox bbox;
 				if (iter.getBoundingBox(bbox))
 				{
+					check(bbox.volume() > 0);
 					SourceGridType::ConstAccessor srcAcc = SrcGridPtr->getConstAccessor();
 					openvdb::Coord coord;
 					for (int32 x = bbox.min().x(); x <= bbox.max().x(); ++x)
@@ -179,10 +180,13 @@ namespace Vdb
 			//FORCEINLINE void operator()(const IterType& iter)
 			void operator()(const IterType& iter)
 			{
-				auto acc = GridPtr->getAccessor();
+				check(iter.isVoxelValue() && !iter.isTileValue());
 				openvdb::CoordBBox bbox;
-				if (iter.getBoundingBox(bbox))
+				const bool hasVoxelVolume = iter.getBoundingBox(bbox) && bbox.hasVolume() && bbox.volume() == 1;
+				check(hasVoxelVolume);
+				if (hasVoxelVolume)
 				{
+					auto acc = GridPtr->getAccessor();
 					openvdb::Coord coord;
 					for (int32 x = bbox.min().x(); x <= bbox.max().x(); ++x)
 					{
@@ -272,10 +276,13 @@ namespace Vdb
 			//FORCEINLINE void operator()(const SourceIterType& iter, DestAccessorType& destAcc)
 			void operator()(const SourceIterType& iter, DestAccessorType& destAcc)
 			{
-				auto srcAcc = SourceGridPtr->getAccessor();
+				check(iter.isVoxelValue() && !iter.isTileValue());
 				openvdb::CoordBBox bbox;
-				if (iter.getBoundingBox(bbox))
+				const bool hasVoxelVolume = iter.getBoundingBox(bbox) && bbox.hasVolume() && bbox.volume() == 1;
+				check(hasVoxelVolume);
+				if (hasVoxelVolume)
 				{
+					auto srcAcc = SourceGridPtr->getAccessor();
 					openvdb::Coord coord;
 					for (int32 x = bbox.min().x(); x <= bbox.max().x(); ++x)
 					{
@@ -365,9 +372,11 @@ namespace Vdb
 
 			FORCEINLINE void operator()(const IterType& iter)
 			{
-				auto acc = GridPtr->getAccessor();
+				check(iter.isVoxelValue() && !iter.isTileValue());
 				openvdb::CoordBBox bbox;
-				if (iter.getBoundingBox(bbox))
+				const bool hasVoxelVolume = iter.getBoundingBox(bbox) && bbox.hasVolume() && bbox.volume() == 1;
+				check(hasVoxelVolume);
+				if (hasVoxelVolume)
 				{
 					GridType::Accessor acc = GridPtr->getAccessor();
 					openvdb::Coord coord;
@@ -450,8 +459,11 @@ namespace Vdb
 			//FORCEINLINE void operator()(const IterType& iter)
 			void operator()(const IterType& iter)
 			{
+				check(iter.isVoxelValue() && !iter.isTileValue());
 				openvdb::CoordBBox bbox;
-				if (iter.getBoundingBox(bbox))
+				const bool hasVoxelVolume = iter.getBoundingBox(bbox) && bbox.volume() == 1;
+				check(hasVoxelVolume);
+				if (hasVoxelVolume)
 				{
 					GridType::Accessor acc = GridPtr->getAccessor();
 					openvdb::Coord coord;
@@ -525,7 +537,7 @@ namespace Vdb
 								PolygonBufferType &polygons = MeshBuffers.PolygonBuffer[idx];
 								UVMapBufferType &uvs = MeshBuffers.UVMapBuffer[idx];
 								openvdb::Grid<IndexTreeType>::Accessor indices = VisitedVertexIndicesPtr->getAccessor();
-								//FCriticalSection &triCriticalSection = TriCriticalSections[idx];
+								FCriticalSection &triCriticalSection = TriCriticalSections[idx];
 
 								//Calculate the gradient of this point
 								openvdb::Vec3f iGradient(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(DataAcc, p[0]));
@@ -587,38 +599,39 @@ namespace Vdb
 								for (int32 i = 0; MC_TriTable[insideBits][i] != -1; i += 3)
 								{
 									check(i > -1 && i < 16);
+									check(MC_TriTable[insideBits][i + 1] > -1 && MC_TriTable[insideBits][i + 1] < 12);
+									check(MC_TriTable[insideBits][i + 2] > -1 && MC_TriTable[insideBits][i + 2] < 12);
+									const IndexType polyIdxs[3] = {
+										vertlist[MC_TriTable[insideBits][i]],
+										vertlist[MC_TriTable[insideBits][i + 1]],
+										vertlist[MC_TriTable[insideBits][i + 2]]
+									};
+									if (polyIdxs[0] == polyIdxs[1] || polyIdxs[0] == polyIdxs[2] || polyIdxs[1] == polyIdxs[2])
 									{
-										check(MC_TriTable[insideBits][i + 1] > -1 && MC_TriTable[insideBits][i + 1] < 12);
-										check(MC_TriTable[insideBits][i + 2] > -1 && MC_TriTable[insideBits][i + 2] < 12);
-										const IndexType polyIdxs[3] = {
-											vertlist[MC_TriTable[insideBits][i]],
-											vertlist[MC_TriTable[insideBits][i + 1]],
-											vertlist[MC_TriTable[insideBits][i + 2]]
-										};
-										if (polyIdxs[0] == polyIdxs[1] || polyIdxs[0] == polyIdxs[2] || polyIdxs[1] == polyIdxs[2])
-										{
-											continue;
-										}
-										const FVector polyVtxs[3] = {
-											vertices[polyIdxs[0]],
-											vertices[polyIdxs[1]],
-											vertices[polyIdxs[2]]
-										};
-										const FVector crossProducts[3] = {
-											FVector::CrossProduct(polyVtxs[2] - polyVtxs[1], polyVtxs[3] - polyVtxs[1]),
-											FVector::CrossProduct(polyVtxs[2] - polyVtxs[1], polyVtxs[3] - polyVtxs[1]),
-											FVector::CrossProduct(polyVtxs[2] - polyVtxs[1], polyVtxs[3] - polyVtxs[1])
-										};
-										{
-											FScopeLock lock(&VtxCriticalSection);
-											//FScopeLock lock(&triCriticalSection);
-											polygons.Add(polyIdxs[0]);
-											polygons.Add(polyIdxs[1]);
-											polygons.Add(polyIdxs[2]);
-											normals[polyIdxs[0]] = ((normals[polyIdxs[0]] * NumTris[0]) + crossProducts[0]) / (++NumTris[polyIdxs[0]]);
-											normals[polyIdxs[1]] = ((normals[polyIdxs[1]] * NumTris[1]) + crossProducts[1]) / (++NumTris[polyIdxs[1]]);
-											normals[polyIdxs[2]] = ((normals[polyIdxs[2]] * NumTris[2]) + crossProducts[2]) / (++NumTris[polyIdxs[2]]);
-										}
+										continue;
+									}
+
+									{
+										FScopeLock lock(&VtxCriticalSection);
+										const FVector crossProd = FVector::CrossProduct(vertices[polyIdxs[1]] - vertices[polyIdxs[0]], vertices[polyIdxs[2]] - vertices[polyIdxs[0]]);
+										normals[polyIdxs[0]] += crossProd;
+										normals[polyIdxs[1]] += crossProd;
+										normals[polyIdxs[2]] += crossProd;
+										++NumTris[polyIdxs[0]];
+										++NumTris[polyIdxs[1]];
+										++NumTris[polyIdxs[2]];
+										//normals[polyIdxs[0]+1] = normals[polyIdxs[0]];
+										//normals[polyIdxs[1]+1] = normals[polyIdxs[1]];
+										//normals[polyIdxs[2]+1] = normals[polyIdxs[2]];
+									}
+									{
+										FScopeLock lock(&triCriticalSection);
+										polygons.Add(polyIdxs[0]);
+										polygons.Add(polyIdxs[1]);
+										polygons.Add(polyIdxs[2]);
+										polygons.Add(polyIdxs[2]);
+										polygons.Add(polyIdxs[1]);
+										polygons.Add(polyIdxs[0]);
 									}
 								}
 							}
@@ -629,10 +642,10 @@ namespace Vdb
 
 			static IndexType VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, const openvdb::Coord &c1, const openvdb::Coord &c2, const DataType &surfaceValue, const openvdb::Vec3f &gradient, FCriticalSection &criticalSection, TArray<int32> &numTris, VertexBufferType &vertices, openvdb::Grid<IndexTreeType>::Accessor &indices, NormalBufferType &normals, VertexColorBufferType &colors, TangentBufferType &tangents)
 			{
-				FScopeLock lock(&criticalSection);
 				IndexType outVertex = -1;
 				if (openvdb::math::isApproxEqual(valp1, surfaceValue) || openvdb::math::isApproxEqual(valp1, valp2))
 				{
+					FScopeLock lock(&criticalSection);
 					if (indices.isValueOn(c1))
 					{
 						outVertex = indices.getValue(c1);
@@ -640,15 +653,21 @@ namespace Vdb
 					else
 					{
 						outVertex = vertices.Add(FVector(vec1.x(), vec1.y(), vec1.z()));
+						//vertices.Add(FVector(vec1.x(), vec1.y(), vec1.z()));
 						normals.Add(FVector(0,0,0));
+						//normals.Add(FVector(0, 0, 0));
 						colors.Add(FColor()); //TODO
+						//colors.Add(FColor()); //TODO
 						tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
+						//tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
 						numTris.Add(0);
+						//numTris.Add(0);
 						indices.setValueOn(c1, outVertex);
 					}
 				}
 				else if (openvdb::math::isApproxEqual(valp2, surfaceValue))
 				{
+					FScopeLock lock(&criticalSection);
 					if (indices.isValueOn(c2))
 					{
 						outVertex = indices.getValue(c2);
@@ -656,15 +675,21 @@ namespace Vdb
 					else
 					{
 						outVertex = vertices.Add(FVector(vec2.x(), vec2.y(), vec2.z()));
-						normals.Add(FVector(0,0,0));
+						//vertices.Add(FVector(vec2.x(), vec2.y(), vec2.z()));
+						normals.Add(FVector(0, 0, 0));
+						//normals.Add(FVector(0,0,0));
 						colors.Add(FColor()); //TODO
+						//colors.Add(FColor()); //TODO
 						tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
+						//tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
 						numTris.Add(0);
+						//numTris.Add(0);
 						indices.setValueOn(c2, outVertex);
 					}
 				}
 				else
 				{
+					FScopeLock lock(&criticalSection);
 					if (indices.isValueOn(c1))
 					{
 						outVertex = indices.getValue(c1);
@@ -673,13 +698,20 @@ namespace Vdb
 					{
 						float mu = (surfaceValue - valp1) / (valp2 - valp1);
 						openvdb::Vec3d vtx = vec1 + (mu*(vec2 - vec1));
-						outVertex = vertices.Add(FVector(vtx.x(), vtx.y(), vtx.z()));
-						normals.Add(FVector(0,0,0));
-						colors.Add(FColor()); //TODO
-						tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
-						numTris.Add(0);
-						indices.setValueOn(c1, outVertex);
-						//indices.setValueOn(c2, outVertex);
+						{
+							outVertex = vertices.Add(FVector(vtx.x(), vtx.y(), vtx.z()));
+							//vertices.Add(FVector(vtx.x(), vtx.y(), vtx.z()));
+							normals.Add(FVector(0, 0, 0));
+							//normals.Add(FVector(0, 0, 0));
+							colors.Add(FColor()); //TODO
+							//colors.Add(FColor()); //TODO
+							tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
+							//tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
+							numTris.Add(0);
+							//numTris.Add(0);
+							indices.setValueOn(c1, outVertex);
+							//indices.setValueOn(c2, outVertex);
+						}
 					}
 				}
 				check(outVertex > -1);
@@ -692,7 +724,7 @@ namespace Vdb
 
 		protected:
 			FCriticalSection VtxCriticalSection;
-			//FCriticalSection TriCriticalSections[FVoxelData::VOXEL_TYPE_COUNT];
+			FCriticalSection TriCriticalSections[FVoxelData::VOXEL_TYPE_COUNT];
 			const openvdb::math::Transform Xform;
 			const DataType &SurfaceValue;
 			const DataGridTypePtr DataGridPtr;
@@ -721,24 +753,27 @@ namespace Vdb
 				GridPtr->setTransform(SourceGridPtr->transformPtr());
 			}
 
-			FORCEINLINE void operator()(const SourceIterType& iter)
+			//FORCEINLINE void operator()(const SourceIterType& iter)
+			void operator()(const SourceIterType& iter)
 			{
-				if (iter.isTileValue())
-				{
-					return;
-				}
+				check(iter.isVoxelValue() && !iter.isTileValue());
+				openvdb::CoordBBox bbox;
+				const bool hasVoxelVolume = iter.getBoundingBox(bbox) && bbox.hasVolume() && bbox.volume() == 1;
+				check(hasVoxelVolume);
 
 				//Mesh the voxel as a simple cube with 6 equal sized quads
-				const openvdb::BBoxd bbox = GridPtr->transform().indexToWorld(openvdb::CoordBBox::createCube(iter.getCoord(), 2));
+				//const openvdb::BBoxd worldBBox = GridPtr->transform().indexToWorld(openvdb::CoordBBox::createCube(iter.getCoord(), 2));
+				bbox.expand(bbox.min(), 2);
+				const openvdb::BBoxd worldBBox = GridPtr->transform().indexToWorld(bbox);
 				const openvdb::Vec3d vtxs[8] = {
-					bbox.min(),
-					openvdb::Vec3d(bbox.max().x(), bbox.min().y(), bbox.min().z()),
-					openvdb::Vec3d(bbox.min().x(), bbox.min().y(), bbox.max().z()),
-					openvdb::Vec3d(bbox.max().x(), bbox.min().y(), bbox.max().z()),
-					openvdb::Vec3d(bbox.min().x(), bbox.max().y(), bbox.min().z()),
-					openvdb::Vec3d(bbox.min().x(), bbox.max().y(), bbox.max().z()),
-					openvdb::Vec3d(bbox.max().x(), bbox.max().y(), bbox.min().z()),
-					bbox.max()
+					worldBBox.min(),
+					openvdb::Vec3d(worldBBox.max().x(), worldBBox.min().y(), worldBBox.min().z()),
+					openvdb::Vec3d(worldBBox.min().x(), worldBBox.min().y(), worldBBox.max().z()),
+					openvdb::Vec3d(worldBBox.max().x(), worldBBox.min().y(), worldBBox.max().z()),
+					openvdb::Vec3d(worldBBox.min().x(), worldBBox.max().y(), worldBBox.min().z()),
+					openvdb::Vec3d(worldBBox.min().x(), worldBBox.max().y(), worldBBox.max().z()),
+					openvdb::Vec3d(worldBBox.max().x(), worldBBox.max().y(), worldBBox.min().z()),
+					worldBBox.max()
 				};
 
 				const auto value = iter.getValue();
@@ -758,9 +793,15 @@ namespace Vdb
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.25f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.25f));
+					colors.Add(FColor());
+					colors.Add(FColor());
+					colors.Add(FColor());
 
 					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));//Front face
 					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));
@@ -768,9 +809,15 @@ namespace Vdb
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
 					normals.Add(FVector(0.0f, -1.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.25f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
+					colors.Add(FColor());
+					colors.Add(FColor());
+					colors.Add(FColor());
 
 					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));//Right face
 					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));
@@ -778,9 +825,15 @@ namespace Vdb
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
 					uvs.Add(FVector2D(1.0f, 0.5f));
 					uvs.Add(FVector2D(1.0f, 0.75f));
+					colors.Add(FColor());
+					colors.Add(FColor());
+					colors.Add(FColor());
 
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Right face
 					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));
@@ -788,9 +841,15 @@ namespace Vdb
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(1.0f, 0.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
 					uvs.Add(FVector2D(1.0f, 0.75f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.75f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
+					colors.Add(FColor());
+					colors.Add(FColor());
+					colors.Add(FColor());
 
 					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));//Back face
 					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));
@@ -798,9 +857,15 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.75f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.75f));
 					uvs.Add(FVector2D(2.0f/3.0f, 1.0f));
+					colors.Add(FColor());
+					colors.Add(FColor());
+					colors.Add(FColor());
 
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Back face
 					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));
@@ -808,9 +873,15 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
 					normals.Add(FVector(0.0f, 1.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
 					uvs.Add(FVector2D(2.0f/3.0f, 1.0f));
 					uvs.Add(FVector2D(1.0f/3.0f, 1.0f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.75f));
+					colors.Add(FColor());
+					colors.Add(FColor());
+					colors.Add(FColor());
 
 					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));//Left face
 					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));
@@ -818,9 +889,15 @@ namespace Vdb
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.75f));
 					uvs.Add(FVector2D(0.0f, 0.75f));
+					colors.Add(FColor());
+					colors.Add(FColor());
+					colors.Add(FColor());
 
 					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));//Left face
 					polygons.Add(vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())));
@@ -828,9 +905,15 @@ namespace Vdb
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
 					normals.Add(FVector(-1.0f, 0.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(0.0f, 0.0f, 1.0f));
 					uvs.Add(FVector2D(0.0f, 0.75f));
 					uvs.Add(FVector2D(0.0f, 0.5f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
+					colors.Add(FColor());
+					colors.Add(FColor());
+					colors.Add(FColor());
 
 					polygons.Add(vertices.Add(FVector(vtxs[2].x(), vtxs[2].y(), vtxs[2].z())));//Top face
 					polygons.Add(vertices.Add(FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z())));
@@ -838,9 +921,15 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(1.0f, 0.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(1.0f, 0.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(1.0f, 0.0f, 0.0f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.25f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.0f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.0f));
+					colors.Add(FColor());
+					colors.Add(FColor());
+					colors.Add(FColor());
 
 					polygons.Add(vertices.Add(FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z())));//Top face
 					polygons.Add(vertices.Add(FVector(vtxs[3].x(), vtxs[3].y(), vtxs[3].z())));
@@ -848,9 +937,15 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
 					normals.Add(FVector(0.0f, 0.0f, 1.0f));
+					tangents.Add(FProcMeshTangent(1.0f, 0.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(1.0f, 0.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(1.0f, 0.0f, 0.0f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.0f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.25f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.25f));
+					colors.Add(FColor());
+					colors.Add(FColor());
+					colors.Add(FColor());
 
 					polygons.Add(vertices.Add(FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z())));//Bottom face
 					polygons.Add(vertices.Add(FVector(vtxs[1].x(), vtxs[1].y(), vtxs[1].z())));
@@ -858,9 +953,15 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
+					tangents.Add(FProcMeshTangent(1.0f, 0.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(1.0f, 0.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(1.0f, 0.0f, 0.0f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.5f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.75f));
+					colors.Add(FColor());
+					colors.Add(FColor());
+					colors.Add(FColor());
 
 					polygons.Add(vertices.Add(FVector(vtxs[6].x(), vtxs[6].y(), vtxs[6].z())));//Bottom face
 					polygons.Add(vertices.Add(FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z())));
@@ -868,13 +969,15 @@ namespace Vdb
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
 					normals.Add(FVector(0.0f, 0.0f, -1.0f));
+					tangents.Add(FProcMeshTangent(1.0f, 0.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(1.0f, 0.0f, 0.0f));
+					tangents.Add(FProcMeshTangent(1.0f, 0.0f, 0.0f));
 					uvs.Add(FVector2D(2.0f/3.0f, 0.75f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.75f));
 					uvs.Add(FVector2D(1.0f/3.0f, 0.5f));
-
-					//Add dummy values for now TODO
 					colors.Add(FColor());
-					tangents.Add(FProcMeshTangent());
+					colors.Add(FColor());
+					colors.Add(FColor());
 				}
 			}
 
@@ -954,9 +1057,10 @@ namespace Vdb
 					//Normalize the cross product averages
 					for (auto i = MeshBuffers.NormalBuffer.CreateIterator(); i; ++i)
 					{
-						if (*i != FVector())
+						FVector n = *i / NumTris[i.GetIndex()];
+						if (n.Normalize())
 						{
-							i->Normalize();
+							*i = n;
 						}
 					}
 				}
