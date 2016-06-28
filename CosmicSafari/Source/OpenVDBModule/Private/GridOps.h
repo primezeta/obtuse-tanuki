@@ -545,51 +545,32 @@ namespace Vdb
 						vertlist[MC_TriTable[insideBits][i + 1]],
 						vertlist[MC_TriTable[insideBits][i + 2]]
 					};
-					if (polyIdxs[0] == polyIdxs[1] || polyIdxs[0] == polyIdxs[2] || polyIdxs[1] == polyIdxs[2])
-					{
-						continue;
-					}
 
-					FVector edge01(FVector::ZeroVector);
-					FVector edge02(FVector::ZeroVector);
-					FVector edge12(FVector::ZeroVector);
-					FVector currentNormal(FVector::ZeroVector);
-					FVector crossProd(FVector::ZeroVector);
+					if (polyIdxs[0] != polyIdxs[1] && polyIdxs[0] != polyIdxs[2] && polyIdxs[1] != polyIdxs[2])
 					{
-						FScopeLock lock(&VtxCriticalSection);
-						edge01 = vertices[polyIdxs[1]] - vertices[polyIdxs[0]];
-						edge02 = vertices[polyIdxs[2]] - vertices[polyIdxs[0]];
-						edge12 = vertices[polyIdxs[2]] - vertices[polyIdxs[1]];
-						crossProd = FVector::CrossProduct(edge01, edge02);
-						normals[polyIdxs[0]] += crossProd;
-						normals[polyIdxs[1]] += crossProd;
-						normals[polyIdxs[2]] += crossProd;
-						++NumTris[polyIdxs[0]];
-						++NumTris[polyIdxs[1]];
-						++NumTris[polyIdxs[2]];
-						//normals[polyIdxs[0]+1] = normals[polyIdxs[0]];
-						//normals[polyIdxs[1]+1] = normals[polyIdxs[1]];
-						//normals[polyIdxs[2]+1] = normals[polyIdxs[2]];
-						for (int32 n = 0; n < 3 && !currentNormal.Normalize(); ++n)
+						const FVector edge10 = vertices[polyIdxs[1]] - vertices[polyIdxs[0]];
+						const FVector edge20 = vertices[polyIdxs[2]] - vertices[polyIdxs[0]];
+						const FVector edge21 = vertices[polyIdxs[2]] - vertices[polyIdxs[1]];
+						const FVector surfaceNormal = FVector::CrossProduct(edge10, edge20);
+
 						{
-							currentNormal = normals[polyIdxs[n]] / NumTris[polyIdxs[n]];
+							FScopeLock lock(&VtxCriticalSection);
+							normals[polyIdxs[0]] += surfaceNormal;
+							normals[polyIdxs[1]] += surfaceNormal;
+							normals[polyIdxs[2]] += surfaceNormal;
+							++NumTris[polyIdxs[0]];
+							++NumTris[polyIdxs[1]];
+							++NumTris[polyIdxs[2]];
 						}
-					}
 
-					{
-						FScopeLock lock(&triCriticalSection);
-						check(currentNormal.Normalize());
-						if (FVector::DotProduct(edge12, currentNormal) < 0.0f)
 						{
+							FScopeLock lock(&triCriticalSection);
 							polygons.Add(polyIdxs[0]);
 							polygons.Add(polyIdxs[1]);
 							polygons.Add(polyIdxs[2]);
-						}
-						else
-						{
+							polygons.Add(polyIdxs[0]);
 							polygons.Add(polyIdxs[2]);
 							polygons.Add(polyIdxs[1]);
-							polygons.Add(polyIdxs[0]);
 						}
 					}
 				}
