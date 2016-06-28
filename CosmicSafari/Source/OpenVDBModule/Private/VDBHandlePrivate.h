@@ -117,7 +117,6 @@ public:
 		OpenFileGuard();
 		GridsPtr = FilePtr->readAllGridMetadata(); //Initially just read metadata but not tree data values
 		FileMetaPtr = FilePtr->getMetadata(); //Read file-level metadata
-		MasksPtr = openvdb::GridPtrVecPtr(new openvdb::GridPtrVec());
 		CachedGrid = GridsPtr->end();
 
 		//Start in a clean state
@@ -243,7 +242,6 @@ public:
 	{
 		if (CachedGrid != GridsPtr->end() && gridName == UTF8_TO_TCHAR((*CachedGrid)->getName().c_str()))
 		{
-			//TODO: Remove mask grid
 			GridsPtr->erase(CachedGrid);
 			CachedGrid = GridsPtr->end();
 			return;
@@ -255,7 +253,6 @@ public:
 				CubesMeshOps.Remove(gridName);
 				MarchingCubesMeshOps.Remove(gridName);
 				i->reset();
-				//TODO: Remove mask grid
 				GridsPtr->erase(i);
 				CachedGrid = GridsPtr->end();
 				SetIsFileInSync(false);
@@ -361,48 +358,17 @@ public:
 			gridPtr->insertMeta("persistence", openvdb::FloatMetadata(persistence));
 			gridPtr->insertMeta("octaveCount", openvdb::Int32Metadata(octaveCount));
 
-			//NOTE: This appears to make the iters only step into voxel values, but needs more investigation
-			//    Vdb::GridOps::PerlinNoiseFillOp<GridTreeType>::IterType beginIter = mask->cbeginValueOn();
-			//    beginIter.setMinDepth(Vdb::GridOps::PerlinNoiseFillOp<GridTreeType>::IterType::ROOT_LEVEL);
-			//    Vdb::GridOps::PerlinNoiseFillOp<GridTreeType>::transformValues(beginIter, *gridPtr, noiseFillOp);
+			CubesMeshOps[gridName]->markChanged();
+			MarchingCubesMeshOps[gridName]->markChanged();
 
-			openvdb::BoolGrid::Ptr valuesMaskPtr;
-			for (openvdb::GridPtrVec::const_iterator i = MasksPtr->begin(); i != MasksPtr->end(); ++i)
-			{
-				const std::string name = gridPtr->getName() + ".mask";
-				if (name == (*i)->getName())
-				{
-					valuesMaskPtr = openvdb::gridPtrCast<openvdb::BoolGrid>(*i);
-					break;
-				}
-			}			
-			check(valuesMaskPtr != nullptr);
-
-			//Activate mask values to define the region that is filled with values
-			valuesMaskPtr->setTransform(gridPtr->transformPtr());
-			if (!valuesMaskPtr->tree().empty())
-			{
-				valuesMaskPtr->clear();
-				gridPtr->clear();
-				CubesMeshOps[gridName]->markChanged();
-				MarchingCubesMeshOps[gridName]->markChanged();
-			}
-
+			typedef typename Vdb::GridOps::PerlinNoiseFillOp<GridTreeType, GridTreeType::ValueOnIter> NoiseFillOpType;
+			typedef typename openvdb::tools::valxform::SharedOpApplier<GridTreeType::ValueOnIter, NoiseFillOpType> NoiseFillProcessor;
 			openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
 			check(!fillBBox.empty());
-			valuesMaskPtr->fill(fillBBox, /*value*/true, /*state*/true);
-			valuesMaskPtr->tree().voxelizeActiveTiles();
-
-			//openvdb transformValues requires that ops are copyable even if shared = true, so instead call only the shared op applier here (code adapted from openvdb transformValues() in ValueTransformer.h)
-			typedef typename Vdb::GridOps::PerlinNoiseFillOp<openvdb::BoolTree, openvdb::BoolTree::ValueOnIter, GridTreeType> NoiseFillOpType;
-			typedef typename openvdb::TreeAdapter<GridType> Adapter;
-			typedef typename openvdb::tools::valxform::SharedOpTransformer<openvdb::BoolTree::ValueOnIter, Adapter::TreeType, NoiseFillOpType> NoiseFillProcessor;
-			NoiseFillOpType noiseFillOp(valuesMaskPtr, gridPtr, fillBBox, seed, frequency, lacunarity, persistence, octaveCount);
-			NoiseFillProcessor NoiseFillProc(valuesMaskPtr->beginValueOn(), Adapter::tree(*gridPtr), noiseFillOp, openvdb::MERGE_ACTIVE_STATES);
-			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(valuesMaskPtr->getName().c_str()), valuesMaskPtr->activeVoxelCount()));
+			NoiseFillOpType noiseFillOp(gridPtr, fillBBox, seed, frequency, lacunarity, persistence, octaveCount);
+			NoiseFillProcessor NoiseFillProc(gridPtr->beginValueOn(), noiseFillOp);
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 			NoiseFillProc.process(threaded);
-			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post perlin op) %d active voxels"), UTF8_TO_TCHAR(valuesMaskPtr->getName().c_str()), valuesMaskPtr->activeVoxelCount()));
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post perlin op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		}
 		return isChanged;
@@ -556,7 +522,6 @@ private:
 	bool isFileInSync;
 	TSharedPtr<openvdb::io::File> FilePtr;
 	openvdb::GridPtrVecPtr GridsPtr;
-	openvdb::GridPtrVecPtr MasksPtr;
 	openvdb::MetaMap::Ptr FileMetaPtr;
 	mutable openvdb::GridPtrVec::iterator CachedGrid;
 	TMap<FString, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>> CubesMeshOps;
@@ -598,13 +563,6 @@ private:
 		gridPtr->setTransform(xform);
 		GridsPtr->push_back(gridPtr);
 		CachedGrid = GridsPtr->end();		
-		const std::string maskName = gridPtr->getName() + ".mask";
-		auto i = MasksPtr->begin();
-		for (; i != MasksPtr->end(); ++i);
-		check(i == MasksPtr->end()); //TODO: Better handling of same names
-		openvdb::BoolGrid::Ptr valuesMask = openvdb::BoolGrid::create(false);
-		valuesMask->setName(maskName);
-		MasksPtr->push_back(valuesMask);
 		CubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(gridPtr, meshBuffers)));
 		MarchingCubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>(new Vdb::GridOps::MarchingCubesMesher<GridTreeType>(gridPtr, meshBuffers)));
 		SetIsFileInSync(false);
@@ -661,15 +619,3 @@ private:
 };
 
 typedef VdbHandlePrivate<TreeType, Vdb::GridOps::IndexTreeType, openvdb::math::ScaleMap> VdbHandlePrivateType;
-
-//The following non-class member operators are required by openvdb
-template<> OPENVDBMODULE_API inline FVoxelData openvdb::zeroVal<FVoxelData>();
-OPENVDBMODULE_API std::ostream& operator<<(std::ostream& os, const FVoxelData& voxelData);
-OPENVDBMODULE_API FVoxelData operator+(const FVoxelData &lhs, const float &rhs);
-OPENVDBMODULE_API FVoxelData operator+(const FVoxelData &lhs, const FVoxelData &rhs);
-OPENVDBMODULE_API FVoxelData operator-(const FVoxelData &lhs, const FVoxelData &rhs);
-OPENVDBMODULE_API bool operator<(const FVoxelData &lhs, const FVoxelData &rhs);
-OPENVDBMODULE_API bool operator>(const FVoxelData &lhs, const FVoxelData &rhs);
-OPENVDBMODULE_API bool operator==(const FVoxelData &lhs, const FVoxelData &rhs);
-OPENVDBMODULE_API inline FVoxelData Abs(const FVoxelData &voxelData);
-OPENVDBMODULE_API FVoxelData operator-(const FVoxelData &voxelData);

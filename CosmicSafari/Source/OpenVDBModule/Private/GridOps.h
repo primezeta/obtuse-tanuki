@@ -12,6 +12,18 @@
 
 #define PRAGMA_DISABLE_OPTIMIZATION
 
+//The following non-class member operators are required by openvdb
+template<> OPENVDBMODULE_API inline FVoxelData openvdb::zeroVal<FVoxelData>();
+OPENVDBMODULE_API std::ostream& operator<<(std::ostream& os, const FVoxelData& voxelData);
+OPENVDBMODULE_API FVoxelData operator+(const FVoxelData &lhs, const float &rhs);
+OPENVDBMODULE_API FVoxelData operator+(const FVoxelData &lhs, const FVoxelData &rhs);
+OPENVDBMODULE_API FVoxelData operator-(const FVoxelData &lhs, const FVoxelData &rhs);
+OPENVDBMODULE_API bool operator<(const FVoxelData &lhs, const FVoxelData &rhs);
+OPENVDBMODULE_API bool operator>(const FVoxelData &lhs, const FVoxelData &rhs);
+OPENVDBMODULE_API bool operator==(const FVoxelData &lhs, const FVoxelData &rhs);
+OPENVDBMODULE_API inline FVoxelData Abs(const FVoxelData &voxelData);
+OPENVDBMODULE_API FVoxelData operator-(const FVoxelData &voxelData);
+
 namespace Vdb
 {
 	namespace GridOps
@@ -76,20 +88,23 @@ namespace Vdb
 		};
 
 		//Operator to fill a grid with Perlin noise values (no tiles)
-		template <typename InTreeType, typename InIterType, typename OutTreeType>
+		template <typename TreeType, typename IterType>
 		class PerlinNoiseFillOp
 		{
 		public:
-			typedef typename openvdb::Grid<InTreeType> SourceGridType;
-			typedef typename SourceGridType::Ptr SourceGridTypePtr;
-			typedef typename openvdb::Grid<OutTreeType> DestGridType;
-			typedef typename DestGridType::Ptr DestGridTypePtr;
-			typedef typename DestGridType::Accessor DestAccessorType;
-			typedef typename OutTreeType::ValueType DestValueType;
+			typedef typename openvdb::Grid<TreeType> GridType;
+			typedef typename GridType::Ptr GridTypePtr;
+			typedef typename GridType::Accessor AccessorType;
+			typedef typename TreeType::ValueType ValueType;
 
-			PerlinNoiseFillOp(const SourceGridTypePtr sourceGridPtr, const DestGridTypePtr destGridPtr, const openvdb::CoordBBox &maskBBox, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount)
-				: SrcGridPtr(sourceGridPtr), DestGridPtr(destGridPtr), MaskBBox(maskBBox)
+			PerlinNoiseFillOp(const GridTypePtr gridPtr, const openvdb::CoordBBox &fillBBox, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount)
+				: GridPtr(gridPtr), FillBBox(fillBBox)
 			{
+				//Expand fill box by 1 so that there are border values. The border values are turned on by the fill but will be turned off by the op
+				openvdb::CoordBBox fillBBoxWithBorder = FillBBox;
+				fillBBoxWithBorder.expand(1);
+				GridPtr->fill(fillBBoxWithBorder, FVoxelData(), true);
+				GridPtr->tree().voxelizeActiveTiles();
 				//sourceGridPtr->tree().voxelizeActiveTiles();
 				//valueSource.SetNoiseType(FastNoise::NoiseType::GradientFractal);
 				//valueSource.SetSeed(seed);
@@ -105,66 +120,37 @@ namespace Vdb
 			}
 
 			//FORCEINLINE void operator()(const InIterType& iter, DestAccessorType& acc)
-			void operator()(const InIterType& iter, DestAccessorType& acc)
+			void operator()(const IterType& iter)
 			{
+				check(iter.isVoxelValue() && !iter.isTileValue());
 				openvdb::CoordBBox bbox;
-				const bool hasVolume = iter.getBoundingBox(bbox) && bbox.hasVolume() && bbox.volume() == 1;
-				check(hasVolume);
-				check(iter.isVoxelValue());
-				check(iter.isValueOn());
+				const bool hasVoxelVolume = iter.getBoundingBox(bbox) && bbox.hasVolume() && bbox.volume() == 1;
+				check(hasVoxelVolume);
 
-				//Voxel values are the 1-voxel width values along the edge of the mask cubic
-				//volume which are necessary to provide values at borders but are not meshed.
-				//Turn off all such voxels in the destination.
-				//Tile values are the center of the mask volume which are the actual area that should be meshed.
-				//Set the value for each coord within the tile and turn each such destination voxel on.
-				DestValueType value;
+				ValueType value;
 				const openvdb::Coord coord = iter.getCoord();
-				check(MaskBBox.isInside(coord));
-				check(SrcGridPtr->getAccessor().isValueOn(coord));
 				GetValue(coord, value);
-				acc.setValueOn(coord, value);
+				iter.setValue(value);
 
-				if (coord.x() == MaskBBox.min().x() || coord.x() == MaskBBox.max().x() ||
-					coord.y() == MaskBBox.min().y() || coord.y() == MaskBBox.max().y() ||
-					coord.z() == MaskBBox.min().z() || coord.z() == MaskBBox.max().z())
+				if (!FillBBox.isInside(coord))
 				{
-					auto srcAcc = SrcGridPtr->getAccessor();
-					for (int32 xoff = -1; xoff <= 1; ++xoff)
-					{
-						for (int32 yoff = -1; yoff <= 1; ++yoff)
-						{
-							for (int32 zoff = -1; zoff <= 1; ++zoff)
-							{
-								const openvdb::Coord offCoord = coord.offsetBy(xoff, yoff, zoff);
-								if (!MaskBBox.isInside(offCoord))
-								{
-									check(!srcAcc.isValueOn(offCoord));
-									check(!acc.isValueOn(offCoord));
-									check(offCoord != coord);
-									GetValue(offCoord, value);
-									acc.setValueOff(offCoord, value);
-									srcAcc.setValueOff(offCoord);
-								}
-							}
-						}
-					}
+					//This value is a border value, turn it off so that it is not meshed but can still provide a valid value
+					iter.setValueOff();
 				}
 			}
 
-			FORCEINLINE void GetValue(const openvdb::Coord &coord, DestValueType &outValue)
+			FORCEINLINE void GetValue(const openvdb::Coord &coord, ValueType &outValue)
 			{
-				const openvdb::Vec3d vec = DestGridPtr->transform().indexToWorld(coord);
-				outValue.Data = (DestValueType::DataType)(valueSource.GetValue(vec.x(), vec.y(), vec.z()) + vec.z());
+				const openvdb::Vec3d vec = GridPtr->transform().indexToWorld(coord);
+				outValue.Data = (ValueType::DataType)(valueSource.GetValue(vec.x(), vec.y(), vec.z()) + vec.z());
 				outValue.VoxelType = EVoxelType::VOXEL_NONE; //Initialize voxel type
 			}
 
 		private:
-			const SourceGridTypePtr SrcGridPtr;
-			const DestGridTypePtr DestGridPtr;
+			const GridTypePtr GridPtr;
 			noise::module::Perlin valueSource;
 			//FastNoise valueSource;
-			const openvdb::CoordBBox &MaskBBox;
+			const openvdb::CoordBBox &FillBBox;
 		};
 
 		//Operator to extract an isosurface from a grid
@@ -175,6 +161,7 @@ namespace Vdb
 			typedef typename openvdb::Grid<TreeType> GridType;
 			typedef typename GridType::Ptr GridTypePtr;
 			typedef typename GridType::Accessor AccessorType;
+			typedef typename GridType::ConstAccessor CAccessorType;
 			typedef typename TreeType::ValueType ValueType;
 
 			BasicExtractSurfaceOp(const GridTypePtr gridPtr)
@@ -194,10 +181,11 @@ namespace Vdb
 				if (coord.z() == 0)
 				{
 					//If at the lowest level do nothing (leaving the voxel on) so that there is a base ground floor
+					check(iter.isValueOn());
 					return;
 				}
 
-				auto acc = GridPtr->getAccessor();
+				CAccessorType acc = GridPtr->getConstAccessor();
 				const openvdb::Coord coords[8] = {
 					coord,
 					coord.offsetBy(1, 0, 0),
@@ -231,7 +219,7 @@ namespace Vdb
 				if (values[7].Data < SurfaceValue.Data) { insideBits |= 128; }
 				if (insideBits == 0 || insideBits == 255)
 				{
-					acc.setValueOff(coord);
+					iter.setValueOff();
 					////In the special case that the voxel is exactly on the surface, do nothing (leaving the voxel on)
 					//if (!openvdb::math::isExactlyEqual(values[0].Data, SurfaceValue.Data))
 					//{
