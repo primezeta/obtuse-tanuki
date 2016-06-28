@@ -390,23 +390,20 @@ public:
 
 			openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
 			check(!fillBBox.empty());
-			openvdb::CoordBBox maskBBox = fillBBox;
-			maskBBox.expand(1);
-			valuesMaskPtr->fill(maskBBox, /*value*/false, /*state*/true);
 			valuesMaskPtr->fill(fillBBox, /*value*/true, /*state*/true);
+			valuesMaskPtr->tree().voxelizeActiveTiles();
 
 			//openvdb transformValues requires that ops are copyable even if shared = true, so instead call only the shared op applier here (code adapted from openvdb transformValues() in ValueTransformer.h)
 			typedef typename Vdb::GridOps::PerlinNoiseFillOp<openvdb::BoolTree, openvdb::BoolTree::ValueOnIter, GridTreeType> NoiseFillOpType;
 			typedef typename openvdb::TreeAdapter<GridType> Adapter;
 			typedef typename openvdb::tools::valxform::SharedOpTransformer<openvdb::BoolTree::ValueOnIter, Adapter::TreeType, NoiseFillOpType> NoiseFillProcessor;
-			NoiseFillOpType noiseFillOp(valuesMaskPtr, gridPtr, seed, frequency, lacunarity, persistence, octaveCount);
-			NoiseFillProcessor NoiseFillProc(valuesMaskPtr->beginValueOn(), Adapter::tree(*gridPtr), noiseFillOp, openvdb::MERGE_NODES);
+			NoiseFillOpType noiseFillOp(valuesMaskPtr, gridPtr, fillBBox, seed, frequency, lacunarity, persistence, octaveCount);
+			NoiseFillProcessor NoiseFillProc(valuesMaskPtr->beginValueOn(), Adapter::tree(*gridPtr), noiseFillOp, openvdb::MERGE_ACTIVE_STATES);
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(valuesMaskPtr->getName().c_str()), valuesMaskPtr->activeVoxelCount()));
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 			NoiseFillProc.process(threaded);
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post perlin op) %d active voxels"), UTF8_TO_TCHAR(valuesMaskPtr->getName().c_str()), valuesMaskPtr->activeVoxelCount()));
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post perlin op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
-			gridPtr->tree().voxelizeActiveTiles();
 		}
 		return isChanged;
 	}
@@ -420,8 +417,6 @@ public:
 		BasicExtractSurfaceProcessor BasicExtractSurfaceProc(gridPtr->beginValueOn(), BasicExtractSurfaceOp);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre basic surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		BasicExtractSurfaceProc.process(threaded);
-		//gridPtr->tree().voxelizeActiveTiles();
-		//CubesMeshOps[gridName]->GridPtr->tree().voxelizeActiveTiles();
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post basic surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 	}
 
@@ -432,13 +427,10 @@ public:
 		typedef typename openvdb::tools::valxform::SharedOpTransformer<GridTreeType::ValueOnIter, Adapter::TreeType, ExtractSurfaceOpType> ExtractSurfaceProcessor;
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		ExtractSurfaceOpType ExtractSurfaceOp(gridPtr);
-		//MarchingCubesMeshOps[gridName]->GridPtr->topologyUnion(*gridPtr);
 		ExtractSurfaceProcessor ExtractSurfaceProc(gridPtr->beginValueOn(), Adapter::tree(*(MarchingCubesMeshOps[gridName]->GridPtr)), ExtractSurfaceOp, openvdb::MERGE_ACTIVE_STATES);
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(MarchingCubesMeshOps[gridName]->GridPtr->getName().c_str()), MarchingCubesMeshOps[gridName]->GridPtr->activeVoxelCount()));
 		ExtractSurfaceProc.process(threaded);
-		//gridPtr->tree().voxelizeActiveTiles();
-		//MarchingCubesMeshOps[gridName]->GridPtr->tree().voxelizeActiveTiles();
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(MarchingCubesMeshOps[gridName]->GridPtr->getName().c_str()), MarchingCubesMeshOps[gridName]->GridPtr->activeVoxelCount()));
 	}
