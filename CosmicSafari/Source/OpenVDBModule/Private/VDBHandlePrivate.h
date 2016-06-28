@@ -406,6 +406,7 @@ public:
 			NoiseFillProc.process(threaded);
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post perlin op) %d active voxels"), UTF8_TO_TCHAR(valuesMaskPtr->getName().c_str()), valuesMaskPtr->activeVoxelCount()));
 			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post perlin op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
+			gridPtr->tree().voxelizeActiveTiles();
 		}
 		return isChanged;
 	}
