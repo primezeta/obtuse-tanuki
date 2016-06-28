@@ -467,6 +467,37 @@ namespace Vdb
 					xform.indexToWorld(p[6]),
 					xform.indexToWorld(p[7]),
 				};
+				openvdb::Vec3f g[8] =
+				{
+					//Calculate the gradient of each point to use as the tangent vector
+					xform.baseMap()->applyIJT(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(dataAcc, p[0]), p[0].asVec3d()),
+					xform.baseMap()->applyIJT(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(dataAcc, p[1]), p[1].asVec3d()),
+					xform.baseMap()->applyIJT(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(dataAcc, p[2]), p[2].asVec3d()),
+					xform.baseMap()->applyIJT(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(dataAcc, p[3]), p[3].asVec3d()),
+					xform.baseMap()->applyIJT(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(dataAcc, p[4]), p[4].asVec3d()),
+					xform.baseMap()->applyIJT(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(dataAcc, p[5]), p[5].asVec3d()),
+					xform.baseMap()->applyIJT(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(dataAcc, p[6]), p[6].asVec3d()),
+					xform.baseMap()->applyIJT(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(dataAcc, p[7]), p[7].asVec3d())
+				};
+				bool gradNormalized[8] =
+				{
+					g[0].normalize(),
+					g[1].normalize(),
+					g[2].normalize(),
+					g[3].normalize(),
+					g[4].normalize(),
+					g[5].normalize(),
+					g[6].normalize(),
+					g[7].normalize()
+				};
+				check(gradNormalized[0]);
+				check(gradNormalized[1]);
+				check(gradNormalized[2]);
+				check(gradNormalized[3]);
+				check(gradNormalized[4]);
+				check(gradNormalized[5]);
+				check(gradNormalized[6]);
+				check(gradNormalized[7]);
 
 				const int32 idx = (int32)val[0].VoxelType;
 				check(val[0].VoxelType != EVoxelType::VOXEL_NONE);
@@ -478,127 +509,104 @@ namespace Vdb
 				UVMapBufferType &uvs = MeshBuffers.UVMapBuffer[idx];
 				FCriticalSection &triCriticalSection = TriCriticalSections[idx];
 
-				//Calculate the gradient of this point
-				openvdb::Vec3f iGradient(ISGradient_FVoxelData<openvdb::math::CD_2ND, DataAccessorType>::result(dataAcc, p[0]));
-				openvdb::Vec3f grad = xform.baseMap()->applyIJT(iGradient, p[0].asVec3d());
-				check(grad.normalize()); //normalize returns false if the normalized vector is length 0
-
 				//Find the vertices where the surface intersects the cube, always using the lower coord first
 				IndexType vertlist[12];
 				if (MC_EdgeTable[insideBits] & 1)
 				{
-					vertlist[0] = VertexInterp(vec[0], vec[1], data[0], data[1], p[0], p[1], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
+					vertlist[0] = VertexInterp(vec[0], vec[1], data[0], data[1], p[0], p[1], g[0], g[1], SurfaceValue, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
 				}
 				if (MC_EdgeTable[insideBits] & 2)
 				{
-					vertlist[1] = VertexInterp(vec[1], vec[2], data[1], data[2], p[1], p[2], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
+					vertlist[1] = VertexInterp(vec[1], vec[2], data[1], data[2], p[1], p[2], g[1], g[2], SurfaceValue, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
 				}
 				if (MC_EdgeTable[insideBits] & 4)
 				{
-					vertlist[2] = VertexInterp(vec[2], vec[3], data[2], data[3], p[2], p[3], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
+					vertlist[2] = VertexInterp(vec[2], vec[3], data[2], data[3], p[2], p[3], g[2], g[3], SurfaceValue, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
 				}
 				if (MC_EdgeTable[insideBits] & 8)
 				{
-					vertlist[3] = VertexInterp(vec[0], vec[3], data[0], data[3], p[0], p[3], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
+					vertlist[3] = VertexInterp(vec[3], vec[0], data[3], data[0], p[3], p[0], g[3], g[0], SurfaceValue, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
 				}
 				if (MC_EdgeTable[insideBits] & 16)
 				{
-					vertlist[4] = VertexInterp(vec[4], vec[5], data[4], data[5], p[4], p[5], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
+					vertlist[4] = VertexInterp(vec[4], vec[5], data[4], data[5], p[4], p[5], g[4], g[5], SurfaceValue, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
 				}
 				if (MC_EdgeTable[insideBits] & 32)
 				{
-					vertlist[5] = VertexInterp(vec[5], vec[6], data[5], data[6], p[5], p[6], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
+					vertlist[5] = VertexInterp(vec[5], vec[6], data[5], data[6], p[5], p[6], g[5], g[6], SurfaceValue, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
 				}
 				if (MC_EdgeTable[insideBits] & 64)
 				{
-					vertlist[6] = VertexInterp(vec[6], vec[7], data[6], data[7], p[6], p[7], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
+					vertlist[6] = VertexInterp(vec[6], vec[7], data[6], data[7], p[6], p[7], g[6], g[7], SurfaceValue, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
 				}
 				if (MC_EdgeTable[insideBits] & 128)
 				{
-					vertlist[7] = VertexInterp(vec[4], vec[7], data[4], data[7], p[4], p[7], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
+					vertlist[7] = VertexInterp(vec[7], vec[4], data[7], data[4], p[7], p[4], g[7], g[4], SurfaceValue, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
 				}
 				if (MC_EdgeTable[insideBits] & 256)
 				{
-					vertlist[8] = VertexInterp(vec[0], vec[4], data[0], data[4], p[0], p[4], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
+					vertlist[8] = VertexInterp(vec[0], vec[4], data[0], data[4], p[0], p[4], g[0], g[4], SurfaceValue, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
 				}
 				if (MC_EdgeTable[insideBits] & 512)
 				{
-					vertlist[9] = VertexInterp(vec[1], vec[5], data[1], data[5], p[1], p[5], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
+					vertlist[9] = VertexInterp(vec[1], vec[5], data[1], data[5], p[1], p[5], g[1], g[5], SurfaceValue, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
 				}
 				if (MC_EdgeTable[insideBits] & 1024)
 				{
-					vertlist[10] = VertexInterp(vec[2], vec[6], data[2], data[6], p[2], p[6], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
+					vertlist[10] = VertexInterp(vec[2], vec[6], data[2], data[6], p[2], p[6], g[2], g[6], SurfaceValue, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
 				}
 				if (MC_EdgeTable[insideBits] & 2048)
 				{
-					vertlist[11] = VertexInterp(vec[3], vec[7], data[3], data[7], p[3], p[7], SurfaceValue, grad, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
+					vertlist[11] = VertexInterp(vec[3], vec[7], data[3], data[7], p[3], p[7], g[3], g[7], SurfaceValue, VtxCriticalSection, NumTris, vertices, normals, colors, tangents);
 				}
 
+				AddTriangle(VtxCriticalSection, triCriticalSection, insideBits, 0, vertlist, vertices, normals, NumTris, polygons);
+				//AddTriangle(VtxCriticalSection, triCriticalSection, insideBits, 1, vertlist, vertices, normals, NumTris, polygons);
+				//AddTriangle(VtxCriticalSection, triCriticalSection, 255 - insideBits, 2, vertlist, vertices, normals, NumTris, polygons);
+				//AddTriangle(VtxCriticalSection, triCriticalSection, 255 - insideBits, 3, vertlist, vertices, normals, NumTris, polygons);
+			}
+
+			static void AddTriangle(FCriticalSection &vertCrit, FCriticalSection &triCrit, const MC_TriIndex::U_T &triTableIndex, const uint32 vtxoffset, IndexType vertlist[], const VertexBufferType &vertices, NormalBufferType &normals, TArray<int32> &numTris, PolygonBufferType &polygons)
+			{
 				// Create the triangle
-				for (int32 i = 0; MC_TriTable[insideBits][i].s != -1; i += 3)
+				for (int32 i = 0; MC_TriTable[triTableIndex][i].s != -1; i += 3)
 				{
 					check(i > -1 && i < 16);
-					check(MC_TriTable[insideBits][i + 1].s > -1 && MC_TriTable[insideBits][i + 1].s < 12);
-					check(MC_TriTable[insideBits][i + 2].s > -1 && MC_TriTable[insideBits][i + 2].s < 12);
-					
-					const IndexType polyIdxs[6] = {
-						vertlist[MC_TriTable[insideBits][i].u],
-						vertlist[MC_TriTable[insideBits][i].u]+1,
-						vertlist[MC_TriTable[insideBits][i + 1].u],
-						vertlist[MC_TriTable[insideBits][i + 1].u]+1,
-						vertlist[MC_TriTable[insideBits][i + 2].u],
-						vertlist[MC_TriTable[insideBits][i + 2].u]+1
-					};
-					check(polyIdxs[0] != polyIdxs[2] && polyIdxs[0] != polyIdxs[4] && polyIdxs[2] != polyIdxs[4]);
-					check(polyIdxs[1] != polyIdxs[3] && polyIdxs[1] != polyIdxs[5] && polyIdxs[3] != polyIdxs[5]);
+					check(MC_TriTable[triTableIndex][i + 1].s > -1 && MC_TriTable[triTableIndex][i + 1].s < 12);
+					check(MC_TriTable[triTableIndex][i + 2].s > -1 && MC_TriTable[triTableIndex][i + 2].s < 12);
 
-					const FVector edgesFront[3] = {
-						vertices[polyIdxs[2]] - vertices[polyIdxs[0]], //Edge10
-						vertices[polyIdxs[4]] - vertices[polyIdxs[0]], //Edge20
-						vertices[polyIdxs[4]] - vertices[polyIdxs[2]]  //Edge21
+					const IndexType polyIdxs[3] = {
+						vertlist[MC_TriTable[triTableIndex][i].u]+vtxoffset,
+						vertlist[MC_TriTable[triTableIndex][i + 1].u]+vtxoffset,
+						vertlist[MC_TriTable[triTableIndex][i + 2].u]+vtxoffset
 					};
-					const FVector edgesBack[3] = {
-						vertices[polyIdxs[3]] - vertices[polyIdxs[1]], //Edge10
-						vertices[polyIdxs[5]] - vertices[polyIdxs[1]], //Edge20
-						vertices[polyIdxs[5]] - vertices[polyIdxs[3]]  //Edge21
-					};
+					check(polyIdxs[0] != polyIdxs[1] && polyIdxs[0] != polyIdxs[2] && polyIdxs[1] != polyIdxs[2]);
 
-					const FVector surfaceNormalFront = FVector::CrossProduct(edgesFront[0], edgesFront[1]);
-					const FVector surfaceNormalBack = -surfaceNormalFront;
+					const FVector edges[3] = {
+						vertices[polyIdxs[1]] - vertices[polyIdxs[0]], //Edge10
+						vertices[polyIdxs[2]] - vertices[polyIdxs[0]], //Edge20
+						vertices[polyIdxs[2]] - vertices[polyIdxs[1]]  //Edge21
+					};
+					const FVector surfaceNormal = (vtxoffset & 1) ? -FVector::CrossProduct(edges[0], edges[1]) : FVector::CrossProduct(edges[0], edges[1]);
 					{
-						FScopeLock lock(&VtxCriticalSection);
-						normals[polyIdxs[0]] += surfaceNormalFront;
-						normals[polyIdxs[2]] += surfaceNormalFront;
-						normals[polyIdxs[4]] += surfaceNormalFront;
-						normals[polyIdxs[1]] += surfaceNormalBack;
-						normals[polyIdxs[3]] += surfaceNormalBack;
-						normals[polyIdxs[5]] += surfaceNormalBack;
-						++NumTris[polyIdxs[0]];
-						++NumTris[polyIdxs[2]];
-						++NumTris[polyIdxs[4]];
-						++NumTris[polyIdxs[1]];
-						++NumTris[polyIdxs[3]];
-						++NumTris[polyIdxs[5]];
+						FScopeLock lock(&vertCrit);
+						normals[polyIdxs[0]] += surfaceNormal;
+						normals[polyIdxs[1]] += surfaceNormal;
+						normals[polyIdxs[2]] += surfaceNormal;
+						++numTris[polyIdxs[0]];
+						++numTris[polyIdxs[1]];
+						++numTris[polyIdxs[2]];
 					}
 					{
-						FScopeLock lock(&triCriticalSection);
-						polygons.Add(polyIdxs[0]);
-						polygons.Add(polyIdxs[2]);
-						polygons.Add(polyIdxs[4]);
-						polygons.Add(polyIdxs[4]);
-						polygons.Add(polyIdxs[2]);
+						FScopeLock lock(&triCrit);
 						polygons.Add(polyIdxs[0]);
 						polygons.Add(polyIdxs[1]);
-						polygons.Add(polyIdxs[3]);
-						polygons.Add(polyIdxs[5]);
-						polygons.Add(polyIdxs[5]);
-						polygons.Add(polyIdxs[3]);
-						polygons.Add(polyIdxs[1]);
+						polygons.Add(polyIdxs[2]);
 					}
 				}
 			}
 
-			static IndexType VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, const openvdb::Coord &c1, const openvdb::Coord &c2, const DataType &surfaceValue, const openvdb::Vec3f &gradient, FCriticalSection &criticalSection, TArray<int32> &numTris, VertexBufferType &vertices, NormalBufferType &normals, VertexColorBufferType &colors, TangentBufferType &tangents)
+			static IndexType VertexInterp(const openvdb::Vec3d &vec1, const openvdb::Vec3d &vec2, const DataType &valp1, const DataType &valp2, const openvdb::Coord &c1, const openvdb::Coord &c2, const openvdb::Vec3f &g1, const openvdb::Vec3f &g2, const DataType &surfaceValue, FCriticalSection &criticalSection, TArray<int32> &numTris, VertexBufferType &vertices, NormalBufferType &normals, VertexColorBufferType &colors, TangentBufferType &tangents)
 			{
 				//TODO: Try Gram-Schmidt orthogonalization for tangents? (modifies the tangent to definitely be orthogonal to the normal):
 				//tangent -= normal * tangent.dot( normal );
@@ -614,15 +622,25 @@ namespace Vdb
 					//else
 					//{
 						outVertex = (IndexType)vertices.Add(FVector(vec1.x(), vec1.y(), vec1.z()));
-						vertices.Add(FVector(vec1.x(), vec1.y(), vec1.z()));
+						//vertices.Add(FVector(vec1.x(), vec1.y(), vec1.z()));
+						//vertices.Add(FVector(vec1.x(), vec1.y(), vec1.z()));
+						//vertices.Add(FVector(vec1.x(), vec1.y(), vec1.z()));
 						normals.Add(FVector(0,0,0));
-						normals.Add(FVector(0,0,0));
+						//normals.Add(FVector(0, 0, 0));
+						//normals.Add(FVector(0, 0, 0));
+						//normals.Add(FVector(0,0,0));
 						colors.Add(FColor()); //TODO
-						colors.Add(FColor()); //TODO
-						tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
-						tangents.Add(FProcMeshTangent(-gradient.x(), -gradient.y(), -gradient.z()));
+						//colors.Add(FColor()); //TODO
+						//colors.Add(FColor()); //TODO
+						//colors.Add(FColor()); //TODO
+						tangents.Add(FProcMeshTangent(g1.x(), g1.y(), g1.z()));
+						//tangents.Add(FProcMeshTangent(-gradient.x(), -gradient.y(), -gradient.z()));
+						//tangents.Add(FProcMeshTangent(-gradient.x(), -gradient.y(), -gradient.z()));
+						//tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
 						numTris.Add(0);
-						numTris.Add(0);
+						//numTris.Add(0);
+						//numTris.Add(0);
+						//numTris.Add(0);
 					//	indices.setValueOn(c1, outVertex);
 					//}
 				}
@@ -636,15 +654,25 @@ namespace Vdb
 					//else
 					//{
 						outVertex = (IndexType)vertices.Add(FVector(vec2.x(), vec2.y(), vec2.z()));
-						vertices.Add(FVector(vec2.x(), vec2.y(), vec2.z()));
+						//vertices.Add(FVector(vec2.x(), vec2.y(), vec2.z()));
+						//vertices.Add(FVector(vec2.x(), vec2.y(), vec2.z()));
+						//vertices.Add(FVector(vec2.x(), vec2.y(), vec2.z()));
 						normals.Add(FVector(0,0,0));
-						normals.Add(FVector(0,0,0));
+						//normals.Add(FVector(0, 0, 0));
+						//normals.Add(FVector(0, 0, 0));
+						//normals.Add(FVector(0,0,0));
 						colors.Add(FColor()); //TODO
-						colors.Add(FColor()); //TODO
-						tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
-						tangents.Add(FProcMeshTangent(-gradient.x(), -gradient.y(), -gradient.z()));
+						//colors.Add(FColor()); //TODO
+						//colors.Add(FColor()); //TODO
+						//colors.Add(FColor()); //TODO
+						tangents.Add(FProcMeshTangent(g2.x(), g2.y(), g2.z()));
+						//tangents.Add(FProcMeshTangent(-gradient.x(), -gradient.y(), -gradient.z()));
+						//tangents.Add(FProcMeshTangent(-gradient.x(), -gradient.y(), -gradient.z()));
+						//tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
 						numTris.Add(0);
-						numTris.Add(0);
+						//numTris.Add(0);
+						//numTris.Add(0);
+						//numTris.Add(0);
 					//	indices.setValueOn(c2, outVertex);
 					//}
 				}
@@ -660,15 +688,25 @@ namespace Vdb
 						const float mu = (surfaceValue - valp1) / (valp2 - valp1);
 						const openvdb::Vec3d vtx = vec1 + (mu*(vec2 - vec1));
 						outVertex = (IndexType)vertices.Add(FVector(vtx.x(), vtx.y(), vtx.z()));
-						vertices.Add(FVector(vtx.x(), vtx.y(), vtx.z()));
+						//vertices.Add(FVector(vtx.x(), vtx.y(), vtx.z()));
+						//vertices.Add(FVector(vtx.x(), vtx.y(), vtx.z()));
+						//vertices.Add(FVector(vtx.x(), vtx.y(), vtx.z()));
 						normals.Add(FVector(0, 0, 0));
-						normals.Add(FVector(0, 0, 0));
+						//normals.Add(FVector(0, 0, 0));
+						//normals.Add(FVector(0, 0, 0));
+						//normals.Add(FVector(0, 0, 0));
 						colors.Add(FColor()); //TODO
-						colors.Add(FColor()); //TODO
-						tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
-						tangents.Add(FProcMeshTangent(-gradient.x(), -gradient.y(), -gradient.z()));
+						//colors.Add(FColor()); //TODO
+						//colors.Add(FColor()); //TODO
+						//colors.Add(FColor()); //TODO
+						tangents.Add(FProcMeshTangent(g1.x(), g1.y(), g1.z()));
+						//tangents.Add(FProcMeshTangent(-gradient.x(), -gradient.y(), -gradient.z()));
+						//tangents.Add(FProcMeshTangent(-gradient.x(), -gradient.y(), -gradient.z()));
+						//tangents.Add(FProcMeshTangent(gradient.x(), gradient.y(), gradient.z()));
 						numTris.Add(0);
-						numTris.Add(0);
+						//numTris.Add(0);
+						//numTris.Add(0);
+						//numTris.Add(0);
 					//	indices.setValueOn(c1, outVertex);
 						//indices.setValueOn(c2, outVertex);
 					//}
