@@ -52,10 +52,11 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 {
 	//TODO: Check if terrain component already exists
 	const FString regionName = TEXT("Region.") + gridIndex.ToString();
-
+	
 	GridRegions.Add(regionName);
-	MeshBuffers.Add(regionName);
-	const FString gridID = VdbHandle->AddGrid(regionName, gridIndex, FVector(1.0f), MeshBuffers[regionName]);
+	const int32 meshIdx = MeshBuffers.Add(FGridMeshBuffers());
+	RegionNameToMeshBufferIndex.Add(regionName, meshIdx);
+	const FString gridID = VdbHandle->AddGrid(regionName, gridIndex, FVector(1.0f), MeshBuffers);
 	UProceduralTerrainMeshComponent * TerrainMesh = NewObject<UProceduralTerrainMeshComponent>(this, FName(*gridID));
 	check(TerrainMesh != nullptr);
 	TerrainMesh->MeshID = gridID;
@@ -94,36 +95,43 @@ void AProceduralTerrain::BeginPlay()
 	for (auto i = GridRegions.CreateConstIterator(); i; ++i)
 	{
 		const FString &regionName = *i;
-		if (TerrainMeshComponents.Contains(regionName))
-		{
-			auto &meshBuffers = MeshBuffers[regionName];
-			UProceduralTerrainMeshComponent &TerrainMeshComponent = *TerrainMeshComponents[regionName];
-			VdbHandle->MeshGrid(TerrainMeshComponent.MeshID);
-			for (auto j = TerrainMeshComponent.MeshTypes.CreateConstIterator(); j; ++j)
-			{
-				const EVoxelType voxelType = j.Value();
-				const int32 &buffIdx = (int32)voxelType;
-				const int32 &meshIdx = j.Key();
-				TerrainMeshComponent.CreateMeshSection(
-					meshIdx,
-					meshBuffers.VertexBuffer,
-					meshBuffers.PolygonBuffer[buffIdx],
-					meshBuffers.NormalBuffer,
-					meshBuffers.UVMapBuffer[buffIdx],
-					meshBuffers.VertexColorBuffer,
-					meshBuffers.TangentBuffer,
-					bCreateCollision && voxelType != EVoxelType::VOXEL_WATER);
-				TerrainMeshComponent.SetMeshSectionVisible(meshIdx, true);
-				//TODO: Create logic for using UpdateMeshSection
-				//TODO: Use non-deprecated CreateMeshSection_Linear
-			}
+		check(TerrainMeshComponents.Contains(regionName));
 
-			FVector worldStart;
-			FVector worldEnd;
-			FVector firstActive;
-			VdbHandle->GetGridDimensions(TerrainMeshComponent.MeshID, worldStart, worldEnd, firstActive);
-			TerrainMeshComponent.StartLocation = firstActive;
+		const int32 &meshIdx = RegionNameToMeshBufferIndex.FindChecked(regionName);
+		auto &meshBuffs = MeshBuffers[meshIdx];
+		UProceduralTerrainMeshComponent &TerrainMeshComponent = *TerrainMeshComponents[regionName];
+		VdbHandle->MeshGrid(TerrainMeshComponent.MeshID);
+
+		for (auto j = TerrainMeshComponent.MeshTypes.CreateConstIterator(); j; ++j)
+		{
+			const EVoxelType voxelType = j.Value();
+			const int32 &buffIdx = (int32)voxelType;
+			const int32 &meshIdx = j.Key();
+			UE_LOG(LogFlying, Display, TEXT("%s num vertices[%d] = %d"), *TerrainMeshComponent.MeshID, buffIdx, meshBuffs.VertexBuffer.Num());
+			UE_LOG(LogFlying, Display, TEXT("%s num normals[%d]  = %d"), *TerrainMeshComponent.MeshID, buffIdx, meshBuffs.NormalBuffer.Num());
+			UE_LOG(LogFlying, Display, TEXT("%s num colors[%d]   = %d"), *TerrainMeshComponent.MeshID, buffIdx, meshBuffs.VertexColorBuffer.Num());
+			UE_LOG(LogFlying, Display, TEXT("%s num tangents[%d] = %d"), *TerrainMeshComponent.MeshID, buffIdx, meshBuffs.TangentBuffer.Num());
+			UE_LOG(LogFlying, Display, TEXT("%s num polygons[%d] = %d"), *TerrainMeshComponent.MeshID, buffIdx, meshBuffs.PolygonBuffer.Num());
+			UE_LOG(LogFlying, Display, TEXT("%s num uv maps[%d]  = %d"), *TerrainMeshComponent.MeshID, buffIdx, meshBuffs.UVMapBuffer.Num());
+			TerrainMeshComponent.CreateMeshSection(
+				meshIdx,
+				meshBuffs.VertexBuffer,
+				meshBuffs.PolygonBuffer,
+				meshBuffs.NormalBuffer,
+				meshBuffs.UVMapBuffer,
+				meshBuffs.VertexColorBuffer,
+				meshBuffs.TangentBuffer,
+				bCreateCollision && voxelType != EVoxelType::VOXEL_WATER);
+			TerrainMeshComponent.SetMeshSectionVisible(meshIdx, true);
+			//TODO: Create logic for using UpdateMeshSection
+			//TODO: Use non-deprecated CreateMeshSection_Linear
 		}
+
+		FVector worldStart;
+		FVector worldEnd;
+		FVector firstActive;
+		VdbHandle->GetGridDimensions(TerrainMeshComponent.MeshID, worldStart, worldEnd, firstActive);
+		TerrainMeshComponent.StartLocation = firstActive;
 	}
 
 	//If there's a character position the terrain under the character

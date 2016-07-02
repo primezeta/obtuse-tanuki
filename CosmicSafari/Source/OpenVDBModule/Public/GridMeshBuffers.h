@@ -13,11 +13,19 @@ USTRUCT()
 struct FGridMeshBuffers
 {
 	GENERATED_USTRUCT_BODY()
-	VertexBufferType VertexBuffer;
-	NormalBufferType NormalBuffer;
-	VertexColorBufferType VertexColorBuffer;
-	TangentBufferType TangentBuffer;
-	PolygonBufferType PolygonBuffer[FVoxelData::VOXEL_TYPE_COUNT];
-	UVMapBufferType UVMapBuffer[FVoxelData::VOXEL_TYPE_COUNT];
+
+	UPROPERTY()
+		TArray<FVector> VertexBuffer;
+	UPROPERTY()
+		TArray<FVector> NormalBuffer;
+	UPROPERTY()
+		TArray<FColor> VertexColorBuffer;
+	UPROPERTY()
+		TArray<FProcMeshTangent> TangentBuffer;
+	UPROPERTY()
+		TArray<int32> PolygonBuffer;
+	UPROPERTY()
+		TArray<FVector2D> UVMapBuffer;
+	UPROPERTY()
+		TArray<int32> NumTris;
 };
-typedef TMap<FString, FGridMeshBuffers> GridMeshBuffersType;
