@@ -16,6 +16,7 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 		UMaterial * Material = ObjectInitializer.CreateDefaultSubobject<UMaterial>(this, *FString::Printf(TEXT("TerrainMaterial.%d"), i));
 		check(Material != nullptr);
 		MeshMaterials[i] = Material;
+		MeshBuffers.Add(FGridMeshBuffers());
 	}
 
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
@@ -51,11 +52,9 @@ void AProceduralTerrain::PostInitializeComponents()
 FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 {
 	//TODO: Check if terrain component already exists
-	const FString regionName = TEXT("[") + gridIndex.ToString() + TEXT("]=");
+	const FString regionName = TEXT("[") + gridIndex.ToString() + TEXT("]");
 	
 	GridRegions.Add(regionName);
-	const int32 meshIdx = MeshBuffers.Add(FGridMeshBuffers());
-	RegionNameToMeshBufferIndex.Add(regionName, meshIdx);
 	const FString gridID = VdbHandle->AddGrid(regionName, gridIndex, FVector(1.0f), MeshBuffers);
 	UProceduralTerrainMeshComponent * TerrainMesh = NewObject<UProceduralTerrainMeshComponent>(this, FName(*gridID));
 	check(TerrainMesh != nullptr);
@@ -97,9 +96,6 @@ void AProceduralTerrain::BeginPlay()
 	{
 		const FString &regionName = *i;
 		check(TerrainMeshComponents.Contains(regionName));
-
-		const int32 &meshIdx = RegionNameToMeshBufferIndex.FindChecked(regionName);
-		auto &meshBuffs = MeshBuffers[meshIdx];
 		UProceduralTerrainMeshComponent &TerrainMeshComponent = *TerrainMeshComponents[regionName];
 		VdbHandle->MeshGrid(TerrainMeshComponent.MeshID);
 
@@ -108,6 +104,7 @@ void AProceduralTerrain::BeginPlay()
 			const int32 &sectionIndex = j.Key();
 			const EVoxelType &voxelType = j.Value();
 			const int32 &buffIdx = (int32)voxelType;
+			auto &meshBuffs = MeshBuffers[buffIdx];
 			UE_LOG(LogFlying, Display, TEXT("%s num vertices[%d] = %d"), *TerrainMeshComponent.MeshID, buffIdx, meshBuffs.VertexBuffer.Num());
 			UE_LOG(LogFlying, Display, TEXT("%s num normals[%d]  = %d"), *TerrainMeshComponent.MeshID, buffIdx, meshBuffs.NormalBuffer.Num());
 			UE_LOG(LogFlying, Display, TEXT("%s num colors[%d]   = %d"), *TerrainMeshComponent.MeshID, buffIdx, meshBuffs.VertexColorBuffer.Num());

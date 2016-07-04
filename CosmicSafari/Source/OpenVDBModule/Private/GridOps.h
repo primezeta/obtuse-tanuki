@@ -323,7 +323,7 @@ namespace Vdb
 			{
 				for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
 				{
-					IsMaterialActive.Add(false);
+					IsVoxelTypeActive.Add(false);
 				}
 			}
 
@@ -362,24 +362,24 @@ namespace Vdb
 				}
 				iter.setValue(value);
 				check(value.VoxelType != EVoxelType::VOXEL_NONE);
-				IsMaterialActive[(int32)value.VoxelType] = true;
+				IsVoxelTypeActive[(int32)value.VoxelType] = true;
 			}
 
-			void GetActiveMaterials(TArray<TEnumAsByte<EVoxelType>> &activeMaterials)
+			void GetActiveVoxelTypes(TArray<TEnumAsByte<EVoxelType>> &activeVoxelTypes)
 			{
 				for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
 				{
-					if (IsMaterialActive[i])
+					if (IsVoxelTypeActive[i])
 					{
-						activeMaterials.Add((EVoxelType)i);
+						activeVoxelTypes.Add((EVoxelType)i);
 					}
 				}
-				check(!IsMaterialActive[(int32)EVoxelType::VOXEL_NONE]);
+				check(!IsVoxelTypeActive[(int32)EVoxelType::VOXEL_NONE]);
 			}
 
 		private:
 			GridTypePtr GridPtr;
-			TArray<bool> IsMaterialActive;
+			TArray<bool> IsVoxelTypeActive;
 		};
 
 		//Operator to mesh the previously extracted isosurface via the Marching Cubes algorithm

@@ -395,7 +395,7 @@ public:
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount());
 	}
 
-	void ApplyVoxelTypes(const FString &gridName, bool threaded, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
+	void ApplyVoxelTypes(const FString &gridName, bool threaded, TArray<TEnumAsByte<EVoxelType>> &sectionVoxelTypes)
 	{
 		typedef typename Vdb::GridOps::BasicSetVoxelTypeOp<GridTreeType, GridTreeType::ValueOnIter> BasicSetVoxelTypeOpType;
 		typedef typename openvdb::tools::valxform::SharedOpApplier<GridTreeType::ValueOnIter, BasicSetVoxelTypeOpType> BasicSetVoxelProcessor;
@@ -403,11 +403,13 @@ public:
 		BasicSetVoxelTypeOpType BasicSetVoxelTypeOp(gridPtr);
 		BasicSetVoxelProcessor BasicSetVoxelProc(gridPtr->beginValueOn(), BasicSetVoxelTypeOp);
 		BasicSetVoxelProc.process(threaded);
-		BasicSetVoxelTypeOp.GetActiveMaterials(sectionMaterialIDs);
-		FString msg = FString::Printf(TEXT("%s materials"), UTF8_TO_TCHAR(gridPtr->getName().c_str()));
-		for (auto i = sectionMaterialIDs.CreateConstIterator(); i; ++i)
+		BasicSetVoxelTypeOp.GetActiveVoxelTypes(sectionVoxelTypes);
+		UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EVoxelType"), true);
+		check(Enum);
+		FString msg = FString::Printf(TEXT("%s active voxel types are"), UTF8_TO_TCHAR(gridPtr->getName().c_str()));
+		for (auto i = sectionVoxelTypes.CreateConstIterator(); i; ++i)
 		{
-			msg += FString::Printf(TEXT(" %d"), (int32)i->GetValue());
+			msg += FString::Printf(TEXT(" %s"), *Enum->GetDisplayNameText((int32)i->GetValue()).ToString());
 		}
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *msg);
 	}

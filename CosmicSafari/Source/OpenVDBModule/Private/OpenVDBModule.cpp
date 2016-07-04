@@ -83,7 +83,7 @@ FString FOpenVDBModule::AddGrid(UVdbHandle const * VdbHandle, const FString &gri
 		const FIntVector indexStart = FIntVector(regionStart.x(), regionStart.y(), regionStart.z());
 		const FIntVector indexEnd = FIntVector(regionEnd.x(), regionEnd.y(), regionEnd.z()) - FIntVector(1, 1, 1);
 
-		gridID = gridName + TEXT(".") + indexStart.ToString() + TEXT(",") + indexEnd.ToString();
+		gridID = gridName + TEXT(" ") + indexStart.ToString() + TEXT(",") + indexEnd.ToString();
 		VdbHandlePrivatePtr->AddGrid(gridID, indexStart, indexEnd, voxelSize, meshBuffers);
 	}
 	catch (const openvdb::Exception &e)
