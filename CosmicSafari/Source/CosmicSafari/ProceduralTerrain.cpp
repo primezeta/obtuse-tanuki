@@ -51,7 +51,7 @@ void AProceduralTerrain::PostInitializeComponents()
 FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 {
 	//TODO: Check if terrain component already exists
-	const FString regionName = TEXT("Region.") + gridIndex.ToString();
+	const FString regionName = TEXT("[") + gridIndex.ToString() + TEXT("]=");
 	
 	GridRegions.Add(regionName);
 	const int32 meshIdx = MeshBuffers.Add(FGridMeshBuffers());
@@ -81,6 +81,7 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 		if (sectionMat != nullptr)
 		{
 			TerrainMesh->SetMaterial(sectionIndex, sectionMat);
+			UE_LOG(LogFlying, Display, TEXT("%s section %d material set to %s"), *TerrainMesh->MeshID, (int32)i->GetValue(), *sectionMat->GetName());
 		}
 	}
 	TerrainMeshComponents.Add(regionName, TerrainMesh);
@@ -104,9 +105,9 @@ void AProceduralTerrain::BeginPlay()
 
 		for (auto j = TerrainMeshComponent.MeshTypes.CreateConstIterator(); j; ++j)
 		{
-			const EVoxelType voxelType = j.Value();
+			const int32 &sectionIndex = j.Key();
+			const EVoxelType &voxelType = j.Value();
 			const int32 &buffIdx = (int32)voxelType;
-			const int32 &meshIdx = j.Key();
 			UE_LOG(LogFlying, Display, TEXT("%s num vertices[%d] = %d"), *TerrainMeshComponent.MeshID, buffIdx, meshBuffs.VertexBuffer.Num());
 			UE_LOG(LogFlying, Display, TEXT("%s num normals[%d]  = %d"), *TerrainMeshComponent.MeshID, buffIdx, meshBuffs.NormalBuffer.Num());
 			UE_LOG(LogFlying, Display, TEXT("%s num colors[%d]   = %d"), *TerrainMeshComponent.MeshID, buffIdx, meshBuffs.VertexColorBuffer.Num());
@@ -114,7 +115,7 @@ void AProceduralTerrain::BeginPlay()
 			UE_LOG(LogFlying, Display, TEXT("%s num polygons[%d] = %d"), *TerrainMeshComponent.MeshID, buffIdx, meshBuffs.PolygonBuffer.Num());
 			UE_LOG(LogFlying, Display, TEXT("%s num uv maps[%d]  = %d"), *TerrainMeshComponent.MeshID, buffIdx, meshBuffs.UVMapBuffer.Num());
 			TerrainMeshComponent.CreateMeshSection(
-				meshIdx,
+				sectionIndex,
 				meshBuffs.VertexBuffer,
 				meshBuffs.PolygonBuffer,
 				meshBuffs.NormalBuffer,
@@ -122,7 +123,7 @@ void AProceduralTerrain::BeginPlay()
 				meshBuffs.VertexColorBuffer,
 				meshBuffs.TangentBuffer,
 				bCreateCollision && voxelType != EVoxelType::VOXEL_WATER);
-			TerrainMeshComponent.SetMeshSectionVisible(meshIdx, true);
+			TerrainMeshComponent.SetMeshSectionVisible(sectionIndex, true);
 			//TODO: Create logic for using UpdateMeshSection
 			//TODO: Use non-deprecated CreateMeshSection_Linear
 		}

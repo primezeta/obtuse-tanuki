@@ -979,7 +979,6 @@ namespace Vdb
 				{
 					clearGeometry();
 					openvdb::tools::valxform::SharedOpApplier<SourceIterType, MarchingCubesMesher<SourceTreeType>> proc(GridPtr->cbeginValueOn(), *this);
-					UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre mesh op) %d active voxels"), UTF8_TO_TCHAR(GridPtr->getName().c_str()), GridPtr->activeVoxelCount()));
 					proc.process(threaded);
 
 					//Normalize the cross product averages among the surface normal sums of each mesh section
@@ -1003,7 +1002,6 @@ namespace Vdb
 						}
 					}
 				}
-				UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post mesh op) %d active voxels"), UTF8_TO_TCHAR(GridPtr->getName().c_str()), GridPtr->activeVoxelCount()));
 				isChanged = false;
 			}
 

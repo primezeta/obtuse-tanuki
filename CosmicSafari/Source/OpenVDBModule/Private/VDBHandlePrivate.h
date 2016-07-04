@@ -367,9 +367,7 @@ public:
 			check(!fillBBox.empty());
 			NoiseFillOpType noiseFillOp(gridPtr, fillBBox, seed, frequency, lacunarity, persistence, octaveCount);
 			NoiseFillProcessor NoiseFillProc(gridPtr->beginValueOn(), noiseFillOp);
-			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre perlin op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 			NoiseFillProc.process(threaded);
-			UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post perlin op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		}
 		return isChanged;
 	}
@@ -381,9 +379,8 @@ public:
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		BasicExtractSurfaceOpType BasicExtractSurfaceOp(gridPtr);
 		BasicExtractSurfaceProcessor BasicExtractSurfaceProc(gridPtr->beginValueOn(), BasicExtractSurfaceOp);
-		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre basic surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
 		BasicExtractSurfaceProc.process(threaded);
-		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post basic surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
+		UE_LOG(LogOpenVDBModule, Display, TEXT("%s %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount());
 	}
 
 	void ExtractGridSurface_MarchingCubes(const FString &gridName, bool threaded)
@@ -394,11 +391,8 @@ public:
 		GridTypePtr gridPtr = GetGridPtrChecked(gridName);
 		ExtractSurfaceOpType ExtractSurfaceOp(gridPtr);
 		ExtractSurfaceProcessor ExtractSurfaceProc(gridPtr->beginValueOn(), Adapter::tree(*(MarchingCubesMeshOps[gridName]->GridPtr)), ExtractSurfaceOp, openvdb::MERGE_ACTIVE_STATES);
-		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
-		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (pre marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(MarchingCubesMeshOps[gridName]->GridPtr->getName().c_str()), MarchingCubesMeshOps[gridName]->GridPtr->activeVoxelCount()));
 		ExtractSurfaceProc.process(threaded);
-		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount()));
-		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *FString::Printf(TEXT("%s (post marching cubes surface op) %d active voxels"), UTF8_TO_TCHAR(MarchingCubesMeshOps[gridName]->GridPtr->getName().c_str()), MarchingCubesMeshOps[gridName]->GridPtr->activeVoxelCount()));
+		UE_LOG(LogOpenVDBModule, Display, TEXT("%s %d active voxels"), UTF8_TO_TCHAR(gridPtr->getName().c_str()), gridPtr->activeVoxelCount());
 	}
 
 	void ApplyVoxelTypes(const FString &gridName, bool threaded, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
@@ -410,6 +404,12 @@ public:
 		BasicSetVoxelProcessor BasicSetVoxelProc(gridPtr->beginValueOn(), BasicSetVoxelTypeOp);
 		BasicSetVoxelProc.process(threaded);
 		BasicSetVoxelTypeOp.GetActiveMaterials(sectionMaterialIDs);
+		FString msg = FString::Printf(TEXT("%s materials"), UTF8_TO_TCHAR(gridPtr->getName().c_str()));
+		for (auto i = sectionMaterialIDs.CreateConstIterator(); i; ++i)
+		{
+			msg += FString::Printf(TEXT(" %d"), (int32)i->GetValue());
+		}
+		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *msg);
 	}
 
 	void MeshRegionCubes(const FString &gridName)
