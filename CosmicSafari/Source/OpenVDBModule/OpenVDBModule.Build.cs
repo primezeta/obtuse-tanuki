@@ -19,12 +19,11 @@ public class OpenVDBModule : ModuleRules
         PublicSystemIncludePaths.AddRange(ThirdPartyIncludes);
         PublicLibraryPaths.AddRange(ThirdPartyLibPaths);
         PublicAdditionalLibraries.AddRange(ThirdPartyLibNames);
-        //Definitions.AddRange(new string[] { "ZLIB_STATIC", "OPENVDB_STATICLIB" });
+        Definitions.AddRange(new string[] { "OPENVDB_INLINE=FORCEINLINE" });
         MinFilesUsingPrecompiledHeaderOverride = 1;
         bFasterWithoutUnity = true;
         bUseRTTI = true;
         bEnableExceptions = true;
-        OptimizeCode = CodeOptimization.InNonDebugBuilds;
     }
 
     private UnrealTargetPlatform Platform;

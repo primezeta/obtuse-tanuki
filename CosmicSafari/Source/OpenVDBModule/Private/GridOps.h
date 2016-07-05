@@ -10,8 +10,6 @@
 #include "FastNoise.h"
 #include "MarchingCubes.h"
 
-#define PRAGMA_DISABLE_OPTIMIZATION
-
 //The following non-class member operators are required by openvdb
 template<> OPENVDBMODULE_API inline FVoxelData openvdb::zeroVal<FVoxelData>();
 OPENVDBMODULE_API std::ostream& operator<<(std::ostream& os, const FVoxelData& voxelData);
@@ -117,8 +115,7 @@ namespace Vdb
 				valueSource.SetOctaveCount(octaveCount);
 			}
 
-			//FORCEINLINE void operator()(const IterType& iter)
-			void operator()(const IterType& iter)
+			OPENVDB_INLINE void operator()(const IterType& iter)
 			{
 				check(iter.isVoxelValue() && !iter.isTileValue());
 				openvdb::CoordBBox bbox;
@@ -137,7 +134,7 @@ namespace Vdb
 				}
 			}
 
-			FORCEINLINE void GetValue(const openvdb::Coord &coord, ValueType &outValue)
+			OPENVDB_INLINE void GetValue(const openvdb::Coord &coord, ValueType &outValue)
 			{
 				const openvdb::Vec3d vec = Grid.transform().indexToWorld(coord);
 				outValue.Data = (ValueType::DataType)(valueSource.GetValue(vec.x(), vec.y(), vec.z()) + vec.z());
@@ -167,8 +164,7 @@ namespace Vdb
 			{
 			}
 
-			//FORCEINLINE void operator()(const IterType& iter)
-			void operator()(const IterType& iter)
+			OPENVDB_INLINE void operator()(const IterType& iter)
 			{
 				check(iter.isVoxelValue() && !iter.isTileValue());
 				openvdb::CoordBBox bbox;
@@ -249,8 +245,7 @@ namespace Vdb
 			{
 			}
 
-			//FORCEINLINE void operator()(const SourceIterType& iter, DestAccessorType& destAcc)
-			void operator()(const SourceIterType& iter, DestAccessorType& destAcc)
+			OPENVDB_INLINE void operator()(const SourceIterType& iter, DestAccessorType& destAcc)
 			{
 				check(iter.isVoxelValue() && !iter.isTileValue());
 				openvdb::CoordBBox bbox;
@@ -327,7 +322,7 @@ namespace Vdb
 				}
 			}
 
-			FORCEINLINE void operator()(const IterType& iter)
+			OPENVDB_INLINE void operator()(const IterType& iter)
 			{
 				check(iter.isVoxelValue() && !iter.isTileValue());
 				openvdb::CoordBBox bbox;
@@ -409,8 +404,7 @@ namespace Vdb
 				GradientPtr = openvdb::Grid<openvdb::Vec3dTree>::create();
 			}
 
-			//FORCEINLINE void operator()(const IterType& iter)
-			void operator()(const IterType& iter)
+			OPENVDB_INLINE void operator()(const IterType& iter)
 			{
 				check(iter.isVoxelValue() && !iter.isTileValue());
 				openvdb::CoordBBox bbox;
@@ -686,8 +680,7 @@ namespace Vdb
 			{
 			}
 
-			//FORCEINLINE void operator()(const SourceIterType& iter)
-			void operator()(const SourceIterType& iter)
+			OPENVDB_INLINE void operator()(const SourceIterType& iter)
 			{
 				check(iter.isVoxelValue() && !iter.isTileValue());
 				openvdb::CoordBBox bbox;
@@ -932,12 +925,12 @@ namespace Vdb
 			{
 			}
 
-			FORCEINLINE void clearGeometry()
+			OPENVDB_INLINE void clearGeometry()
 			{
 				//TODO: Clear the polygon/UV map buffer of the requisite voxel type
 			}
 
-			FORCEINLINE void doMeshOp(const bool &threaded)
+			OPENVDB_INLINE void doMeshOp(const bool &threaded)
 			{
 				if (isChanged)
 				{
@@ -948,7 +941,7 @@ namespace Vdb
 				isChanged = false;
 			}
 
-			FORCEINLINE void markChanged()
+			OPENVDB_INLINE void markChanged()
 			{
 				isChanged = true;
 			}
@@ -967,13 +960,12 @@ namespace Vdb
 			{
 			}
 
-			FORCEINLINE void clearGeometry()
+			OPENVDB_INLINE void clearGeometry()
 			{
 				//TODO: Clear the polygon/UV map buffer of the requisite voxel type
 			}
 
-			//FORCEINLINE void doMeshOp(const bool &threaded)
-			void doMeshOp(const bool &threaded)
+			OPENVDB_INLINE void doMeshOp(const bool &threaded)
 			{
 				if (isChanged)
 				{
@@ -1005,7 +997,7 @@ namespace Vdb
 				isChanged = false;
 			}
 
-			FORCEINLINE void markChanged()
+			OPENVDB_INLINE void markChanged()
 			{
 				isChanged = true;
 			}

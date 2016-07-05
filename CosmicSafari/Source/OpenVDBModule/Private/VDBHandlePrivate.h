@@ -8,8 +8,6 @@
 #include "GridOps.h"
 #include "GridMetadata.h"
 
-PRAGMA_DISABLE_OPTIMIZATION
-
 DECLARE_LOG_CATEGORY_EXTERN(LogOpenVDBModule, Log, All)
 
 //5,4,3 is the standard openvdb tree configuration
