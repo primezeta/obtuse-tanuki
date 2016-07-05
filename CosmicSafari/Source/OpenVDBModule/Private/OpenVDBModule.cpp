@@ -193,7 +193,7 @@ void FOpenVDBModule::ReadGridTree(UVdbHandle const * VdbHandle, const FString &g
 	try
 	{
 		const bool threaded = true;
-		VdbHandlePrivateType::GridTypePtr GridPtr = VdbHandlePrivatePtr->ReadGridTree(gridID, startFill, endFill);
+		VdbHandlePrivatePtr->ReadGridTree(gridID, startFill, endFill);
 		VdbHandlePrivatePtr->FillGrid_PerlinDensity(gridID, threaded, startFill, endFill, VdbHandle->PerlinSeed, VdbHandle->PerlinFrequency, VdbHandle->PerlinLacunarity, VdbHandle->PerlinPersistence, VdbHandle->PerlinOctaveCount);
 		if (MeshMethod == EMeshType::MESH_TYPE_CUBES)
 		{

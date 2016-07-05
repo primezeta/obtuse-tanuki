@@ -95,15 +95,15 @@ namespace Vdb
 			typedef typename GridType::ConstAccessor CAccessorType;
 			typedef typename TreeType::ValueType ValueType;
 
-			PerlinNoiseFillOp(const GridTypePtr gridPtr, const openvdb::CoordBBox &fillBBox, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount)
-				: GridPtr(gridPtr), FillBBox(fillBBox)
+			PerlinNoiseFillOp(GridType &grid, const openvdb::CoordBBox &fillBBox, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount)
+				: Grid(grid), FillBBox(fillBBox)
 			{
 				//Expand fill box by 1 so that there are border values. The border values are turned on by the fill but will be turned off by the op
 				openvdb::CoordBBox fillBBoxWithBorder = FillBBox;
 				fillBBoxWithBorder.expand(1);
-				GridPtr->fill(fillBBoxWithBorder, FVoxelData(), true);
-				GridPtr->tree().voxelizeActiveTiles();
-				//sourceGridPtr->tree().voxelizeActiveTiles();
+				Grid.fill(fillBBoxWithBorder, FVoxelData(), true);
+				Grid.tree().voxelizeActiveTiles();
+				//sourceGrid.tree().voxelizeActiveTiles();
 				//valueSource.SetNoiseType(FastNoise::NoiseType::GradientFractal);
 				//valueSource.SetSeed(seed);
 				//valueSource.SetFrequency(frequency);
@@ -139,13 +139,13 @@ namespace Vdb
 
 			FORCEINLINE void GetValue(const openvdb::Coord &coord, ValueType &outValue)
 			{
-				const openvdb::Vec3d vec = GridPtr->transform().indexToWorld(coord);
+				const openvdb::Vec3d vec = Grid.transform().indexToWorld(coord);
 				outValue.Data = (ValueType::DataType)(valueSource.GetValue(vec.x(), vec.y(), vec.z()) + vec.z());
 				outValue.VoxelType = EVoxelType::VOXEL_NONE; //Initialize voxel type
 			}
 
 		private:
-			const GridTypePtr GridPtr;
+			GridType &Grid;
 			noise::module::Perlin valueSource;
 			//FastNoise valueSource;
 			const openvdb::CoordBBox &FillBBox;
@@ -162,8 +162,8 @@ namespace Vdb
 			typedef typename GridType::ConstAccessor CAccessorType;
 			typedef typename TreeType::ValueType ValueType;
 
-			BasicExtractSurfaceOp(const GridTypePtr gridPtr)
-				: GridPtr(gridPtr), SurfaceValue(gridPtr->tree().background())
+			BasicExtractSurfaceOp(GridType &grid)
+				: Grid(grid), SurfaceValue(grid.tree().background())
 			{
 			}
 
@@ -183,7 +183,7 @@ namespace Vdb
 					return;
 				}
 
-				CAccessorType acc = GridPtr->getConstAccessor();
+				CAccessorType acc = Grid.getConstAccessor();
 				const openvdb::Coord coords[8] = {
 					coord,
 					coord.offsetBy(0, 1, 0),
@@ -223,7 +223,7 @@ namespace Vdb
 			}
 
 		private:
-			GridTypePtr GridPtr;
+			GridType &Grid;
 			const ValueType &SurfaceValue;
 		};
 
@@ -244,8 +244,8 @@ namespace Vdb
 			typedef typename DestGridType::ConstAccessor CDestAccessorType;
 			typedef typename OutTreeType::ValueType DestValueType;
 
-			ExtractSurfaceOp(const SourceGridTypePtr sourceGridPtr)
-				: SourceGridPtr(sourceGridPtr), SurfaceValue(sourceGridPtr->tree().background())
+			ExtractSurfaceOp(SourceGridType &sourceGrid)
+				: SourceGrid(sourceGrid), SurfaceValue(sourceGrid.tree().background())
 			{
 			}
 
@@ -257,7 +257,7 @@ namespace Vdb
 				const bool hasVoxelVolume = iter.getBoundingBox(bbox) && bbox.hasVolume() && bbox.volume() == 1;
 				check(hasVoxelVolume);
 
-				CSourceAccessorType srcAcc = SourceGridPtr->getConstAccessor();
+				CSourceAccessorType srcAcc = SourceGrid.getConstAccessor();
 				const openvdb::Coord coord = iter.getCoord();
 				const openvdb::Coord coords[8] = {
 					coord,
@@ -303,7 +303,7 @@ namespace Vdb
 			}
 
 		private:
-			SourceGridTypePtr SourceGridPtr;
+			SourceGridType SourceGrid;
 			const SourceValueType &SurfaceValue;
 		};
 
@@ -318,8 +318,8 @@ namespace Vdb
 			typedef typename GridType::ConstAccessor CAccessorType;
 			typedef typename TreeType::ValueType ValueType;
 
-			BasicSetVoxelTypeOp(const GridTypePtr gridPtr)
-				: GridPtr(gridPtr)
+			BasicSetVoxelTypeOp(GridType &grid)
+				: Grid(grid)
 			{
 				for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
 				{
@@ -348,7 +348,7 @@ namespace Vdb
 				}
 				else
 				{
-					CAccessorType acc = GridPtr->getConstAccessor();
+					CAccessorType acc = Grid.getConstAccessor();
 					if (acc.isValueOn(coord.offsetBy(0, 0, 1)))
 					{
 						//The voxel immediately above is on which means we are on the side of a cliff or incline so set to type DIRT
@@ -378,7 +378,7 @@ namespace Vdb
 			}
 
 		private:
-			GridTypePtr GridPtr;
+			GridType &Grid;
 			TArray<bool> IsVoxelTypeActive;
 		};
 
@@ -400,11 +400,11 @@ namespace Vdb
 			typedef typename DataGridType::ValueType DataValueType;
 			typedef typename DataValueType::DataType DataType;
 
-			MarchingCubesMeshOp(const GridTypePtr gridPtr, const DataGridTypePtr dataGridPtr, TArray<FGridMeshBuffers> &meshBuffers)
-				: GridPtr(gridPtr), DataGridPtr(dataGridPtr), SurfaceValue(dataGridPtr->tree().background().Data), MeshBuffers(meshBuffers)
+			MarchingCubesMeshOp(GridType &grid, DataGridType &dataGrid, TArray<FGridMeshBuffers> &meshBuffers)
+				: Grid(grid), DataGrid(dataGrid), SurfaceValue(dataGrid.tree().background().Data), MeshBuffers(meshBuffers)
 			{
-				GridPtr->setName(DataGridPtr->getName() + ".bits");
-				GridPtr->setTransform(DataGridPtr->transformPtr());
+				Grid.setName(DataGrid.getName() + ".bits");
+				Grid.setTransform(DataGrid.transformPtr());
 				VisitedVertexIndicesPtr = openvdb::Grid<IndexTreeType>::create(UNVISITED_VERTEX_INDEX);
 				GradientPtr = openvdb::Grid<openvdb::Vec3dTree>::create();
 			}
@@ -422,8 +422,8 @@ namespace Vdb
 				check(MC_EdgeTable[insideBits] > -1);
 				check(insideBits > (MC_TriIndex::U_T)0 && insideBits < (MC_TriIndex::U_T)255);
 
-				DataAccessorType dataAcc = DataGridPtr->getAccessor();
-				const openvdb::math::Transform &xform = DataGridPtr->transform();
+				DataAccessorType dataAcc = DataGrid.getAccessor();
+				const openvdb::math::Transform &xform = DataGrid.transform();
 				const openvdb::Coord p[8] =
 				{
 					coord,
@@ -656,13 +656,13 @@ namespace Vdb
 				return outVertex;
 			}
 
-			const GridTypePtr GridPtr;
+			GridType &Grid;
 
 		protected:
 			FCriticalSection VtxCriticalSection;
 			FCriticalSection TriCriticalSections[FVoxelData::VOXEL_TYPE_COUNT];
 			const DataType &SurfaceValue;
-			const DataGridTypePtr DataGridPtr;
+			DataGridType &DataGrid;
 			openvdb::Grid<IndexTreeType>::Ptr VisitedVertexIndicesPtr;
 			openvdb::Grid<openvdb::Vec3dTree>::Ptr GradientPtr;
 			//openvdb::Grid<openvdb::Vec3fTree>::Ptr SurfaceNormalsPtr;
@@ -681,8 +681,8 @@ namespace Vdb
 			typedef typename GridType::ValueType ValueType;
 			typedef typename IterType SourceIterType;
 
-			CubesMeshOp(const GridTypePtr gridPtr, TArray<FGridMeshBuffers> &meshBuffers)
-				: GridPtr(gridPtr), MeshBuffers(meshBuffers)
+			CubesMeshOp(GridType &grid, TArray<FGridMeshBuffers> &meshBuffers)
+				: Grid(grid), MeshBuffers(meshBuffers)
 			{
 			}
 
@@ -696,7 +696,7 @@ namespace Vdb
 
 				//Mesh the voxel as a simple cube with 6 equal sized quads
 				bbox.expand(bbox.min(), 2);
-				const openvdb::BBoxd worldBBox = GridPtr->transform().indexToWorld(bbox);
+				const openvdb::BBoxd worldBBox = Grid.transform().indexToWorld(bbox);
 				const openvdb::Vec3d vtxs[8] = {
 					worldBBox.min(),
 					openvdb::Vec3d(worldBBox.max().x(), worldBBox.min().y(), worldBBox.min().z()),
@@ -916,7 +916,7 @@ namespace Vdb
 			}
 
 		protected:
-			const GridTypePtr GridPtr;
+			GridType &Grid;
 			FCriticalSection CriticalSection;
 			TArray<FGridMeshBuffers> &MeshBuffers;
 		};
@@ -927,8 +927,8 @@ namespace Vdb
 			public CubesMeshOp<SourceTreeType, typename SourceTreeType::ValueOnCIter>
 		{
 		public:
-			CubeMesher(const GridTypePtr gridPtr, TArray<FGridMeshBuffers> &meshBuffers)
-				: isChanged(true), CubesMeshOp(gridPtr, meshBuffers)
+			CubeMesher(GridType &grid, TArray<FGridMeshBuffers> &meshBuffers)
+				: isChanged(true), CubesMeshOp(grid, meshBuffers)
 			{
 			}
 
@@ -942,7 +942,7 @@ namespace Vdb
 				if (isChanged)
 				{
 					clearGeometry();
-					openvdb::tools::valxform::SharedOpApplier<SourceIterType, CubeMesher<SourceTreeType>> proc(GridPtr->cbeginValueOn(), *this);
+					openvdb::tools::valxform::SharedOpApplier<SourceIterType, CubeMesher<SourceTreeType>> proc(Grid.cbeginValueOn(), *this);
 					proc.process(threaded);
 				}
 				isChanged = false;
@@ -962,8 +962,8 @@ namespace Vdb
 			public MarchingCubesMeshOp<BitTreeType, typename BitTreeType::ValueOnCIter, SourceTreeType>
 		{
 		public:
-			MarchingCubesMesher(const DataGridTypePtr dataGridPtr, TArray<FGridMeshBuffers> &meshBuffers)
-				: isChanged(true), MarchingCubesMeshOp(GridType::create(0), dataGridPtr, meshBuffers)
+			MarchingCubesMesher(DataGridType &dataGrid, TArray<FGridMeshBuffers> &meshBuffers)
+				: isChanged(true), GridPtr(GridType::create(0)), MarchingCubesMeshOp(*GridPtr, dataGrid, meshBuffers)
 			{
 			}
 
@@ -978,7 +978,7 @@ namespace Vdb
 				if (isChanged)
 				{
 					clearGeometry();
-					openvdb::tools::valxform::SharedOpApplier<SourceIterType, MarchingCubesMesher<SourceTreeType>> proc(GridPtr->cbeginValueOn(), *this);
+					openvdb::tools::valxform::SharedOpApplier<SourceIterType, MarchingCubesMesher<SourceTreeType>> proc(Grid.cbeginValueOn(), *this);
 					proc.process(threaded);
 
 					//Normalize the cross product averages among the surface normal sums of each mesh section
@@ -1011,6 +1011,9 @@ namespace Vdb
 			}
 
 			bool isChanged;
+
+		private:
+			GridTypePtr GridPtr;
 		};
 	}
 }
