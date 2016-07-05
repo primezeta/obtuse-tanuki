@@ -33,7 +33,7 @@ void AProceduralTerrain::PostInitializeComponents()
 	//Set the number of voxels per grid region index
 	VdbHandle->SetRegionScale(RegionDimensions);
 
-	int32 testRegionDim = 0;
+	int32 testRegionDim = 2;
 	//Add the first grid region and all 8 surrounding regions
 	StartRegion = AddTerrainComponent(FIntVector(0, 0, 0));
 	for (int32 x = -testRegionDim; x <= testRegionDim; ++x)

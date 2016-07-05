@@ -136,18 +136,18 @@ public:
 		{
 			CachedGrid = GridsPtr->begin();
 			for (; CachedGrid != GridsPtr->end() && gridName != UTF8_TO_TCHAR((*CachedGrid)->getName().c_str()); ++CachedGrid);
-			if (CachedGrid == GridsPtr->end())
-			{
-				gridPtr = GridType::create();
-				GridsPtr->push_back(gridPtr);
-				CachedGrid = GridsPtr->end();
-				CachedGrid--;
-				isNewGrid = true;
-			}
-			else
-			{
-				gridPtr = openvdb::gridPtrCast<GridType>(*CachedGrid);
-			}
+		}
+		if (CachedGrid == GridsPtr->end())
+		{
+			gridPtr = GridType::create();
+			GridsPtr->push_back(gridPtr);
+			CachedGrid = GridsPtr->end();
+			CachedGrid--;
+			isNewGrid = true;
+		}
+		else
+		{
+			gridPtr = openvdb::gridPtrCast<GridType>(*CachedGrid);
 		}
 		check(gridPtr != nullptr);
 		return *gridPtr;
@@ -167,7 +167,7 @@ public:
 
 		bool isNewGrid = false;
 		GridType &grid = GetOrCreateGrid(gridName, isNewGrid);
-		if (!isNewGrid)
+		if (isNewGrid)
 		{
 			grid.setName(TCHAR_TO_UTF8(*gridName));
 			grid.setTransform(xformPtr);

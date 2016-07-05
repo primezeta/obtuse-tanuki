@@ -962,8 +962,8 @@ namespace Vdb
 			public MarchingCubesMeshOp<BitTreeType, typename BitTreeType::ValueOnCIter, SourceTreeType>
 		{
 		public:
-			MarchingCubesMesher(DataGridType &dataGrid, TArray<FGridMeshBuffers> &meshBuffers)
-				: isChanged(true), GridPtr(GridType::create(0)), MarchingCubesMeshOp(*GridPtr, dataGrid, meshBuffers)
+			MarchingCubesMesher(DataGridType &dataGrid, TArray<FGridMeshBuffers> &meshBuffers, GridTypePtr gridPtr = GridType::create(0))
+				: isChanged(true), GridPtr(gridPtr), MarchingCubesMeshOp(*gridPtr, dataGrid, meshBuffers)
 			{
 			}
 
@@ -1013,7 +1013,7 @@ namespace Vdb
 			bool isChanged;
 
 		private:
-			GridTypePtr GridPtr;
+			const GridTypePtr GridPtr;
 		};
 	}
 }
