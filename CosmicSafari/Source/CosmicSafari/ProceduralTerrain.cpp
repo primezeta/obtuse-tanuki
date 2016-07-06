@@ -147,6 +147,7 @@ void AProceduralTerrain::Tick(float DeltaTime)
 				continue;
 			}
 			terrainMeshComponent.FinishMeshSection(sectionIndex, true);
+			terrainMeshComponent.SetComponentTickEnabled(terrainMeshComponent.IsComponentTickEnabled());
 			//TODO: Create logic for using UpdateMeshSection
 			//TODO: Use non-deprecated CreateMeshSection_Linear
 			terrainMeshComponent.IsSectionReady[sectionIndex] = false;

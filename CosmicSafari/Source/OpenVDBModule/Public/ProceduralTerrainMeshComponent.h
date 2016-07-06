@@ -70,6 +70,7 @@ struct FGridMeshingThread : public FRunnable
 				check(TerrainMeshComponents.Contains(regionName));
 				UProceduralTerrainMeshComponent &terrainMeshComponent = *TerrainMeshComponents[regionName];
 				check(!terrainMeshComponent.IsGridReady);
+				terrainMeshComponent.SetComponentTickEnabled(false);
 				terrainMeshComponent.MeshGrid();
 				for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
 				{

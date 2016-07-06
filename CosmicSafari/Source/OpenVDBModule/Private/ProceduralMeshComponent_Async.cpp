@@ -744,6 +744,7 @@ void UProceduralMeshComponent_Async::CreateEmptyMeshSection(int32 SectionIndex, 
 
 void UProceduralMeshComponent_Async::FinishMeshSection(int32 SectionIndex, bool bIsVisible)
 {
+	MarkRenderStateDirty(); // New section requires recreating scene proxy
 	UpdateCollision(); // Mark collision as dirty
 	SetMeshSectionVisible(SectionIndex, bIsVisible);
 }
@@ -751,5 +752,4 @@ void UProceduralMeshComponent_Async::FinishMeshSection(int32 SectionIndex, bool 
 void UProceduralMeshComponent_Async::FinishMeshSection_Async(int32 SectionIndex, bool bIsVisible)
 {
 	UpdateLocalBounds(); // Update overall bounds
-	MarkRenderStateDirty(); // New section requires recreating scene proxy
 }
