@@ -12,7 +12,7 @@ public class OpenVDBModule : ModuleRules
         Configuration = Target.Configuration;
         Type = ModuleType.CPlusPlus;
 
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "UEOpenVdb", "LibNoise", "FastNoise", "ProceduralMeshComponent" });
+        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "RenderCore", "ShaderCore", "RHI", "InputCore", "UEOpenVdb", "LibNoise", "FastNoise", "ProceduralMeshComponent" });
         PrivateIncludePathModuleNames.AddRange(new string[] { "ProceduralMeshComponent" });
         PublicIncludePaths.AddRange(PublicIncludes);
         PrivateIncludePaths.AddRange(PrivateIncludes);

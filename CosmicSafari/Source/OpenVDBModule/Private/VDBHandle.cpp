@@ -33,12 +33,12 @@ void UVdbHandle::BeginDestroy()
 	Super::BeginDestroy();
 }
 
-FString UVdbHandle::AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FGridMeshBuffers> &meshBuffers)
+FString UVdbHandle::AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FProcMeshSection> &sectionBuffers)
 {
 	FString gridID;
 	if (isRegistered)
 	{
-		gridID = FOpenVDBModule::AddGrid(this, gridName, regionIndex, voxelSize, meshBuffers);
+		gridID = FOpenVDBModule::AddGrid(this, gridName, regionIndex, voxelSize, sectionBuffers);
 	}
 	return gridID;
 }
@@ -96,11 +96,11 @@ void UVdbHandle::MeshGrid(const FString &gridID)
 	}
 }
 
-void UVdbHandle::GetGridDimensions(const FString &gridID, FVector &worldStart, FVector &worldEnd, FVector &firstActive)
+void UVdbHandle::GetGridDimensions(const FString &gridID, FBox &worldBounds, FVector &firstActive)
 {
 	if (isRegistered)
 	{
-		FOpenVDBModule::GetGridDimensions(this, gridID, worldStart, worldEnd, firstActive);
+		FOpenVDBModule::GetGridDimensions(this, gridID, worldBounds, firstActive);
 	}
 }
 

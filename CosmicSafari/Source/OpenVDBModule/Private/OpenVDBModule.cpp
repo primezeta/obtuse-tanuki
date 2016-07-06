@@ -67,7 +67,7 @@ void FOpenVDBModule::UnregisterVdb(UVdbHandle const * VdbHandle)
 	}
 }
 
-FString FOpenVDBModule::AddGrid(UVdbHandle const * VdbHandle, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FGridMeshBuffers> &meshBuffers)
+FString FOpenVDBModule::AddGrid(UVdbHandle const * VdbHandle, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FProcMeshSection> &sectionBuffers)
 {
 	FString gridID;
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(VdbHandle->GetReadableName());
@@ -84,7 +84,7 @@ FString FOpenVDBModule::AddGrid(UVdbHandle const * VdbHandle, const FString &gri
 		const FIntVector indexEnd = FIntVector(regionEnd.x(), regionEnd.y(), regionEnd.z()) - FIntVector(1, 1, 1);
 
 		gridID = gridName + TEXT(" ") + indexStart.ToString() + TEXT(",") + indexEnd.ToString();
-		VdbHandlePrivatePtr->AddGrid(gridID, indexStart, indexEnd, voxelSize, meshBuffers);
+		VdbHandlePrivatePtr->AddGrid(gridID, indexStart, indexEnd, voxelSize, sectionBuffers);
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -195,6 +195,7 @@ void FOpenVDBModule::ReadGridTree(UVdbHandle const * VdbHandle, const FString &g
 		const bool threaded = true;
 		VdbHandlePrivatePtr->ReadGridTree(gridID, startFill, endFill);
 		VdbHandlePrivatePtr->FillGrid_PerlinDensity(gridID, threaded, startFill, endFill, VdbHandle->PerlinSeed, VdbHandle->PerlinFrequency, VdbHandle->PerlinLacunarity, VdbHandle->PerlinPersistence, VdbHandle->PerlinOctaveCount);
+		VdbHandlePrivatePtr->CalculateGradient(gridID, threaded);
 		if (MeshMethod == EMeshType::MESH_TYPE_CUBES)
 		{
 			VdbHandlePrivatePtr->ExtractGridSurface_Cubes(gridID, threaded);
@@ -347,12 +348,12 @@ void FOpenVDBModule::WriteAllGrids(UVdbHandle const * VdbHandle)
 	}
 }
 
-void FOpenVDBModule::GetGridDimensions(UVdbHandle const * VdbHandle, const FString &gridID, FVector &worldStart, FVector &worldEnd, FVector &firstActive)
+void FOpenVDBModule::GetGridDimensions(UVdbHandle const * VdbHandle, const FString &gridID, FBox &worldBounds, FVector &firstActive)
 {
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(VdbHandle->GetReadableName());
 	try
 	{
-		VdbHandlePrivatePtr->GetGridDimensions(gridID, worldStart, worldEnd, firstActive);
+		VdbHandlePrivatePtr->GetGridDimensions(gridID, worldBounds, firstActive);
 	}
 	catch (const openvdb::Exception &e)
 	{

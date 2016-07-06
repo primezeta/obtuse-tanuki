@@ -3,7 +3,7 @@
 #pragma once
 
 #include "GameFramework/PlayerStart.h"
-#include "VDBHandle.h"
+#include "ProceduralTerrainMeshComponent.h"
 #include "ProceduralTerrain.generated.h"
 
 UCLASS(Category = "Procedural Terrain")
@@ -27,14 +27,40 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, SimpleDisplay, Category = "Procedural Terrain")
 		UVdbHandle * VdbHandle;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Mesh algorithm"))
+		EMeshType MeshMethod;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Path to voxel database"))
+		FString FilePath;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Enable delayed loading of grids"))
+		bool EnableDelayLoad;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Enable grid stats metadata"))
+		bool EnableGridStats;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Name of volume"))
+		FString WorldName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise random generator seed"))
+		int32 PerlinSeed;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise frequency of first octave"))
+		float PerlinFrequency;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise frequency multiplier each successive octave"))
+		float PerlinLacunarity;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise amplitude multiplier each successive octave"))
+		float PerlinPersistence;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise number of octaves"))
+		int32 PerlinOctaveCount;
+
 	UPROPERTY(BlueprintReadOnly, Category = "VDB Handle", Meta = (ToolTip = "Terrain mesh component of each grid"))
 		TArray<FString> GridRegions;
-	//Terrain mesh with a mesh section per material ID
+	//Terrain mesh per grid region that has a mesh section per voxel type (i.e. per material)
 	TMap<FString, UProceduralTerrainMeshComponent*> TerrainMeshComponents;
-	
-	UPROPERTY(BlueprintReadOnly, Category = "VDB Handle", Meta = (ToolTip = "Mesh buffers per material"))
-		TArray<FGridMeshBuffers> MeshBuffers;
-	TMap<FString, int32> RegionNameToMeshBufferIndex;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain")
 		FString VolumeName;

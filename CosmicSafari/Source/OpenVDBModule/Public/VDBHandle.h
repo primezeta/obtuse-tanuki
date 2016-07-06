@@ -3,9 +3,8 @@
 #pragma once
 
 #include "Components/ActorComponent.h"
-#include "VdbInterface.h"
+#include "ProceduralMeshComponent.h"
 #include "VoxelData.h"
-#include "ProceduralTerrainMeshComponent.h"
 #include "VdbHandle.generated.h"
 
 UCLASS()
@@ -16,34 +15,25 @@ class OPENVDBMODULE_API UVdbHandle : public UActorComponent //, public IVdbInter
 public:
 	UVdbHandle(const FObjectInitializer& ObjectInitializer);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Mesh algorithm"))
+	UPROPERTY()
 		EMeshType MeshMethod;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Path to voxel database"))
+	UPROPERTY()
 		FString FilePath;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Enable delayed loading of grids"))
+	UPROPERTY()
 		bool EnableDelayLoad;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Enable grid stats metadata"))
+	UPROPERTY()
 		bool EnableGridStats;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Name of volume"))
+	UPROPERTY()
 		FString WorldName;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise random generator seed"))
+	UPROPERTY()
 		int32 PerlinSeed;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise frequency of first octave"))
+	UPROPERTY()
 		float PerlinFrequency;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise frequency multiplier each successive octave"))
+	UPROPERTY()
 		float PerlinLacunarity;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise amplitude multiplier each successive octave"))
+	UPROPERTY()
 		float PerlinPersistence;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise number of octaves"))
+	UPROPERTY()
 		int32 PerlinOctaveCount;
 
 	virtual void InitializeComponent() override;
@@ -53,7 +43,7 @@ public:
 #endif
 
 	UFUNCTION(BlueprintCallable, Category="VDB Handle")
-		virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FGridMeshBuffers> &meshBuffers);
+		virtual FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FProcMeshSection> &sectionBuffers);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void RemoveGrid(const FString &gridID);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
@@ -65,7 +55,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void MeshGrid(const FString &gridID);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		void GetGridDimensions(const FString &gridID, FVector &worldStart, FVector &worldEnd, FVector &firstActive);
+		void GetGridDimensions(const FString &gridID, FBox &worldBounds, FVector &firstActive);
 
 	TArray<FString> GetAllGridIDs();
 	FIntVector GetRegionIndex(const FVector &worldLocation);

@@ -155,7 +155,7 @@ public:
 		const FIntVector &indexStart,
 		const FIntVector &indexEnd,
 		const FVector &voxelSize,
-		TArray<FGridMeshBuffers> &meshBuffers)
+		TArray<FProcMeshSection> &sectionBuffers)
 	{
 		const openvdb::Vec3d start(indexStart.X, indexStart.Y, indexStart.Z);
 		const openvdb::Vec3d end(indexEnd.X, indexEnd.Y, indexEnd.Z);
@@ -169,13 +169,15 @@ public:
 		{
 			grid.setName(TCHAR_TO_UTF8(*gridName));
 			grid.setTransform(xformPtr);
-			CubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(grid, meshBuffers)));
-			MarchingCubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>(new Vdb::GridOps::MarchingCubesMesher<GridTreeType>(grid, meshBuffers)));
+			CubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(grid, sectionBuffers)));
+			MarchingCubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>(new Vdb::GridOps::MarchingCubesMesher<GridTreeType>(grid, sectionBuffers)));
 			SetIsFileInSync(false);
 		}		
 		else if (grid.transform() != *xformPtr)
 		{
 			grid.setTransform(xformPtr);
+			CubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(grid, sectionBuffers)));
+			MarchingCubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>(new Vdb::GridOps::MarchingCubesMesher<GridTreeType>(grid, sectionBuffers)));
 			SetIsFileInSync(false);
 		}
 
@@ -420,6 +422,18 @@ public:
 		UE_LOG(LogOpenVDBModule, Display, TEXT("%s %d active voxels"), UTF8_TO_TCHAR(grid.getName().c_str()), grid.activeVoxelCount());
 	}
 
+	void CalculateGradient(const FString &gridName, bool threaded)
+	{
+		typedef typename Vdb::GridOps::CalcGradientOp_FVoxelData<GridTreeType, GridTreeType::ValueOnCIter, openvdb::Vec3fTree> CalcGradientOp_FVoxelDataType;
+		typedef typename Vdb::GridOps::ISGradient_FVoxelData<openvdb::math::CD_2ND, CalcGradientOp_FVoxelDataType::SourceAccessorType>::Vec3Type VecType;
+		typedef typename openvdb::TreeAdapter<openvdb::Grid<openvdb::Vec3fTree>> Adapter;
+		typedef typename openvdb::tools::valxform::SharedOpTransformer<GridTreeType::ValueOnCIter, Adapter::TreeType, CalcGradientOp_FVoxelDataType> CalcGradientOp_FVoxelDataProcessor;
+		GridType &grid = GetGrid(gridName);
+		CalcGradientOp_FVoxelDataType CalcGradientOp_FVoxelDataOp(grid);
+		CalcGradientOp_FVoxelDataProcessor CalcGradientProc(grid.cbeginValueOn(), Adapter::tree(MarchingCubesMeshOps[gridName]->Gradient), CalcGradientOp_FVoxelDataOp, openvdb::MERGE_ACTIVE_STATES);
+		CalcGradientProc.process(threaded);
+	}
+
 	void ApplyVoxelTypes(const FString &gridName, bool threaded, TArray<TEnumAsByte<EVoxelType>> &sectionVoxelTypes)
 	{
 		typedef typename Vdb::GridOps::BasicSetVoxelTypeOp<GridTreeType, GridTreeType::ValueOnIter> BasicSetVoxelTypeOpType;
@@ -463,7 +477,7 @@ public:
 		}
 	}
 
-	void GetGridDimensions(const FString &gridName, FVector &worldStart, FVector &worldEnd, FVector &firstActive)
+	void GetGridDimensions(const FString &gridName, FBox &worldBounds, FVector &firstActive)
 	{
 		GridType &grid = GetGrid(gridName);
 		openvdb::Coord firstActiveCoord;
@@ -472,12 +486,8 @@ public:
 		const openvdb::BBoxd worldBBox = grid.transform().indexToWorld(activeIndexBBox);
 		const openvdb::Vec3d firstActiveWorld = grid.indexToWorld(firstActiveCoord);
 		const openvdb::Vec3d voxelSize = grid.transform().voxelSize();
-		worldStart.X = worldBBox.min().x();
-		worldStart.Y = worldBBox.min().y();
-		worldStart.Z = worldBBox.min().z();
-		worldEnd.X = worldBBox.min().x();
-		worldEnd.Y = worldBBox.min().y();
-		worldEnd.Z = worldBBox.min().z();
+		worldBounds.Min = FVector(worldBBox.min().x(), worldBBox.min().y(), worldBBox.min().z());
+		worldBounds.Max = FVector(worldBBox.max().x(), worldBBox.max().y(), worldBBox.max().z());
 		firstActive.X = firstActiveWorld.x() + voxelSize.x()*0.5;
 		firstActive.Y = firstActiveWorld.y() + voxelSize.y()*0.5;
 		firstActive.Z = firstActiveWorld.z() + voxelSize.z();

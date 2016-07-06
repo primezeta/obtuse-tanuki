@@ -13,6 +13,13 @@ enum class EVoxelType : uint8
 	VOXEL_SNOW		UMETA(DisplayName = "Snow"),
 };
 
+UENUM(BlueprintType)		//"BlueprintType" is essential to include
+enum class EMeshType : uint8
+{
+	MESH_TYPE_CUBES 		 UMETA(DisplayName = "Mesh as basic cubes"),
+	MESH_TYPE_MARCHING_CUBES UMETA(DisplayName = "Mesh with marching cubes"),
+};
+
 USTRUCT()
 struct FVoxelData
 {

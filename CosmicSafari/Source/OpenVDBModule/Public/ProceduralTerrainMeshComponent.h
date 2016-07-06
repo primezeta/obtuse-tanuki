@@ -2,29 +2,20 @@
 
 #pragma once
 
-#include "ProceduralMeshComponent.h"
-#include "GridMeshBuffers.h"
+#include "ProceduralMeshComponent_Async.h"
 #include "VoxelData.h"
+#include "VDBHandle.h"
 #include "ProceduralTerrainMeshComponent.generated.h"
-
-UENUM(BlueprintType)		//"BlueprintType" is essential to include
-enum class EMeshType : uint8
-{
-	MESH_TYPE_CUBES 		 UMETA(DisplayName = "Mesh as basic cubes"),
-	MESH_TYPE_MARCHING_CUBES UMETA(DisplayName = "Mesh with marching cubes"),
-};
 
 /**
  * 
  */
 UCLASS()
-class OPENVDBMODULE_API UProceduralTerrainMeshComponent : public UProceduralMeshComponent
+class OPENVDBMODULE_API UProceduralTerrainMeshComponent : public UProceduralMeshComponent_Async
 {
 	GENERATED_BODY()
 
 public:
-	UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer);
-	
 	UPROPERTY()
 		FString MeshID;
 	UPROPERTY()
@@ -37,4 +28,20 @@ public:
 		FVector StartLocation;
 	UPROPERTY()
 		int32 SectionCount;
+
+	UFUNCTION(Category = "Procedural terrain mesh component")
+		void InitMeshComponent(UVdbHandle * vdbHandle);
+	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
+		FString AddGrid(const FIntVector &regionIndex, const FVector &voxelSize);
+	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
+		void RemoveGrid();
+	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
+		void ReadGridTree(TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs);
+	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
+		void MeshGrid();
+	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
+		FBox GetGridDimensions();
+
+private:
+	UVdbHandle * VdbHandle;
 };
