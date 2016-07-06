@@ -381,7 +381,6 @@ namespace Vdb
 						activeVoxelTypes.Add((EVoxelType)i);
 					}
 				}
-				check(!IsVoxelTypeActive[(int32)EVoxelType::VOXEL_NONE]);
 			}
 
 		private:
@@ -531,7 +530,7 @@ namespace Vdb
 				};
 
 				const int32 idx = (int32)val[0].VoxelType;
-				check(val[0].VoxelType != EVoxelType::VOXEL_NONE && idx > -1 && idx < FVoxelData::VOXEL_TYPE_COUNT);
+				check(val[0].VoxelType != EVoxelType::VOXEL_NONE && idx > -1 && idx < (int32)FVoxelData::VOXEL_TYPE_COUNT);
 				FProcMeshSection &meshSection = SectionBuffers[idx];
 				TArray<FProcMeshVertex> &vertices = meshSection.ProcVertexBuffer;
 				TArray<int32> &polygons = meshSection.ProcIndexBuffer;
@@ -723,7 +722,7 @@ namespace Vdb
 			openvdb::tree::ValueAccessor<DataTreeType, true, DataTreeType::DEPTH-1, tbb::mutex> DataAcc;
 			openvdb::tree::ValueAccessor<const openvdb::Vec3fTree, true, openvdb::Vec3fTree::DEPTH-1, tbb::mutex> GradAcc;
 			TArray<FProcMeshSection> &SectionBuffers;
-			FCriticalSection CriticalSections[(int32)FVoxelData::VOXEL_TYPE_COUNT*2];
+			FCriticalSection CriticalSections[((int32)(FVoxelData::VOXEL_TYPE_COUNT))*2];
 		};
 
 		//Operator to mesh a cube at each active voxel from a previously extracted isosurface

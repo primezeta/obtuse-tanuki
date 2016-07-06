@@ -19,9 +19,13 @@ public:
 	UPROPERTY()
 		FString MeshID;
 	UPROPERTY()
+		EGridState RegionState;
+	UPROPERTY()
+		bool IsTreeReady;
+	UPROPERTY()
 		bool IsGridDirty;
 	UPROPERTY()
-		bool IsGridReady;
+		int32 NumReadySections;
 	UPROPERTY()
 		int32 IsSectionReady[FVoxelData::VOXEL_TYPE_COUNT];
 	UPROPERTY()
@@ -34,28 +38,42 @@ public:
 		int32 SectionCount;
 	UPROPERTY()
 		FBox SectionBounds;
+	UPROPERTY()
+		FIntVector RegionIndex;
+	UPROPERTY()
+		FVector VoxelSize;
+	UPROPERTY()
+		TArray<TEnumAsByte<EVoxelType>> SectionMaterialIDs;
+	UPROPERTY()
+		FIntVector StartFill;
+	UPROPERTY()
+		FIntVector EndFill;
+	UPROPERTY()
+		int32 NumStatesRemaining;
+	UPROPERTY()
+		bool IsQueued;
+	UVdbHandle * VdbHandle;
 
 	UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer);
 
-	UFUNCTION(Category = "Procedural terrain mesh component")
-		void InitMeshComponent(UVdbHandle * vdbHandle);
 	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
-		FString AddGrid(const FIntVector &regionIndex, const FVector &voxelSize);
+		void AddGrid();
+	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
+		void ReadGridTree();
+	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
+		void FillTreeValues();
+	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
+		void ExtractIsoSurface();
 	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
 		void RemoveGrid();
 	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
-		void ReadGridTree(TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs);
-	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
 		void MeshGrid();
-
-private:
-	UVdbHandle * VdbHandle;
 };
 
 struct FGridMeshingThread : public FRunnable
 {
-	FGridMeshingThread(TQueue<FString, EQueueMode::Mpsc> &dirtyGridRegions, TMap<FString, UProceduralTerrainMeshComponent*> &terrainMeshComponents)
-		: DirtyGridRegions(dirtyGridRegions), TerrainMeshComponents(terrainMeshComponents)
+	FGridMeshingThread(TQueue<UProceduralTerrainMeshComponent*, EQueueMode::Mpsc> &dirtyGridRegions)
+		: DirtyGridRegions(dirtyGridRegions)
 	{
 	}
 
@@ -64,20 +82,38 @@ struct FGridMeshingThread : public FRunnable
 		isRunning = true;
 		while (isRunning)
 		{
-			FString regionName;
-			while (DirtyGridRegions.Dequeue(regionName))
+			UProceduralTerrainMeshComponent* terrainMeshComponentPtr = nullptr;
+			while (DirtyGridRegions.Dequeue(terrainMeshComponentPtr))
 			{
-				check(TerrainMeshComponents.Contains(regionName));
-				UProceduralTerrainMeshComponent &terrainMeshComponent = *TerrainMeshComponents[regionName];
-				check(!terrainMeshComponent.IsGridReady);
+				check(terrainMeshComponentPtr != nullptr);
+				UProceduralTerrainMeshComponent &terrainMeshComponent = *terrainMeshComponentPtr;
+				check(terrainMeshComponent.RegionState != EGridState::GRID_STATE_FINISHED);
 				terrainMeshComponent.SetComponentTickEnabled(false);
-				terrainMeshComponent.MeshGrid();
-				for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
+				if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_INIT)
 				{
-					terrainMeshComponent.FinishMeshSection_Async(i, false);
-					terrainMeshComponent.IsSectionReady[i] = 1;
+					terrainMeshComponent.AddGrid();
+					terrainMeshComponent.NumStatesRemaining--;
 				}
-				terrainMeshComponent.IsGridReady = true;
+				else if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_READ_TREE)
+				{
+					terrainMeshComponent.ReadGridTree();
+					terrainMeshComponent.NumStatesRemaining--;
+				}
+				else if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_FILL_VALUES)
+				{
+					terrainMeshComponent.FillTreeValues();
+					terrainMeshComponent.NumStatesRemaining--;
+				}
+				else if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_EXTRACT_SURFACE)
+				{
+					terrainMeshComponent.ExtractIsoSurface();
+					terrainMeshComponent.NumStatesRemaining--;
+				}
+				else if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_MESH)
+				{
+					terrainMeshComponent.MeshGrid();
+					terrainMeshComponent.NumStatesRemaining--;
+				}
 			}
 		}
 		return 0;
@@ -89,6 +125,5 @@ struct FGridMeshingThread : public FRunnable
 	}
 
 	bool isRunning;
-	TQueue<FString, EQueueMode::Mpsc> &DirtyGridRegions;
-	TMap<FString, UProceduralTerrainMeshComponent*> &TerrainMeshComponents;
+	TQueue<UProceduralTerrainMeshComponent*, EQueueMode::Mpsc> &DirtyGridRegions;
 };

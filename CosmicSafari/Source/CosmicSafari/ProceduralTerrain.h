@@ -27,7 +27,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, SimpleDisplay, Category = "Procedural Terrain")
 		UVdbHandle * VdbHandle;
 
-	TQueue<FString, EQueueMode::Mpsc> DirtyGridRegions;
+	TQueue<UProceduralTerrainMeshComponent*, EQueueMode::Mpsc> DirtyGridRegions;
+	EGridState NextGridState;
+	int32 NumTotalGridStates;
 	//Terrain mesh per grid region that has a mesh section per voxel type (i.e. per material)
 	TMap<FString, UProceduralTerrainMeshComponent*> TerrainMeshComponents;
 

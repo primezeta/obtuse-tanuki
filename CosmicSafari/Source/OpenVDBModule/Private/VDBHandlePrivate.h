@@ -62,8 +62,8 @@ public:
 	static FString MetaName_RegionIndexStart() { return TEXT("RegionIndexStart"); }
 	static FString MetaName_RegionIndexEnd() { return TEXT("RegionIndexEnd"); }
 
-	VdbHandlePrivate(UObject const * parent, const FString &filePath, const bool &enableGridStats, const bool &enableDelayLoad)
-		: Parent(parent), isFileInSync(false), FilePath(filePath), EnableGridStats(enableGridStats), EnableDelayLoad(enableDelayLoad)
+	VdbHandlePrivate(const FString &filePath, const bool &enableGridStats, const bool &enableDelayLoad)
+		: isFileInSync(false), FilePath(filePath), EnableGridStats(enableGridStats), EnableDelayLoad(enableDelayLoad)
 	{
 	}
 
@@ -555,7 +555,6 @@ public:
 	}
 
 private:
-	UObject const * Parent;
 	bool isFileInSync;
 	TSharedPtr<openvdb::io::File> FilePtr;
 	openvdb::GridPtrVecPtr GridsPtr;

@@ -56,9 +56,6 @@ class OPENVDBMODULE_API UProceduralMeshComponent_Async : public UMeshComponent, 
 		void CreateEmptyMeshSection(int32 SectionIndex, bool bCreateCollision, int32 NumVerts = 0, int32 NumTriIndices = 0);
 
 	UFUNCTION(BlueprintCallable, Category = "Components|ProceduralMeshAsync")
-		void FinishMeshSection_Async(int32 SectionIndex, bool bIsVisible);
-
-	UFUNCTION(BlueprintCallable, Category = "Components|ProceduralMeshAsync")
 		void FinishMeshSection(int32 SectionIndex, bool bIsVisible);
 
 	//~ Begin Interface_CollisionDataProvider Interface

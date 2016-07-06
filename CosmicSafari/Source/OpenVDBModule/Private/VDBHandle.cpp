@@ -3,6 +3,7 @@
 #include "OpenVDBModule.h"
 
 UVdbHandle::UVdbHandle(const FObjectInitializer& ObjectInitializer)
+	: VdbName(GetFName().ToString())
 {
 	MeshMethod = EMeshType::MESH_TYPE_CUBES;
 	FilePath = "";
@@ -14,20 +15,21 @@ UVdbHandle::UVdbHandle(const FObjectInitializer& ObjectInitializer)
 	PerlinLacunarity = 0.49f;
 	PerlinPersistence = 2.01f;
 	PerlinOctaveCount = 9;
+	ThreadedGridOps = true;
 	bWantsInitializeComponent = true;
 }
 
 void UVdbHandle::InitializeComponent()
 {
 	Super::InitializeComponent();
-	isRegistered = FOpenVDBModule::IsAvailable() && !FilePath.IsEmpty() && FOpenVDBModule::RegisterVdb(this);
+	isRegistered = FOpenVDBModule::IsAvailable() && !FilePath.IsEmpty() && FOpenVDBModule::RegisterVdb(VdbName, FilePath, EnableGridStats, EnableDelayLoad);
 }
 
 void UVdbHandle::BeginDestroy()
 {
 	if (isRegistered)
 	{
-		FOpenVDBModule::UnregisterVdb(this);
+		FOpenVDBModule::UnregisterVdb(VdbName);
 	}
 	Super::BeginDestroy();
 }
@@ -37,9 +39,41 @@ FString UVdbHandle::AddGrid(const FString &gridName, const FIntVector &regionInd
 	FString gridID;
 	if (isRegistered)
 	{
-		gridID = FOpenVDBModule::AddGrid(this, gridName, regionIndex, voxelSize, sectionBuffers);
+		gridID = FOpenVDBModule::AddGrid(VdbName, gridName, regionIndex, voxelSize, sectionBuffers);
 	}
 	return gridID;
+}
+
+void UVdbHandle::ReadGridTree(const FString &gridID, FIntVector &startFill, FIntVector &endFill, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FVector &initialLocation)
+{
+	if (isRegistered)
+	{
+		FOpenVDBModule::ReadGridTree(VdbName, gridID, startFill, endFill);
+	}
+}
+
+void UVdbHandle::FillTreePerlin(const FString &gridID, FIntVector &startFill, FIntVector &endFill)
+{
+	if (isRegistered)
+	{
+		FOpenVDBModule::FillTreePerlin(VdbName, gridID, startFill, endFill, PerlinSeed, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, ThreadedGridOps);
+	}
+}
+
+void UVdbHandle::ExtractIsoSurface(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FBox &gridDimensions, FVector &initialLocation)
+{
+	if (isRegistered)
+	{
+		FOpenVDBModule::ExtractIsoSurface(VdbName, gridID, MeshMethod, sectionMaterialIDs, gridDimensions, initialLocation, ThreadedGridOps);
+	}
+}
+
+void UVdbHandle::MeshGrid(const FString &gridID)
+{
+	if (isRegistered)
+	{
+		FOpenVDBModule::MeshGrid(VdbName, gridID, MeshMethod);
+	}
 }
 
 TArray<FString> UVdbHandle::GetAllGridIDs()
@@ -47,7 +81,7 @@ TArray<FString> UVdbHandle::GetAllGridIDs()
 	TArray<FString> GridIDs;
 	if (isRegistered)
 	{
-		GridIDs = FOpenVDBModule::GetAllGridIDs(this);
+		GridIDs = FOpenVDBModule::GetAllGridIDs(VdbName);
 	}
 	return GridIDs;
 }
@@ -56,7 +90,7 @@ void UVdbHandle::RemoveGrid(const FString &gridID)
 {
 	if (isRegistered)
 	{
-		FOpenVDBModule::RemoveGrid(this, gridID); //TODO: Remove mesh component
+		FOpenVDBModule::RemoveGrid(VdbName, gridID); //TODO: Remove mesh component
 	}
 }
 
@@ -65,17 +99,7 @@ void UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 	if (isRegistered)
 	{
 		check(regionScale.X > 0 && regionScale.Y > 0 && regionScale.Z > 0);
-		FOpenVDBModule::SetRegionScale(this, regionScale);
-	}
-}
-
-void UVdbHandle::ReadGridTree(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FVector &initialLocation)
-{
-	if (isRegistered)
-	{
-		FIntVector StartFill; //dummy value (not used)
-		FIntVector EndFill; //dummy value (not used)
-		FOpenVDBModule::ReadGridTree(this, gridID, MeshMethod, StartFill, EndFill, sectionMaterialIDs, initialLocation);
+		FOpenVDBModule::SetRegionScale(VdbName, regionScale);
 	}
 }
 
@@ -83,15 +107,7 @@ void UVdbHandle::GetVoxelCoord(const FString &gridID, const FVector &worldLocati
 {
 	if (isRegistered)
 	{
-		FOpenVDBModule::GetVoxelCoord(this, gridID, worldLocation, outVoxelCoord);
-	}
-}
-
-void UVdbHandle::MeshGrid(const FString &gridID)
-{
-	if (isRegistered)
-	{
-		FOpenVDBModule::MeshGrid(this, gridID, MeshMethod);
+		FOpenVDBModule::GetVoxelCoord(VdbName, gridID, worldLocation, outVoxelCoord);
 	}
 }
 
@@ -99,7 +115,7 @@ void UVdbHandle::GetGridDimensions(const FString &gridID, FBox &worldBounds, FVe
 {
 	if (isRegistered)
 	{
-		FOpenVDBModule::GetGridDimensions(this, gridID, worldBounds, firstActive);
+		FOpenVDBModule::GetGridDimensions(VdbName, gridID, worldBounds, firstActive);
 	}
 }
 
@@ -108,7 +124,7 @@ FIntVector UVdbHandle::GetRegionIndex(const FVector &worldLocation)
 	FIntVector regionIndex;
 	if (isRegistered)
 	{
-		regionIndex = FOpenVDBModule::GetRegionIndex(this, worldLocation);
+		regionIndex = FOpenVDBModule::GetRegionIndex(VdbName, worldLocation);
 	}
 	return regionIndex;
 }
@@ -117,6 +133,6 @@ void UVdbHandle::WriteAllGrids()
 {
 	if (isRegistered)
 	{
-		FOpenVDBModule::WriteAllGrids(this);
+		FOpenVDBModule::WriteAllGrids(VdbName);
 	}
 }

@@ -6,43 +6,64 @@
 UProceduralTerrainMeshComponent::UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	RegionState = EGridState::GRID_STATE_INIT;
+	IsTreeReady = false;
 	IsGridDirty = true;
-	IsGridReady = false;
+	IsQueued = false;
+	SectionCount = 0;
+	NumReadySections = 0;
+	//One state per actual grid state except the final one, and a grid state per voxel type
+	NumStatesRemaining = NUM_TOTAL_GRID_STATES;
 	for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
 	{
 		IsSectionReady[i] = 0;
 	}
-}
-
-void UProceduralTerrainMeshComponent::InitMeshComponent(UVdbHandle * vdbHandle)
-{
-	check(VdbHandle == nullptr);
-	check(vdbHandle != nullptr);
-	VdbHandle = vdbHandle;
 	SectionBounds = FBox(EForceInit::ForceInit);
 }
 
-FString UProceduralTerrainMeshComponent::AddGrid(const FIntVector &regionIndex, const FVector &voxelSize)
+void UProceduralTerrainMeshComponent::AddGrid()
 {
 	check(VdbHandle != nullptr);
-	return VdbHandle->AddGrid(MeshID, regionIndex, voxelSize, ProcMeshSections);
+	check(RegionState == EGridState::GRID_STATE_INIT);
+	RegionState = EGridState::GRID_STATE_READ_TREE;
+	MeshID = VdbHandle->AddGrid(MeshID, RegionIndex, VoxelSize, ProcMeshSections);
+}
+
+void UProceduralTerrainMeshComponent::ReadGridTree()
+{
+	check(VdbHandle != nullptr);
+	check(RegionState == EGridState::GRID_STATE_READ_TREE);
+	VdbHandle->ReadGridTree(MeshID, StartFill, EndFill, SectionMaterialIDs, StartLocation);
+	VdbHandle->GetGridDimensions(MeshID, SectionBounds, StartLocation);
+	RegionState = EGridState::GRID_STATE_FILL_VALUES;
+}
+
+void UProceduralTerrainMeshComponent::FillTreeValues()
+{
+	check(VdbHandle != nullptr);
+	check(RegionState == EGridState::GRID_STATE_FILL_VALUES);
+	VdbHandle->FillTreePerlin(MeshID, StartFill, EndFill);
+	RegionState = EGridState::GRID_STATE_EXTRACT_SURFACE;
+}
+
+void UProceduralTerrainMeshComponent::ExtractIsoSurface()
+{
+	check(VdbHandle != nullptr);
+	check(RegionState == EGridState::GRID_STATE_EXTRACT_SURFACE);
+	VdbHandle->ExtractIsoSurface(MeshID, SectionMaterialIDs, SectionBounds, StartLocation);
+	RegionState = EGridState::GRID_STATE_MESH;
+}
+
+void UProceduralTerrainMeshComponent::MeshGrid()
+{
+	check(VdbHandle != nullptr);
+	check(RegionState == EGridState::GRID_STATE_MESH);
+	VdbHandle->MeshGrid(MeshID);
+	RegionState = EGridState::GRID_STATE_READY;
 }
 
 void UProceduralTerrainMeshComponent::RemoveGrid()
 {
 	//TODO
 	check(VdbHandle != nullptr);
-}
-
-void UProceduralTerrainMeshComponent::ReadGridTree(TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
-{
-	check(VdbHandle != nullptr);
-	VdbHandle->ReadGridTree(MeshID, sectionMaterialIDs, StartLocation);
-	VdbHandle->GetGridDimensions(MeshID, SectionBounds, StartLocation);
-}
-
-void UProceduralTerrainMeshComponent::MeshGrid()
-{
-	check(VdbHandle != nullptr);
-	VdbHandle->MeshGrid(MeshID);
 }
