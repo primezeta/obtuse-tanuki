@@ -23,6 +23,11 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 	SetActorEnableCollision(true);
 
 	VoxelSize = FVector(1.0f, 1.0f, 1.0f);
+	GridMeshingThread = nullptr;
+	SetActorTickEnabled(true);
+	RegionRadiusX = 0; //Radius 0 means the start region will be generated, but 0 surrounding regions (in the respective axis) will be generated
+	RegionRadiusY = 0;
+	RegionRadiusZ = 0;
 }
 
 void AProceduralTerrain::PostInitializeComponents()
@@ -32,63 +37,69 @@ void AProceduralTerrain::PostInitializeComponents()
 	//Set the number of voxels per grid region index
 	VdbHandle->SetRegionScale(RegionDimensions);
 
-	int32 testRegionDim = 2;
 	//Add the first grid region and surrounding regions
 	StartRegion = AddTerrainComponent(FIntVector(0, 0, 0));
-	for (int32 x = -testRegionDim; x <= testRegionDim; ++x)
+	DirtyGridRegions.Enqueue(StartRegion);
+	for (int32 x = 0; x <= RegionRadiusX; ++x)
 	{
-		for (int32 y = -testRegionDim; y <= testRegionDim; ++y)
+		for (int32 y = 0; y <= RegionRadiusY; ++y)
 		{
-			int32 z = 0;
-			if (x != 0 || y != 0)
+			for (int32 z = 0; z <= RegionRadiusZ; ++z)
 			{
-				AddTerrainComponent(FIntVector(x, y, z));
+				if (x != 0 || y != 0 || z != 0)
+				{
+					DirtyGridRegions.Enqueue(AddTerrainComponent(FIntVector(x, y, z)));
+					DirtyGridRegions.Enqueue(AddTerrainComponent(FIntVector(-x, -y, -z)));
+				}
 			}
 		}
 	}
+
+	SetActorRelativeLocation(-TerrainMeshComponents[StartRegion]->StartLocation);
 }
 
 FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 {
 	//TODO: Check if terrain component already exists
 	const FString regionName = TEXT("[") + gridIndex.ToString() + TEXT("]");	
-	GridRegions.Add(regionName);
 
 	//Initialize the mesh component for the grid region
 	UProceduralTerrainMeshComponent * TerrainMesh = NewObject<UProceduralTerrainMeshComponent>(this);
 	check(TerrainMesh != nullptr);
-	TerrainMesh->InitMeshComponent(VdbHandle);
-	TerrainMesh->bGenerateOverlapEvents = true;
-	TerrainMesh->IsGridSectionMeshed = false;
-	TerrainMesh->CreateCollision = bCreateCollision;
-	TerrainMesh->SetWorldScale3D(VoxelSize);
-	TerrainMesh->RegisterComponent();
-	TerrainMesh->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+	UProceduralTerrainMeshComponent &terrainMesh = *TerrainMesh;
+	terrainMesh.InitMeshComponent(VdbHandle);
+	terrainMesh.bGenerateOverlapEvents = true;
+	terrainMesh.IsGridDirty = true;
+	terrainMesh.IsGridReady = false;
+	terrainMesh.CreateCollision = bCreateCollision;
+	terrainMesh.SetWorldScale3D(VoxelSize);
+	terrainMesh.RegisterComponent();
+	terrainMesh.AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 
 	//Add the grid and read it from file
-	const FString gridID = TerrainMesh->AddGrid(gridIndex, FVector(1.0f));
-	TerrainMesh->MeshID = gridID;
+	const FString gridID = terrainMesh.AddGrid(gridIndex, FVector(1.0f));
+	terrainMesh.MeshID = gridID;
 	TArray<TEnumAsByte<EVoxelType>> sectionMaterialIDs;
-	TerrainMesh->ReadGridTree(sectionMaterialIDs);
+	terrainMesh.ReadGridTree(sectionMaterialIDs);
 
 	//Initialize an empty mesh section per voxel type
 	for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
 	{
 		bool createSectionCollision = bCreateCollision && i != (int32)EVoxelType::VOXEL_NONE && i != (int32)EVoxelType::VOXEL_WATER;
-		TerrainMesh->CreateEmptyMeshSection(i, createSectionCollision);
+		terrainMesh.CreateEmptyMeshSection(i, createSectionCollision);
 	}
 
 	//Create a material for each voxel type
 	int32 sectionIndex = 0;
 	for (auto i = sectionMaterialIDs.CreateConstIterator(); i; ++i, ++sectionIndex)
 	{
-		TerrainMesh->MeshTypes.Add(sectionIndex, *i);
-		TerrainMesh->SectionCount++;
+		terrainMesh.MeshTypes.Add(sectionIndex, *i);
+		terrainMesh.SectionCount++;
 		UMaterial * sectionMat = MeshMaterials[(int32)i->GetValue()-1];
 		if (sectionMat != nullptr)
 		{
-			TerrainMesh->SetMaterial(sectionIndex, sectionMat);
-			UE_LOG(LogFlying, Display, TEXT("%s section %d material set to %s"), *TerrainMesh->MeshID, (int32)i->GetValue(), *sectionMat->GetName());
+			terrainMesh.SetMaterial(sectionIndex, sectionMat);
+			UE_LOG(LogFlying, Display, TEXT("%s section %d material set to %s"), *terrainMesh.MeshID, (int32)i->GetValue(), *sectionMat->GetName());
 		}
 	}
 	TerrainMeshComponents.Add(regionName, TerrainMesh);
@@ -99,42 +110,48 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 void AProceduralTerrain::BeginPlay()
 {
 	Super::BeginPlay();
-
-	for (auto i = GridRegions.CreateConstIterator(); i; ++i)
-	{
-		const FString &regionName = *i;
-		check(TerrainMeshComponents.Contains(regionName));
-		UProceduralTerrainMeshComponent &TerrainMeshComponent = *TerrainMeshComponents[regionName];
-		TerrainMeshComponent.MeshGrid();
-
-		FBox sectionBounds = TerrainMeshComponent.GetGridDimensions();
-		for (auto j = TerrainMeshComponent.MeshTypes.CreateConstIterator(); j; ++j)
-		{
-			const int32 &sectionIndex = j.Key();
-			TerrainMeshComponent.FinishMeshSection(sectionIndex, true);
-			//TODO: Create logic for using UpdateMeshSection
-			//TODO: Use non-deprecated CreateMeshSection_Linear
-		}
-	}
-
-	//If there's a character position the terrain under the character
-	UWorld * World = GetWorld();
-	ACharacter* Character = UGameplayStatics::GetPlayerCharacter(World, 0);
-	FVector TerrainLocation = -TerrainMeshComponents[StartRegion]->StartLocation;
-	if (Character)
-	{
-		TerrainLocation += Character->GetActorLocation();
-	}
-	SetActorRelativeLocation(TerrainLocation);
+	check(!GridMeshingThread.IsValid());
+	GridMeshingThread = TSharedPtr<FGridMeshingThread>(new FGridMeshingThread(DirtyGridRegions, TerrainMeshComponents));
+	FString name;
+	GetName(name);
+	FRunnableThread::Create(GridMeshingThread.Get(), *FString::Printf(TEXT("GridMeshingThread:%s"), *name));
 }
 
 void AProceduralTerrain::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	VdbHandle->WriteAllGrids();
+	if (GridMeshingThread.IsValid())
+	{
+		GridMeshingThread->Stop();
+	}
 }
 
 // Called every frame
 void AProceduralTerrain::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	for (auto i = TerrainMeshComponents.CreateIterator(); i; ++i)
+	{
+		check(i.Value() != nullptr);
+		UProceduralTerrainMeshComponent& terrainMeshComponent = *(i.Value());
+		if (!terrainMeshComponent.IsGridReady)
+		{
+			continue;
+		}
+		for (auto j = terrainMeshComponent.MeshTypes.CreateConstIterator(); j; ++j)
+		{
+			const int32 &sectionIndex = j.Key();
+			if (!terrainMeshComponent.IsSectionReady[sectionIndex])
+			{
+				continue;
+			}
+			terrainMeshComponent.FinishMeshSection(sectionIndex, true);
+			//TODO: Create logic for using UpdateMeshSection
+			//TODO: Use non-deprecated CreateMeshSection_Linear
+			terrainMeshComponent.IsSectionReady[sectionIndex] = false;
+			return; //short-circuit return out of the loop so that one mesh section per tick is finished
+		}
+		terrainMeshComponent.IsGridReady = false;
+	}
 }

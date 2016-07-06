@@ -10,11 +10,10 @@ UVdbHandle::UVdbHandle(const FObjectInitializer& ObjectInitializer)
 	EnableGridStats = true;
 	WorldName = "";
 	PerlinSeed = 0;
-	PerlinFrequency = 2.01f;
-	PerlinLacunarity = 2.0f;
-	PerlinPersistence = 0.5f;
-	PerlinOctaveCount = 8;
-	//RegisterComponent();
+	PerlinFrequency = 4.0f;
+	PerlinLacunarity = 0.49f;
+	PerlinPersistence = 2.01f;
+	PerlinOctaveCount = 9;
 	bWantsInitializeComponent = true;
 }
 
@@ -70,13 +69,13 @@ void UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 	}
 }
 
-void UVdbHandle::ReadGridTree(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
+void UVdbHandle::ReadGridTree(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FVector &initialLocation)
 {
 	if (isRegistered)
 	{
 		FIntVector StartFill; //dummy value (not used)
 		FIntVector EndFill; //dummy value (not used)
-		FOpenVDBModule::ReadGridTree(this, gridID, MeshMethod, StartFill, EndFill, sectionMaterialIDs);
+		FOpenVDBModule::ReadGridTree(this, gridID, MeshMethod, StartFill, EndFill, sectionMaterialIDs, initialLocation);
 	}
 }
 

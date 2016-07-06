@@ -27,59 +27,39 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, SimpleDisplay, Category = "Procedural Terrain")
 		UVdbHandle * VdbHandle;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Mesh algorithm"))
-		EMeshType MeshMethod;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Path to voxel database"))
-		FString FilePath;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Enable delayed loading of grids"))
-		bool EnableDelayLoad;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Enable grid stats metadata"))
-		bool EnableGridStats;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Name of volume"))
-		FString WorldName;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise random generator seed"))
-		int32 PerlinSeed;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise frequency of first octave"))
-		float PerlinFrequency;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise frequency multiplier each successive octave"))
-		float PerlinLacunarity;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise amplitude multiplier each successive octave"))
-		float PerlinPersistence;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB Handle", Meta = (ToolTip = "Perlin noise number of octaves"))
-		int32 PerlinOctaveCount;
-
-	UPROPERTY(BlueprintReadOnly, Category = "VDB Handle", Meta = (ToolTip = "Terrain mesh component of each grid"))
-		TArray<FString> GridRegions;
+	TQueue<FString, EQueueMode::Mpsc> DirtyGridRegions;
 	//Terrain mesh per grid region that has a mesh section per voxel type (i.e. per material)
 	TMap<FString, UProceduralTerrainMeshComponent*> TerrainMeshComponents;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Terrain volume name"))
 		FString VolumeName;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Enable or disable dynamic mesh collision calculation"))
 		bool bCreateCollision;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Voxels per dimension of a meshable terrain region"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural Terrain", Meta = (ToolTip = "Voxels per dimension of a meshable terrain region"))
 		FIntVector RegionDimensions;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Dimensions of a single voxel"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural Terrain", Meta = (ToolTip = "Dimensions of a single voxel"))
 		FVector VoxelSize;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Meta = (ToolTip = "Material to apply according to material ID"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural Terrain", Meta = (ToolTip = "Material to apply according to material ID"))
 		TArray<UMaterial*> MeshMaterials;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Name of the region on which the player will start play")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Name of the region on which the player will start play"))
 		FString StartRegion;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Number of regions padding the start region (x-axis)"))
+		int32 RegionRadiusX;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Number of regions padding the start region (y-axis)"))
+		int32 RegionRadiusY;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Number of regions padding the start region (z-axis)"))
+		int32 RegionRadiusZ;
 
 	UFUNCTION()
 		FString AddTerrainComponent(const FIntVector &gridIndex);
+
+	TSharedPtr<FGridMeshingThread> GridMeshingThread;
 };

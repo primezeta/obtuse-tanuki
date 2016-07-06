@@ -187,7 +187,7 @@ void FOpenVDBModule::SetRegionScale(UVdbHandle const * VdbHandle, const FIntVect
 	}
 }
 
-void FOpenVDBModule::ReadGridTree(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod, FIntVector &startFill, FIntVector &endFill, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
+void FOpenVDBModule::ReadGridTree(UVdbHandle const * VdbHandle, const FString &gridID, EMeshType MeshMethod, FIntVector &startFill, FIntVector &endFill, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FVector &initialLocation)
 {
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(VdbHandle->GetReadableName());
 	try
@@ -209,6 +209,9 @@ void FOpenVDBModule::ReadGridTree(UVdbHandle const * VdbHandle, const FString &g
 		{
 			throw(std::string("Invalid mesh type!"));
 		}
+
+		FBox fbox;
+		VdbHandlePrivatePtr->GetGridDimensions(gridID, fbox, initialLocation);
 		VdbHandlePrivatePtr->ApplyVoxelTypes(gridID, threaded, sectionMaterialIDs);
 	}
 	catch (const openvdb::Exception &e)

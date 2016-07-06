@@ -3,11 +3,23 @@
 #include "OpenVDBModule.h"
 #include "ProceduralTerrainMeshComponent.h"
 
+UProceduralTerrainMeshComponent::UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	IsGridDirty = true;
+	IsGridReady = false;
+	for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
+	{
+		IsSectionReady[i] = 0;
+	}
+}
+
 void UProceduralTerrainMeshComponent::InitMeshComponent(UVdbHandle * vdbHandle)
 {
 	check(VdbHandle == nullptr);
 	check(vdbHandle != nullptr);
 	VdbHandle = vdbHandle;
+	SectionBounds = FBox(EForceInit::ForceInit);
 }
 
 FString UProceduralTerrainMeshComponent::AddGrid(const FIntVector &regionIndex, const FVector &voxelSize)
@@ -25,19 +37,12 @@ void UProceduralTerrainMeshComponent::RemoveGrid()
 void UProceduralTerrainMeshComponent::ReadGridTree(TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs)
 {
 	check(VdbHandle != nullptr);
-	VdbHandle->ReadGridTree(MeshID, sectionMaterialIDs);
+	VdbHandle->ReadGridTree(MeshID, sectionMaterialIDs, StartLocation);
+	VdbHandle->GetGridDimensions(MeshID, SectionBounds, StartLocation);
 }
 
 void UProceduralTerrainMeshComponent::MeshGrid()
 {
 	check(VdbHandle != nullptr);
 	VdbHandle->MeshGrid(MeshID);
-}
-
-FBox UProceduralTerrainMeshComponent::GetGridDimensions()
-{
-	check(VdbHandle != nullptr);
-	FBox sectionBounds;
-	VdbHandle->GetGridDimensions(MeshID, sectionBounds, StartLocation);
-	return sectionBounds;
 }

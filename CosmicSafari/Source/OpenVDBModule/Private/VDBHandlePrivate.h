@@ -172,7 +172,7 @@ public:
 			CubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(grid, sectionBuffers)));
 			MarchingCubesMeshOps.Emplace(gridName, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>(new Vdb::GridOps::MarchingCubesMesher<GridTreeType>(grid, sectionBuffers)));
 			SetIsFileInSync(false);
-		}		
+		}
 		else if (grid.transform() != *xformPtr)
 		{
 			grid.setTransform(xformPtr);

@@ -86,7 +86,7 @@ public:
 		check(IsInRenderingThread());
 
 		// Initialize the vertex factory's stream components.
-		DataType NewData;
+		FDataType NewData;
 		NewData.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer, FDynamicMeshVertex, Position, VET_Float3);
 		NewData.TextureCoordinates.Add(
 			FVertexStreamComponent(VertexBuffer, STRUCT_OFFSET(FDynamicMeshVertex, TextureCoordinate), sizeof(FDynamicMeshVertex), VET_Float2)
@@ -744,8 +744,12 @@ void UProceduralMeshComponent_Async::CreateEmptyMeshSection(int32 SectionIndex, 
 
 void UProceduralMeshComponent_Async::FinishMeshSection(int32 SectionIndex, bool bIsVisible)
 {
-	UpdateLocalBounds(); // Update overall bounds
 	UpdateCollision(); // Mark collision as dirty
-	MarkRenderStateDirty(); // New section requires recreating scene proxy
 	SetMeshSectionVisible(SectionIndex, bIsVisible);
+}
+
+void UProceduralMeshComponent_Async::FinishMeshSection_Async(int32 SectionIndex, bool bIsVisible)
+{
+	UpdateLocalBounds(); // Update overall bounds
+	MarkRenderStateDirty(); // New section requires recreating scene proxy
 }

@@ -15,25 +15,25 @@ class OPENVDBMODULE_API UVdbHandle : public UActorComponent //, public IVdbInter
 public:
 	UVdbHandle(const FObjectInitializer& ObjectInitializer);
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB", Meta = (ToolTip = "Mesh algorithm for this grid"))
 		EMeshType MeshMethod;
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB", Meta = (ToolTip = "Path to the grid database"))
 		FString FilePath;
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB", Meta = (ToolTip = "Enable loading tree data seperately"))
 		bool EnableDelayLoad;
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB", Meta = (ToolTip = "Enable grid stats metadata"))
 		bool EnableGridStats;
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB", Meta = (ToolTip = "World that contains this grid"))
 		FString WorldName;
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB", Meta = (ToolTip = "Perlin noise random seed"))
 		int32 PerlinSeed;
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB", Meta = (ToolTip = "Perlin noise starting frequency"))
 		float PerlinFrequency;
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB", Meta = (ToolTip = "Perlin noise frequency multiplier per octave"))
 		float PerlinLacunarity;
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB", Meta = (ToolTip = "Perlin noise amplitutde multiplier per octave"))
 		float PerlinPersistence;
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VDB", Meta = (ToolTip = "Perlin noise number of octacves"))
 		int32 PerlinOctaveCount;
 
 	virtual void InitializeComponent() override;
@@ -49,7 +49,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void SetRegionScale(const FIntVector &regionScale);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		virtual void ReadGridTree(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs);
+		virtual void ReadGridTree(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FVector &initialLocation);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
 		virtual void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord);
 	UFUNCTION(BlueprintCallable, Category = "VDB Handle")

@@ -19,7 +19,11 @@ public:
 	UPROPERTY()
 		FString MeshID;
 	UPROPERTY()
-		bool IsGridSectionMeshed;
+		bool IsGridDirty;
+	UPROPERTY()
+		bool IsGridReady;
+	UPROPERTY()
+		int32 IsSectionReady[FVoxelData::VOXEL_TYPE_COUNT];
 	UPROPERTY()
 		bool CreateCollision;
 	UPROPERTY()
@@ -28,6 +32,10 @@ public:
 		FVector StartLocation;
 	UPROPERTY()
 		int32 SectionCount;
+	UPROPERTY()
+		FBox SectionBounds;
+
+	UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer);
 
 	UFUNCTION(Category = "Procedural terrain mesh component")
 		void InitMeshComponent(UVdbHandle * vdbHandle);
@@ -39,9 +47,47 @@ public:
 		void ReadGridTree(TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs);
 	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
 		void MeshGrid();
-	UFUNCTION(BlueprintCallable, Category = "VDB Handle")
-		FBox GetGridDimensions();
 
 private:
 	UVdbHandle * VdbHandle;
+};
+
+struct FGridMeshingThread : public FRunnable
+{
+	FGridMeshingThread(TQueue<FString, EQueueMode::Mpsc> &dirtyGridRegions, TMap<FString, UProceduralTerrainMeshComponent*> &terrainMeshComponents)
+		: DirtyGridRegions(dirtyGridRegions), TerrainMeshComponents(terrainMeshComponents)
+	{
+	}
+
+	virtual uint32 Run() override
+	{
+		isRunning = true;
+		while (isRunning)
+		{
+			FString regionName;
+			while (DirtyGridRegions.Dequeue(regionName))
+			{
+				check(TerrainMeshComponents.Contains(regionName));
+				UProceduralTerrainMeshComponent &terrainMeshComponent = *TerrainMeshComponents[regionName];
+				check(!terrainMeshComponent.IsGridReady);
+				terrainMeshComponent.MeshGrid();
+				for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
+				{
+					terrainMeshComponent.FinishMeshSection_Async(i, false);
+					terrainMeshComponent.IsSectionReady[i] = 1;
+				}
+				terrainMeshComponent.IsGridReady = true;
+			}
+		}
+		return 0;
+	}
+
+	virtual void Stop() override
+	{
+		isRunning = false;
+	}
+
+	bool isRunning;
+	TQueue<FString, EQueueMode::Mpsc> &DirtyGridRegions;
+	TMap<FString, UProceduralTerrainMeshComponent*> &TerrainMeshComponents;
 };
