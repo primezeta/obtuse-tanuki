@@ -907,22 +907,22 @@ namespace Vdb
 						FVector2D(2.0f / 3.0f, 1.0f)
 						)));
 					polygons.Add(vertices.Add(constructFProcMeshVertex(
-						FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z()),
+						FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z()),
 						FVector(0.0f, 1.0f, 0.0f),
 						FProcMeshTangent(0.0f, 0.0f, 1.0f),
 						FColor(), //TODO colors
 						FVector2D(1.0f / 3.0f, 1.0f)
 						)));
 					polygons.Add(vertices.Add(constructFProcMeshVertex(
-						FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z()),
+						FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z()),
 						FVector(0.0f, 1.0f, 0.0f),
 						FProcMeshTangent(0.0f, 0.0f, 1.0f),
 						FColor(), //TODO colors
 						FVector2D(1.0f / 3.0f, 0.75f)
 						)));
 					sectionBounds += FVector(vtxs[7].x(), vtxs[7].y(), vtxs[7].z());
-					sectionBounds += FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z());
 					sectionBounds += FVector(vtxs[5].x(), vtxs[5].y(), vtxs[5].z());
+					sectionBounds += FVector(vtxs[4].x(), vtxs[4].y(), vtxs[4].z());
 
 					polygons.Add(vertices.Add(constructFProcMeshVertex(
 						FVector(vtxs[0].x(), vtxs[0].y(), vtxs[0].z()),
