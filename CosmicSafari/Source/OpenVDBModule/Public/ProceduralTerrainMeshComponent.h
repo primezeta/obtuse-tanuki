@@ -27,7 +27,7 @@ public:
 	UPROPERTY()
 		int32 NumReadySections;
 	UPROPERTY()
-		int32 IsSectionReady[FVoxelData::VOXEL_TYPE_COUNT];
+		int32 IsSectionFinished[FVoxelData::VOXEL_TYPE_COUNT];
 	UPROPERTY()
 		bool CreateCollision;
 	UPROPERTY()
@@ -68,6 +68,8 @@ public:
 		void RemoveGrid();
 	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
 		void MeshGrid();
+	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
+		void FinishSection(int32 SectionIndex, bool isVisible);
 };
 
 struct FGridMeshingThread : public FRunnable
@@ -87,33 +89,18 @@ struct FGridMeshingThread : public FRunnable
 			{
 				check(terrainMeshComponentPtr != nullptr);
 				UProceduralTerrainMeshComponent &terrainMeshComponent = *terrainMeshComponentPtr;
-				check(terrainMeshComponent.RegionState != EGridState::GRID_STATE_FINISHED);
 				terrainMeshComponent.SetComponentTickEnabled(false);
-				if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_INIT)
-				{
-					terrainMeshComponent.AddGrid();
-					terrainMeshComponent.NumStatesRemaining--;
-				}
-				else if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_READ_TREE)
-				{
-					terrainMeshComponent.ReadGridTree();
-					terrainMeshComponent.NumStatesRemaining--;
-				}
-				else if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_FILL_VALUES)
-				{
-					terrainMeshComponent.FillTreeValues();
-					terrainMeshComponent.NumStatesRemaining--;
-				}
-				else if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_EXTRACT_SURFACE)
-				{
-					terrainMeshComponent.ExtractIsoSurface();
-					terrainMeshComponent.NumStatesRemaining--;
-				}
-				else if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_MESH)
-				{
-					terrainMeshComponent.MeshGrid();
-					terrainMeshComponent.NumStatesRemaining--;
-				}
+				terrainMeshComponent.AddGrid();
+				terrainMeshComponent.NumStatesRemaining--;
+				terrainMeshComponent.ReadGridTree();
+				terrainMeshComponent.NumStatesRemaining--;
+				terrainMeshComponent.FillTreeValues();
+				terrainMeshComponent.NumStatesRemaining--;
+				terrainMeshComponent.ExtractIsoSurface();
+				terrainMeshComponent.NumStatesRemaining--;
+				terrainMeshComponent.MeshGrid();
+				terrainMeshComponent.NumStatesRemaining--;
+				terrainMeshComponent.IsQueued = false;
 			}
 		}
 		return 0;

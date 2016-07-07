@@ -61,4 +61,4 @@ struct FVoxelData
 };
 
 //One state per actual grid state except GRID_STATE_READY which has a number of states according to number of voxel types (except VOXEL_NONE)
-const static int32 NUM_TOTAL_GRID_STATES = (NUM_GRID_STATES - 1) + (FVoxelData::VOXEL_TYPE_COUNT);
+const static int32 NUM_TOTAL_GRID_STATES = (NUM_GRID_STATES) + (FVoxelData::VOXEL_TYPE_COUNT);

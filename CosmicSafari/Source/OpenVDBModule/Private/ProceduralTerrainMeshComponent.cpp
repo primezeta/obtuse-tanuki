@@ -16,9 +16,10 @@ UProceduralTerrainMeshComponent::UProceduralTerrainMeshComponent(const FObjectIn
 	NumStatesRemaining = NUM_TOTAL_GRID_STATES;
 	for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
 	{
-		IsSectionReady[i] = 0;
+		IsSectionFinished[i] = (int32)false;
 	}
 	SectionBounds = FBox(EForceInit::ForceInit);
+	BodyInstance.SetUseAsyncScene(true);
 }
 
 void UProceduralTerrainMeshComponent::AddGrid()
@@ -60,6 +61,14 @@ void UProceduralTerrainMeshComponent::MeshGrid()
 	check(RegionState == EGridState::GRID_STATE_MESH);
 	VdbHandle->MeshGrid(MeshID);
 	RegionState = EGridState::GRID_STATE_READY;
+}
+
+void UProceduralTerrainMeshComponent::FinishSection(int32 SectionIndex, bool isVisible)
+{
+	check(VdbHandle != nullptr);
+	check(RegionState == EGridState::GRID_STATE_READY);
+	FinishMeshSection(SectionCount, isVisible);
+	IsSectionFinished[SectionIndex] = (int32)true;
 }
 
 void UProceduralTerrainMeshComponent::RemoveGrid()
