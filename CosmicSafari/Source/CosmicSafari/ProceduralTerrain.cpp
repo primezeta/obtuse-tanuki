@@ -156,7 +156,7 @@ void AProceduralTerrain::Tick(float DeltaTime)
 					{
 						static int32 idx = 1;
 						//Collision creation is expensive so finish only one region per tick
-						GEngine->AddOnScreenDebugMessage(idx++, 30.f, FColor::Red, FString::Printf(TEXT("%s finished (visible %d) %s %s"), *terrainMeshComponent.GetName(), terrainMeshComponent.IsVisible(), *terrainMeshComponent.StartFill.ToString(), *terrainMeshComponent.EndFill.ToString()));
+						GEngine->AddOnScreenDebugMessage(idx++, 30.f, FColor::Red, FString::Printf(TEXT("%s finished (visible %d) %s %s"), *terrainMeshComponent.GetName(), terrainMeshComponent.IsVisible(), *terrainMeshComponent.SectionBounds.Min.ToString(), *terrainMeshComponent.SectionBounds.Max.ToString()));
 						return;
 					}
 				}

@@ -152,15 +152,14 @@ public:
 	}
 
 	void AddGrid(const FString &gridName,
-		const FIntVector &indexStart,
-		const FIntVector &indexEnd,
+		const FIntVector &gridDimensions,
+		const FVector &worldOffset,
 		const FVector &voxelSize,
 		TArray<FProcMeshSection> &sectionBuffers)
 	{
-		const openvdb::Vec3d start(indexStart.X, indexStart.Y, indexStart.Z);
-		const openvdb::Vec3d end(indexEnd.X, indexEnd.Y, indexEnd.Z);
 		const openvdb::Vec3d voxelScale(voxelSize.X, voxelSize.Y, voxelSize.Z);
-		const openvdb::math::ScaleMap::Ptr map = openvdb::math::ScaleMap::Ptr(new openvdb::math::ScaleMap(voxelScale));
+		const openvdb::Vec3d worldOffsetVec3d(worldOffset.X, worldOffset.Y, worldOffset.Z);
+		const openvdb::math::ScaleTranslateMap::Ptr map = openvdb::math::ScaleTranslateMap::Ptr(new openvdb::math::ScaleTranslateMap(voxelScale, worldOffsetVec3d));
 		const openvdb::math::Transform::Ptr xformPtr = openvdb::math::Transform::Ptr(new openvdb::math::Transform(map));
 
 		bool isNewGrid = false;
@@ -182,7 +181,9 @@ public:
 		}
 
 		const openvdb::Vec3IMetadata::Ptr currentIndexStartMeta = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()));
-		const openvdb::Vec3i indexStartVec(indexStart.X, indexStart.Y, indexStart.Z);
+		//TODO
+		//const openvdb::Vec3i indexStartVec(indexStart.X, indexStart.Y, indexStart.Z);
+		const openvdb::Vec3i indexStartVec(0, 0, 0);
 		if (currentIndexStartMeta == nullptr || !openvdb::math::isExactlyEqual(currentIndexStartMeta->value(), indexStartVec))
 		{
 			grid.insertMeta(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()), openvdb::Vec3IMetadata(indexStartVec));
@@ -191,7 +192,9 @@ public:
 		}
 
 		const openvdb::Vec3IMetadata::Ptr currentIndexEndMeta = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()));
-		const openvdb::Vec3i indexEndVec(indexEnd.X, indexEnd.Y, indexEnd.Z);
+		//TODO
+		//const openvdb::Vec3i indexEndVec(indexEnd.X, indexEnd.Y, indexEnd.Z);
+		const openvdb::Vec3i indexEndVec(gridDimensions.X, gridDimensions.Y, gridDimensions.Z);
 		if (currentIndexEndMeta == nullptr || !openvdb::math::isExactlyEqual(currentIndexEndMeta->value(), indexEndVec))
 		{
 			grid.insertMeta(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()), openvdb::Vec3IMetadata(indexEndVec));
@@ -390,7 +393,9 @@ public:
 
 			typedef typename Vdb::GridOps::PerlinNoiseFillOp<GridTreeType, GridTreeType::ValueOnIter> NoiseFillOpType;
 			typedef typename openvdb::tools::valxform::SharedOpApplier<GridTreeType::ValueOnIter, NoiseFillOpType> NoiseFillProcessor;
-			openvdb::CoordBBox fillBBox = openvdb::CoordBBox(openvdb::Coord(fillIndexStart.X, fillIndexStart.Y, fillIndexStart.Z), openvdb::Coord(fillIndexEnd.X, fillIndexEnd.Y, fillIndexEnd.Z));
+			const openvdb::Coord startFill(0, 0, 0);
+			const openvdb::Coord endFill(fillIndexEnd.X - fillIndexStart.X, fillIndexEnd.Y - fillIndexStart.Y, fillIndexEnd.Z - fillIndexStart.Z);
+			openvdb::CoordBBox fillBBox = openvdb::CoordBBox(startFill, endFill);
 			check(!fillBBox.empty());
 			NoiseFillOpType noiseFillOp(grid, fillBBox, seed, frequency, lacunarity, persistence, octaveCount);
 			NoiseFillProcessor NoiseFillProc(grid.beginValueOn(), noiseFillOp);
@@ -477,12 +482,23 @@ public:
 		}
 	}
 
-	void GetGridDimensions(const FString &gridName, FBox &worldBounds, FVector &firstActive)
+	bool GetGridDimensions(const FString &gridName, FBox &worldBounds, FVector &firstActive)
 	{
 		GridType &grid = GetGrid(gridName);
-		openvdb::Coord firstActiveCoord;
+		openvdb::Coord firstActiveCoord(0, 0, 0);
 		openvdb::CoordBBox activeIndexBBox = grid.evalActiveVoxelBoundingBox();
-		GetFirstActiveCoord(grid, activeIndexBBox, firstActiveCoord);
+		const bool hasActiveVoxels = !activeIndexBBox.empty();
+		if (hasActiveVoxels)
+		{
+			GetFirstActiveCoord(grid, activeIndexBBox, firstActiveCoord);
+		}
+		else
+		{
+			//If the grid has no active values then provide the bounds of the entire volume
+			const auto metaMin = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()));
+			const auto metaMax = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()));
+			activeIndexBBox = openvdb::CoordBBox(openvdb::Coord(metaMin->value()), openvdb::Coord(metaMax->value()));
+		}
 		const openvdb::BBoxd worldBBox = grid.transform().indexToWorld(activeIndexBBox);
 		const openvdb::Vec3d firstActiveWorld = grid.indexToWorld(firstActiveCoord);
 		const openvdb::Vec3d voxelSize = grid.transform().voxelSize();
@@ -491,6 +507,7 @@ public:
 		firstActive.X = firstActiveWorld.x() + voxelSize.x()*0.5;
 		firstActive.Y = firstActiveWorld.y() + voxelSize.y()*0.5;
 		firstActive.Z = firstActiveWorld.z() + voxelSize.z();
+		return hasActiveVoxels;
 	}
 
 	void GetIndexCoord(const FString &gridName, const FVector &location, FIntVector &outIndexCoord)

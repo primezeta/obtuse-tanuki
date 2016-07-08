@@ -34,7 +34,9 @@ void UProceduralTerrainMeshComponent::ReadGridTree()
 {
 	check(VdbHandle != nullptr);
 	check(RegionState == EGridState::GRID_STATE_READ_TREE);
-	VdbHandle->ReadGridTree(MeshID, StartFill, EndFill, SectionMaterialIDs, StartLocation);
+	VdbHandle->ReadGridTree(MeshID, StartIndex, EndIndex, SectionMaterialIDs, StartLocation);
+	//Calling GetGridDimensions at this point may result in a SectionBounds that contains the entire grid volume because no voxels may yet be active.
+	//The actual bounds of active voxels are given by ExtractIsoSurface where voxels on the surface are set to active.
 	VdbHandle->GetGridDimensions(MeshID, SectionBounds, StartLocation);
 	RegionState = EGridState::GRID_STATE_FILL_VALUES;
 }
@@ -43,7 +45,7 @@ void UProceduralTerrainMeshComponent::FillTreeValues()
 {
 	check(VdbHandle != nullptr);
 	check(RegionState == EGridState::GRID_STATE_FILL_VALUES);
-	VdbHandle->FillTreePerlin(MeshID, StartFill, EndFill);
+	VdbHandle->FillTreePerlin(MeshID, StartIndex, EndIndex);
 	RegionState = EGridState::GRID_STATE_EXTRACT_SURFACE;
 }
 

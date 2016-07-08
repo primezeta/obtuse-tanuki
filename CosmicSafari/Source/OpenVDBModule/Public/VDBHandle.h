@@ -47,7 +47,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="VDB")
 		FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FProcMeshSection> &sectionBuffers);
 	UFUNCTION(BlueprintCallable, Category = "VDB")
-		void ReadGridTree(const FString &gridID, FIntVector &startFill, FIntVector &endFill, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FVector &initialLocation);
+		void ReadGridTree(const FString &gridID, FIntVector &startIndex, FIntVector &endIndex, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FVector &initialLocation);
 	UFUNCTION(BlueprintCallable, Category = "VDB")
 		void FillTreePerlin(const FString &gridID, FIntVector &startFill, FIntVector &endFill);
 	UFUNCTION(BlueprintCallable, Category = "VDB")
@@ -61,7 +61,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VDB")
 		void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord);
 	UFUNCTION(BlueprintCallable, Category = "VDB")
-		void GetGridDimensions(const FString &gridID, FBox &worldBounds, FVector &firstActive);
+		bool GetGridDimensions(const FString &gridID, FBox &worldBounds, FVector &firstActive);
 
 	TArray<FString> GetAllGridIDs();
 	FIntVector GetRegionIndex(const FVector &worldLocation);

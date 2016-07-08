@@ -78,11 +78,13 @@ FString FOpenVDBModule::AddGrid(const FString &vdbName, const FString &gridName,
 		const openvdb::Coord endIndexCoord = openvdb::Coord((int32)regionIndex.X + 1, (int32)regionIndex.Y + 1, (int32)regionIndex.Z + 1);
 		const openvdb::Vec3d regionStart = regionSizeMetaValue->value().applyMap(openvdb::Vec3d((double)startIndexCoord.x(), (double)startIndexCoord.y(), (double)startIndexCoord.z()));
 		const openvdb::Vec3d regionEnd = regionSizeMetaValue->value().applyMap(openvdb::Vec3d((double)endIndexCoord.x(), (double)endIndexCoord.y(), (double)endIndexCoord.z()));
-		const FIntVector indexStart = FIntVector(regionStart.x(), regionStart.y(), regionStart.z());
-		const FIntVector indexEnd = FIntVector(regionEnd.x(), regionEnd.y(), regionEnd.z()) - FIntVector(1, 1, 1);
+		const openvdb::Vec3d regionDimensions = regionEnd - regionStart;
 
-		gridID = gridName + TEXT(" ") + indexStart.ToString() + TEXT(",") + indexEnd.ToString();
-		VdbHandlePrivatePtr->AddGrid(gridID, indexStart, indexEnd, voxelSize, sectionBuffers);
+		const FVector startWorld(regionStart.x(), regionStart.y(), regionStart.z());
+		const FVector endWorld(regionEnd.x()-1, regionEnd.y()-1, regionEnd.z()-1); //Minus 1 of each coordinate just for the display string. The value is not used
+		const FIntVector dimensions = FIntVector(regionDimensions.x(), regionDimensions.y(), regionDimensions.z()) - FIntVector(1, 1, 1);
+		gridID = gridName + TEXT(" ") + startWorld.ToString() + TEXT(",") + endWorld.ToString();
+		VdbHandlePrivatePtr->AddGrid(gridID, dimensions, startWorld, voxelSize, sectionBuffers);
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -103,12 +105,12 @@ FString FOpenVDBModule::AddGrid(const FString &vdbName, const FString &gridName,
 	return gridID;
 }
 
-void FOpenVDBModule::ReadGridTree(const FString &vdbName, const FString &gridID, FIntVector &startFill, FIntVector &endFill)
+void FOpenVDBModule::ReadGridTree(const FString &vdbName, const FString &gridID, FIntVector &startIndex, FIntVector &endIndex)
 {
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
 	try
 	{
-		VdbHandlePrivatePtr->ReadGridTree(gridID, startFill, endFill);
+		VdbHandlePrivatePtr->ReadGridTree(gridID, startIndex, endIndex);
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -182,7 +184,8 @@ void FOpenVDBModule::ExtractIsoSurface(const FString &vdbName, const FString &gr
 			throw(std::string("Invalid mesh type!"));
 		}
 
-		VdbHandlePrivatePtr->GetGridDimensions(gridID, gridDimensions, initialLocation);
+		const bool hasActiveVoxels = VdbHandlePrivatePtr->GetGridDimensions(gridID, gridDimensions, initialLocation);
+		check(hasActiveVoxels);
 		VdbHandlePrivatePtr->ApplyVoxelTypes(gridID, threaded, sectionMaterialIDs);
 	}
 	catch (const openvdb::Exception &e)
@@ -403,12 +406,13 @@ void FOpenVDBModule::WriteAllGrids(const FString &vdbName)
 	}
 }
 
-void FOpenVDBModule::GetGridDimensions(const FString &vdbName, const FString &gridID, FBox &worldBounds, FVector &firstActive)
+bool FOpenVDBModule::GetGridDimensions(const FString &vdbName, const FString &gridID, FBox &worldBounds, FVector &firstActive)
 {
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
+	bool hasActiveVoxels = false;
 	try
 	{
-		VdbHandlePrivatePtr->GetGridDimensions(gridID, worldBounds, firstActive);
+		hasActiveVoxels = VdbHandlePrivatePtr->GetGridDimensions(gridID, worldBounds, firstActive);
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -426,6 +430,7 @@ void FOpenVDBModule::GetGridDimensions(const FString &vdbName, const FString &gr
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
 	}
+	return hasActiveVoxels;
 }
 
 IMPLEMENT_GAME_MODULE(FOpenVDBModule, OpenVDBModule);

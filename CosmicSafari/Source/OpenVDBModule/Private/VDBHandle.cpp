@@ -44,11 +44,11 @@ FString UVdbHandle::AddGrid(const FString &gridName, const FIntVector &regionInd
 	return gridID;
 }
 
-void UVdbHandle::ReadGridTree(const FString &gridID, FIntVector &startFill, FIntVector &endFill, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FVector &initialLocation)
+void UVdbHandle::ReadGridTree(const FString &gridID, FIntVector &startIndex, FIntVector &endIndex, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FVector &initialLocation)
 {
 	if (isRegistered)
 	{
-		FOpenVDBModule::ReadGridTree(VdbName, gridID, startFill, endFill);
+		FOpenVDBModule::ReadGridTree(VdbName, gridID, startIndex, endIndex);
 	}
 }
 
@@ -111,12 +111,14 @@ void UVdbHandle::GetVoxelCoord(const FString &gridID, const FVector &worldLocati
 	}
 }
 
-void UVdbHandle::GetGridDimensions(const FString &gridID, FBox &worldBounds, FVector &firstActive)
+bool UVdbHandle::GetGridDimensions(const FString &gridID, FBox &worldBounds, FVector &firstActive)
 {
+	bool hasActiveVoxels = false;
 	if (isRegistered)
 	{
-		FOpenVDBModule::GetGridDimensions(VdbName, gridID, worldBounds, firstActive);
+		hasActiveVoxels = FOpenVDBModule::GetGridDimensions(VdbName, gridID, worldBounds, firstActive);
 	}
+	return hasActiveVoxels;
 }
 
 FIntVector UVdbHandle::GetRegionIndex(const FVector &worldLocation)

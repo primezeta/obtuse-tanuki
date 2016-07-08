@@ -20,7 +20,7 @@ public:
 	static bool RegisterVdb(const FString &vdbName, const FString &vdbFilepath, bool enableGridStats, bool enableDelayLoad);
 	static void UnregisterVdb(const FString &vdbName);
 	static FString AddGrid(const FString &vdbName, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FProcMeshSection> &sectionBuffers);
-	static void ReadGridTree(const FString &vdbName, const FString &gridID, FIntVector &startFill, FIntVector &endFill);
+	static void ReadGridTree(const FString &vdbName, const FString &gridID, FIntVector &startIndex, FIntVector &endIndex);
 	static void FillTreePerlin(const FString &vdbName, const FString &gridID, FIntVector &startFill, FIntVector &endFill, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount, bool threaded = true);
 	static void ExtractIsoSurface(const FString &vdbName, const FString &gridID, EMeshType MeshMethod, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FBox &gridDimensions, FVector &initialLocation, bool threaded = true);
 	static void MeshGrid(const FString &vdbName, const FString &gridID, EMeshType MeshMethod);
@@ -28,7 +28,7 @@ public:
 	static void RemoveGrid(const FString &vdbName, const FString &gridID);
 	static void SetRegionScale(const FString &vdbName, const FIntVector &regionScale);
 	static void GetVoxelCoord(const FString &vdbName, const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord);
-	static void GetGridDimensions(const FString &vdbName, const FString &gridID, FBox &worldBounds, FVector &firstActive);
+	static bool GetGridDimensions(const FString &vdbName, const FString &gridID, FBox &worldBounds, FVector &firstActive);
 	static FIntVector GetRegionIndex(const FString &vdbName, const FVector &worldLocation);
 	static void WriteAllGrids(const FString &vdbName);
 };

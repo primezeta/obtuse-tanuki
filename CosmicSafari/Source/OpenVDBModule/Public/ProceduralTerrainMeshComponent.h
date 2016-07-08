@@ -37,17 +37,17 @@ public:
 	UPROPERTY()
 		int32 SectionCount;
 	UPROPERTY()
-		FBox SectionBounds;
-	UPROPERTY()
 		FIntVector RegionIndex;
 	UPROPERTY()
 		FVector VoxelSize;
 	UPROPERTY()
 		TArray<TEnumAsByte<EVoxelType>> SectionMaterialIDs;
 	UPROPERTY()
-		FIntVector StartFill;
+		FBox SectionBounds;
 	UPROPERTY()
-		FIntVector EndFill;
+		FIntVector StartIndex;
+	UPROPERTY()
+		FIntVector EndIndex;
 	UPROPERTY()
 		int32 NumStatesRemaining;
 	UPROPERTY()
