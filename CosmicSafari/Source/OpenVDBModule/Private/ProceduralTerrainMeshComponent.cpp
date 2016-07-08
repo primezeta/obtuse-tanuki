@@ -63,12 +63,27 @@ void UProceduralTerrainMeshComponent::MeshGrid()
 	RegionState = EGridState::GRID_STATE_READY;
 }
 
-void UProceduralTerrainMeshComponent::FinishSection(int32 SectionIndex, bool isVisible)
+bool UProceduralTerrainMeshComponent::FinishSection(int32 SectionIndex, bool isVisible)
 {
+	bool sectionChangedToFinished = false;
 	check(VdbHandle != nullptr);
 	check(RegionState == EGridState::GRID_STATE_READY);
-	FinishMeshSection(SectionCount, isVisible);
-	IsSectionFinished[SectionIndex] = (int32)true;
+	if (IsSectionFinished[SectionIndex] == (int32)false)
+	{
+		IsSectionFinished[SectionIndex] = (int32)true;
+		NumReadySections++;
+		NumStatesRemaining--;
+		SetMeshSectionVisible(SectionIndex, isVisible);
+		if (NumReadySections == FVoxelData::VOXEL_TYPE_COUNT)
+		{
+			RegionState = EGridState::GRID_STATE_FINISHED;
+			NumStatesRemaining--;
+			//Mark render state as dirty and calculate collision
+			FinishMesh();
+			sectionChangedToFinished = true;
+		}
+	}
+	return sectionChangedToFinished;
 }
 
 void UProceduralTerrainMeshComponent::RemoveGrid()

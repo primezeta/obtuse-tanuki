@@ -78,6 +78,7 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 	terrainMesh.RegisterComponent();
 	terrainMesh.AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 	terrainMesh.VdbHandle = VdbHandle;
+	terrainMesh.RegionIndex = gridIndex;
 
 	//Initialize an empty mesh section per voxel type and create a material for each voxel type
 	for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
@@ -144,34 +145,26 @@ void AProceduralTerrain::Tick(float DeltaTime)
 		UProceduralTerrainMeshComponent *terrainMeshComponentPtr = i.Value();
 		check(terrainMeshComponentPtr != nullptr);
 		UProceduralTerrainMeshComponent& terrainMeshComponent = *terrainMeshComponentPtr;
-		if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_FINISHED)
+		if (terrainMeshComponent.RegionState != EGridState::GRID_STATE_FINISHED)
 		{
-			continue;
-		}
-
-		if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_INIT &&
-			!terrainMeshComponent.IsQueued)
-		{
-			terrainMeshComponent.IsQueued = true;
-			DirtyGridRegions.Enqueue(terrainMeshComponentPtr);
-		}
-		else if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_READY)
-		{
-			for (int32 j = 0; j < FVoxelData::VOXEL_TYPE_COUNT; ++j)
+			if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_READY)
 			{
-				if (terrainMeshComponent.IsSectionFinished[j] == (int32)true)
+				for (int32 j = 0; j < FVoxelData::VOXEL_TYPE_COUNT; ++j)
 				{
-					continue;
+					const bool isChangedToFinished = terrainMeshComponent.FinishSection(j, true);
+					if (isChangedToFinished)
+					{
+						static int32 idx = 1;
+						//Collision creation is expensive so finish only one region per tick
+						GEngine->AddOnScreenDebugMessage(idx++, 30.f, FColor::Red, FString::Printf(TEXT("%s finished (visible %d) %s %s"), *terrainMeshComponent.GetName(), terrainMeshComponent.IsVisible(), *terrainMeshComponent.StartFill.ToString(), *terrainMeshComponent.EndFill.ToString()));
+						return;
+					}
 				}
-				terrainMeshComponent.FinishSection(j, true);
-				terrainMeshComponent.NumReadySections++;
-				terrainMeshComponent.NumStatesRemaining--;
-				if (terrainMeshComponent.NumReadySections == FVoxelData::VOXEL_TYPE_COUNT)
-				{
-					terrainMeshComponent.RegionState = EGridState::GRID_STATE_FINISHED;
-					terrainMeshComponent.NumStatesRemaining--;
-				}
-				return; //short-circuit out so that one section of the region is finished at a time
+			}
+			else if (terrainMeshComponent.IsGridDirty && !terrainMeshComponent.IsQueued)
+			{
+				terrainMeshComponent.IsQueued = true;
+				DirtyGridRegions.Enqueue(terrainMeshComponentPtr);
 			}
 		}
 	}

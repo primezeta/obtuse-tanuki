@@ -69,7 +69,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
 		void MeshGrid();
 	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
-		void FinishSection(int32 SectionIndex, bool isVisible);
+		bool FinishSection(int32 SectionIndex, bool isVisible);
 };
 
 struct FGridMeshingThread : public FRunnable
