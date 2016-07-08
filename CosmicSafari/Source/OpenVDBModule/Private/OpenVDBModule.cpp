@@ -165,9 +165,10 @@ void FOpenVDBModule::FillTreePerlin(const FString &vdbName,
 	}
 }
 
-void FOpenVDBModule::ExtractIsoSurface(const FString &vdbName, const FString &gridID, EMeshType MeshMethod, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FBox &gridDimensions, FVector &initialLocation, bool threaded)
+bool FOpenVDBModule::ExtractIsoSurface(const FString &vdbName, const FString &gridID, EMeshType MeshMethod, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FBox &gridDimensions, FVector &initialLocation, bool threaded)
 {
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
+	bool hasActiveVoxels = false;
 	try
 	{
 		if (MeshMethod == EMeshType::MESH_TYPE_CUBES)
@@ -184,9 +185,8 @@ void FOpenVDBModule::ExtractIsoSurface(const FString &vdbName, const FString &gr
 			throw(std::string("Invalid mesh type!"));
 		}
 
-		const bool hasActiveVoxels = VdbHandlePrivatePtr->GetGridDimensions(gridID, gridDimensions, initialLocation);
-		check(hasActiveVoxels);
 		VdbHandlePrivatePtr->ApplyVoxelTypes(gridID, threaded, sectionMaterialIDs);
+		hasActiveVoxels = VdbHandlePrivatePtr->GetGridDimensions(gridID, gridDimensions, initialLocation);
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -204,6 +204,7 @@ void FOpenVDBModule::ExtractIsoSurface(const FString &vdbName, const FString &gr
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
 	}
+	return hasActiveVoxels;
 }
 
 void FOpenVDBModule::MeshGrid(const FString &vdbName, const FString &gridID, EMeshType MeshMethod)

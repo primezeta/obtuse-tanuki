@@ -181,8 +181,6 @@ public:
 		}
 
 		const openvdb::Vec3IMetadata::Ptr currentIndexStartMeta = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()));
-		//TODO
-		//const openvdb::Vec3i indexStartVec(indexStart.X, indexStart.Y, indexStart.Z);
 		const openvdb::Vec3i indexStartVec(0, 0, 0);
 		if (currentIndexStartMeta == nullptr || !openvdb::math::isExactlyEqual(currentIndexStartMeta->value(), indexStartVec))
 		{
@@ -192,8 +190,6 @@ public:
 		}
 
 		const openvdb::Vec3IMetadata::Ptr currentIndexEndMeta = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()));
-		//TODO
-		//const openvdb::Vec3i indexEndVec(indexEnd.X, indexEnd.Y, indexEnd.Z);
 		const openvdb::Vec3i indexEndVec(gridDimensions.X, gridDimensions.Y, gridDimensions.Z);
 		if (currentIndexEndMeta == nullptr || !openvdb::math::isExactlyEqual(currentIndexEndMeta->value(), indexEndVec))
 		{
@@ -485,12 +481,17 @@ public:
 	bool GetGridDimensions(const FString &gridName, FBox &worldBounds, FVector &firstActive)
 	{
 		GridType &grid = GetGrid(gridName);
-		openvdb::Coord firstActiveCoord(0, 0, 0);
 		openvdb::CoordBBox activeIndexBBox = grid.evalActiveVoxelBoundingBox();
-		const bool hasActiveVoxels = !activeIndexBBox.empty();
+		const bool hasActiveVoxels = grid.activeVoxelCount() > 0;
 		if (hasActiveVoxels)
 		{
+			openvdb::Coord firstActiveCoord = openvdb::Coord::max();
 			GetFirstActiveCoord(grid, activeIndexBBox, firstActiveCoord);
+			const openvdb::Vec3d firstActiveWorld = grid.indexToWorld(firstActiveCoord);
+			const openvdb::Vec3d voxelSize = grid.transform().voxelSize();
+			firstActive = FVector(firstActiveWorld.x() + voxelSize.x()*0.5,
+								  firstActiveWorld.y() + voxelSize.y()*0.5,
+								  firstActiveWorld.z() + voxelSize.z());
 		}
 		else
 		{
@@ -498,15 +499,11 @@ public:
 			const auto metaMin = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()));
 			const auto metaMax = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()));
 			activeIndexBBox = openvdb::CoordBBox(openvdb::Coord(metaMin->value()), openvdb::Coord(metaMax->value()));
+			firstActive = FVector(FLT_TRUE_MIN, FLT_TRUE_MIN, FLT_TRUE_MIN);
 		}
 		const openvdb::BBoxd worldBBox = grid.transform().indexToWorld(activeIndexBBox);
-		const openvdb::Vec3d firstActiveWorld = grid.indexToWorld(firstActiveCoord);
-		const openvdb::Vec3d voxelSize = grid.transform().voxelSize();
 		worldBounds.Min = FVector(worldBBox.min().x(), worldBBox.min().y(), worldBBox.min().z());
 		worldBounds.Max = FVector(worldBBox.max().x(), worldBBox.max().y(), worldBBox.max().z());
-		firstActive.X = firstActiveWorld.x() + voxelSize.x()*0.5;
-		firstActive.Y = firstActiveWorld.y() + voxelSize.y()*0.5;
-		firstActive.Z = firstActiveWorld.z() + voxelSize.z();
 		return hasActiveVoxels;
 	}
 
@@ -610,27 +607,56 @@ private:
 		}
 	}
 
-	inline void GetFirstActiveCoord(GridType &grid, openvdb::CoordBBox &activeIndexBBox, openvdb::Coord &firstActive)
+	inline void GetFirstActiveCoord(GridType &grid, const openvdb::CoordBBox &activeIndexBBox, openvdb::Coord &firstActive)
 	{
-		activeIndexBBox = grid.evalActiveVoxelBoundingBox();
-		for (auto i = grid.cbeginValueOn(); i; ++i)
+		check(!activeIndexBBox.empty());
+		//Start from the center x,y and highest z of the active bounding box and return immediately when an active voxel is found.
+		const openvdb::Coord &min = activeIndexBBox.min();
+		const openvdb::Coord &max = activeIndexBBox.max();
+		const openvdb::Coord centerCoord(max.x()-(activeIndexBBox.dim().x()/2), max.y()-(activeIndexBBox.dim().y()/2), max.z());
+		GridType::ConstAccessor acc = grid.getConstAccessor();
+		if (acc.isValueOn(centerCoord))
 		{
-			if (i.isVoxelValue())
+			firstActive = centerCoord;
+			return;
+		}
+
+		TArray<int32> coordsChecked;
+		coordsChecked.SetNumZeroed(activeIndexBBox.volume());
+
+		for (int32 dx = 0; dx < centerCoord.x(); ++dx)
+		{
+			for (int32 dy = 0; dy < centerCoord.y(); ++dy)
 			{
-				firstActive = i.getCoord();
-				//Find the first voxel above that is off
-				for (int32 z = i.getCoord().z(); z <= activeIndexBBox.max().z(); ++z)
+				for (int32 dz = 0; dz < activeIndexBBox.dim().z(); ++dz)
 				{
-					firstActive.setZ(z);
-					if (i.getTree()->isValueOff(firstActive))
+					const openvdb::Coord first = centerCoord.offsetBy(dx, dy, -dz);
+					const int32 firstidx = (first.x()-min.x()) + activeIndexBBox.dim().x() * ((first.y()-min.y()) + activeIndexBBox.dim().y() * (first.z()-min.z()));
+					check(coordsChecked[firstidx] == 0);
+					coordsChecked[firstidx] = 1;
+					if (acc.isValueOn(first))
 					{
+						firstActive = first;
+						return;
+					}
+					const openvdb::Coord second = centerCoord.offsetBy(-dx, -dy, -dz);
+					if (second == first)
+					{
+						continue;
+					}
+					const int32 secondidx = (second.x()-min.x()) + activeIndexBBox.dim().x() * ((second.y()-min.y()) + activeIndexBBox.dim().y() * (second.z()-min.z()));
+					check(coordsChecked[secondidx] == 0);
+					coordsChecked[secondidx] = 1;
+					if (acc.isValueOn(second))
+					{
+						firstActive = second;
 						return;
 					}
 				}
 			}
 		}
-		//TODO: Handle when no such voxel found
-		firstActive = openvdb::Coord(0, 0, 0);
+		//Should never get here since as a precondition the active bounding box is not empty!
+		check(false);
 	}
 };
 
