@@ -78,8 +78,8 @@ bool UProceduralTerrainMeshComponent::FinishSection(int32 SectionIndex, bool isV
 		{
 			RegionState = EGridState::GRID_STATE_FINISHED;
 			NumStatesRemaining--;
-			//Mark render state as dirty and calculate collision
-			FinishMesh();
+			//Calculate collision
+			FinishCollison();
 			sectionChangedToFinished = true;
 		}
 	}

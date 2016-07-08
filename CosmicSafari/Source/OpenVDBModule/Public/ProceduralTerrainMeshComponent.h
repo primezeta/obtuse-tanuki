@@ -99,6 +99,7 @@ struct FGridMeshingThread : public FRunnable
 				terrainMeshComponent.ExtractIsoSurface();
 				terrainMeshComponent.NumStatesRemaining--;
 				terrainMeshComponent.MeshGrid();
+				terrainMeshComponent.FinishRender();
 				terrainMeshComponent.NumStatesRemaining--;
 				terrainMeshComponent.IsQueued = false;
 			}

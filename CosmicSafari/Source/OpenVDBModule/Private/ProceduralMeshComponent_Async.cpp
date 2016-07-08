@@ -742,9 +742,13 @@ void UProceduralMeshComponent_Async::CreateEmptyMeshSection(int32 SectionIndex, 
 	NewSection.bEnableCollision = bCreateCollision;
 }
 
-void UProceduralMeshComponent_Async::FinishMesh()
+void UProceduralMeshComponent_Async::FinishRender()
 {
 	UpdateLocalBounds(); // Update overall bounds
 	MarkRenderStateDirty(); // New section requires recreating scene proxy
+}
+
+void UProceduralMeshComponent_Async::FinishCollison()
+{
 	UpdateCollision(); // Mark collision as dirty
 }
