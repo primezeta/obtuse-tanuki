@@ -699,6 +699,7 @@ void UProceduralMeshComponent_Async::UpdateCollision()
 
 	// Ensure we have a BodySetup
 	CreateProcMeshBodySetup();
+	ProcMeshBodySetup->bNeverNeedsCookedCollisionData = true;
 
 #if WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR
 	// Clear current mesh data

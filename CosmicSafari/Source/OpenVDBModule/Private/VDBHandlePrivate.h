@@ -478,28 +478,71 @@ public:
 		}
 	}
 
-	bool GetGridDimensions(const FString &gridName, FBox &worldBounds, FVector &firstActive)
+	bool GetGridDimensions(const FString &gridName, FVector &startLocation)
 	{
 		GridType &grid = GetGrid(gridName);
 		openvdb::CoordBBox activeIndexBBox = grid.evalActiveVoxelBoundingBox();
 		const bool hasActiveVoxels = grid.activeVoxelCount() > 0;
 		if (hasActiveVoxels)
 		{
+			//Search for a start location among the active voxels
 			openvdb::Coord firstActiveCoord = openvdb::Coord::max();
 			GetFirstActiveCoord(grid, activeIndexBBox, firstActiveCoord);
 			const openvdb::Vec3d firstActiveWorld = grid.indexToWorld(firstActiveCoord);
 			const openvdb::Vec3d voxelSize = grid.transform().voxelSize();
-			firstActive = FVector(firstActiveWorld.x() + voxelSize.x()*0.5,
+			startLocation = FVector(firstActiveWorld.x() + voxelSize.x()*0.5,
+				firstActiveWorld.y() + voxelSize.y()*0.5,
+				firstActiveWorld.z() + voxelSize.z());
+		}
+		else
+		{
+			//Grid has no active values and thus no valid start location
+			startLocation = FVector(FLT_TRUE_MIN, FLT_TRUE_MIN, FLT_TRUE_MIN);
+		}
+		return hasActiveVoxels;
+	}
+
+	bool GetGridDimensions(const FString &gridName, FBox &worldBounds)
+	{
+		GridType &grid = GetGrid(gridName);
+		openvdb::CoordBBox activeIndexBBox = grid.evalActiveVoxelBoundingBox();
+		const bool hasActiveVoxels = grid.activeVoxelCount() > 0;
+		if (!hasActiveVoxels)
+		{
+			//The grid has no active values so provide the defined bounds of the entire volume
+			const auto metaMin = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()));
+			const auto metaMax = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()));
+			activeIndexBBox = openvdb::CoordBBox(openvdb::Coord(metaMin->value()), openvdb::Coord(metaMax->value()));
+		}
+		const openvdb::BBoxd worldBBox = grid.transform().indexToWorld(activeIndexBBox);
+		worldBounds.Min = FVector(worldBBox.min().x(), worldBBox.min().y(), worldBBox.min().z());
+		worldBounds.Max = FVector(worldBBox.max().x(), worldBBox.max().y(), worldBBox.max().z());
+		return hasActiveVoxels;
+	}
+
+	bool GetGridDimensions(const FString &gridName, FBox &worldBounds, FVector &startLocation)
+	{
+		GridType &grid = GetGrid(gridName);
+		openvdb::CoordBBox activeIndexBBox = grid.evalActiveVoxelBoundingBox();
+		const bool hasActiveVoxels = grid.activeVoxelCount() > 0;
+		if (hasActiveVoxels)
+		{
+			//Search for a start location among the active voxels
+			openvdb::Coord firstActiveCoord = openvdb::Coord::max();
+			GetFirstActiveCoord(grid, activeIndexBBox, firstActiveCoord);
+			const openvdb::Vec3d firstActiveWorld = grid.indexToWorld(firstActiveCoord);
+			const openvdb::Vec3d voxelSize = grid.transform().voxelSize();
+			startLocation = FVector(firstActiveWorld.x() + voxelSize.x()*0.5,
 								  firstActiveWorld.y() + voxelSize.y()*0.5,
 								  firstActiveWorld.z() + voxelSize.z());
 		}
 		else
 		{
-			//If the grid has no active values then provide the bounds of the entire volume
+			//The grid has no active values so provide the defined bounds of the entire volume
 			const auto metaMin = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()));
 			const auto metaMax = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()));
 			activeIndexBBox = openvdb::CoordBBox(openvdb::Coord(metaMin->value()), openvdb::Coord(metaMax->value()));
-			firstActive = FVector(FLT_TRUE_MIN, FLT_TRUE_MIN, FLT_TRUE_MIN);
+			startLocation = FVector(FLT_TRUE_MIN, FLT_TRUE_MIN, FLT_TRUE_MIN);
 		}
 		const openvdb::BBoxd worldBBox = grid.transform().indexToWorld(activeIndexBBox);
 		worldBounds.Min = FVector(worldBBox.min().x(), worldBBox.min().y(), worldBBox.min().z());

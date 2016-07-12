@@ -30,6 +30,9 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 	RegionRadiusY = 0;
 	RegionRadiusZ = 0;
 	NumTotalGridStates = 0;
+	NumberMeshingStatesRemaining = 0;
+	bIsInitialLocationSet = false;
+	PercentMeshingComplete = 0.0f;
 }
 
 void AProceduralTerrain::PostInitializeComponents()
@@ -55,8 +58,6 @@ void AProceduralTerrain::PostInitializeComponents()
 			}
 		}
 	}
-
-	SetActorRelativeLocation(-TerrainMeshComponents[StartRegion]->StartLocation);
 }
 
 FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
@@ -97,6 +98,7 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 	}
 	TerrainMeshComponents.Add(regionName, TerrainMesh);
 	NumTotalGridStates = TerrainMeshComponents.Num() * NUM_TOTAL_GRID_STATES;
+	NumberMeshingStatesRemaining = NumTotalGridStates;
 	return regionName;
 }
 
@@ -125,47 +127,66 @@ void AProceduralTerrain::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	int32 numStates = 0;
-	for (auto i = TerrainMeshComponents.CreateIterator(); i; ++i)
+	//If initial location has not yet been set, set it based on the defined start region name
+	if (!bIsInitialLocationSet && TerrainMeshComponents[StartRegion]->RegionState > EGridState::GRID_STATE_EXTRACT_SURFACE)
 	{
-		numStates += i.Value()->NumStatesRemaining;
+		SetActorRelativeLocation(-TerrainMeshComponents[StartRegion]->StartLocation);
+		bIsInitialLocationSet = true; //Only need to set once
 	}
-	check(NumTotalGridStates > 0);
-	const float percentComplete = 100.0f - 100.0f * ((float)numStates / (float)NumTotalGridStates);
-	GEngine->AddOnScreenDebugMessage(0, 5.f, FColor::Red, FString::Printf(TEXT("%d"), (int32)percentComplete));
-	
-	if (numStates == 0)
+
+	if (NumberMeshingStatesRemaining == 0)
 	{
+		//Nothing left to do
 		return;
 	}
 
+	//Queue up each section to be asynchronously meshed and then finish each section for anything that must be done on the game thread
+	int32 numStates = 0;
 	UProceduralTerrainMeshComponent *terrainMeshComponentPtr = nullptr;
 	for (auto i = TerrainMeshComponents.CreateIterator(); i; ++i)
 	{
-		UProceduralTerrainMeshComponent *terrainMeshComponentPtr = i.Value();
+		terrainMeshComponentPtr = i.Value();
 		check(terrainMeshComponentPtr != nullptr);
-		UProceduralTerrainMeshComponent& terrainMeshComponent = *terrainMeshComponentPtr;
-		if (terrainMeshComponent.RegionState != EGridState::GRID_STATE_FINISHED)
+		numStates += EnqueueOrFinishSection(terrainMeshComponentPtr);
+	}
+
+	NumberMeshingStatesRemaining = numStates;
+	PercentMeshingComplete = 100.0f - 100.0f * ((float)NumberMeshingStatesRemaining / (float)NumTotalGridStates);
+}
+
+int32 AProceduralTerrain::EnqueueOrFinishSection(UProceduralTerrainMeshComponent *terrainMeshComponentPtr)
+{
+	UProceduralTerrainMeshComponent& terrainMeshComponent = *terrainMeshComponentPtr;
+
+	const bool isVisible = true; //TODO
+	int32 numStates = 0;
+	if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_FINISHED)
+	{
+		//Nothing to do
+		numStates = terrainMeshComponent.NumStatesRemaining;
+	}
+	else if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_READY)
+	{
+		//The region is ready. Now complete the parts of the section that must be done on the game thread (e.g. physx collision)
+		for (int32 j = 0; j < FVoxelData::VOXEL_TYPE_COUNT; ++j)
 		{
-			if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_READY)
+			const bool isChangedToFinished = terrainMeshComponent.FinishSection(j, isVisible);
+			if (isChangedToFinished)
 			{
-				for (int32 j = 0; j < FVoxelData::VOXEL_TYPE_COUNT; ++j)
-				{
-					const bool isChangedToFinished = terrainMeshComponent.FinishSection(j, true);
-					if (isChangedToFinished)
-					{
-						static int32 idx = 1;
-						//Collision creation is expensive so finish only one region per tick
-						GEngine->AddOnScreenDebugMessage(idx++, 30.f, FColor::Red, FString::Printf(TEXT("%s finished (visible %d) %s %s"), *terrainMeshComponent.GetName(), terrainMeshComponent.IsVisible(), *terrainMeshComponent.SectionBounds.Min.ToString(), *terrainMeshComponent.SectionBounds.Max.ToString()));
-						return;
-					}
-				}
-			}
-			else if (terrainMeshComponent.IsGridDirty && !terrainMeshComponent.IsQueued)
-			{
-				terrainMeshComponent.IsQueued = true;
-				DirtyGridRegions.Enqueue(terrainMeshComponentPtr);
+				static int32 idx = 1;
+				//Collision creation is expensive so finish only one region per call
+				GEngine->AddOnScreenDebugMessage(idx++, 1.f, FColor::Red, FString::Printf(TEXT("%s finished (visible %d) %s %s"), *terrainMeshComponent.GetName(), terrainMeshComponent.IsVisible(), *terrainMeshComponent.SectionBounds.Min.ToString(), *terrainMeshComponent.SectionBounds.Max.ToString()));
+				numStates = terrainMeshComponent.NumStatesRemaining;
+				break;
 			}
 		}
 	}
+	else if (terrainMeshComponent.IsGridDirty && !terrainMeshComponent.IsQueued)
+	{
+		//The grid changed and is not currently queued - queue it up
+		terrainMeshComponent.IsQueued = true;
+		numStates = terrainMeshComponent.NumStatesRemaining; //get state count so that the state value doesn't change unexpectedly
+		DirtyGridRegions.Enqueue(terrainMeshComponentPtr);
+	}
+	return numStates;
 }

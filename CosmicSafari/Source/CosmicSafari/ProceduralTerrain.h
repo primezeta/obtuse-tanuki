@@ -59,8 +59,16 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Number of regions padding the start region (z-axis)"))
 		int32 RegionRadiusZ;
 
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Number of mesh creation steps remaining"))
+		int32 NumberMeshingStatesRemaining;
+
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Percent (0.0-100.0) mesh creation that is completed among all mesh sections"))
+		float PercentMeshingComplete;
+
 	UFUNCTION()
 		FString AddTerrainComponent(const FIntVector &gridIndex);
 
 	TSharedPtr<FGridMeshingThread> GridMeshingThread;
+	bool bIsInitialLocationSet;
+	int32 EnqueueOrFinishSection(UProceduralTerrainMeshComponent *terrainMeshComponentPtr);
 };

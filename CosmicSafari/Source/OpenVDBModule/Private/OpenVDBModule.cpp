@@ -407,13 +407,67 @@ void FOpenVDBModule::WriteAllGrids(const FString &vdbName)
 	}
 }
 
-bool FOpenVDBModule::GetGridDimensions(const FString &vdbName, const FString &gridID, FBox &worldBounds, FVector &firstActive)
+bool FOpenVDBModule::GetGridDimensions(const FString &vdbName, const FString &gridID, FVector &startLocation)
 {
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
 	bool hasActiveVoxels = false;
 	try
 	{
-		hasActiveVoxels = VdbHandlePrivatePtr->GetGridDimensions(gridID, worldBounds, firstActive);
+		hasActiveVoxels = VdbHandlePrivatePtr->GetGridDimensions(gridID, startLocation);
+	}
+	catch (const openvdb::Exception &e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule OpenVDB exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::exception& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::string& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.c_str()));
+	}
+	catch (...)
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
+	}
+	return hasActiveVoxels;
+}
+
+bool FOpenVDBModule::GetGridDimensions(const FString &vdbName, const FString &gridID, FBox &worldBounds)
+{
+	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
+	bool hasActiveVoxels = false;
+	try
+	{
+		hasActiveVoxels = VdbHandlePrivatePtr->GetGridDimensions(gridID, worldBounds);
+	}
+	catch (const openvdb::Exception &e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule OpenVDB exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::exception& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::string& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.c_str()));
+	}
+	catch (...)
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
+	}
+	return hasActiveVoxels;
+}
+
+bool FOpenVDBModule::GetGridDimensions(const FString &vdbName, const FString &gridID, FBox &worldBounds, FVector &startLocation)
+{
+	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
+	bool hasActiveVoxels = false;
+	try
+	{
+		hasActiveVoxels = VdbHandlePrivatePtr->GetGridDimensions(gridID, worldBounds, startLocation);
 	}
 	catch (const openvdb::Exception &e)
 	{

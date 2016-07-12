@@ -28,7 +28,9 @@ public:
 	static void RemoveGrid(const FString &vdbName, const FString &gridID);
 	static void SetRegionScale(const FString &vdbName, const FIntVector &regionScale);
 	static void GetVoxelCoord(const FString &vdbName, const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord);
-	static bool GetGridDimensions(const FString &vdbName, const FString &gridID, FBox &worldBounds, FVector &firstActive);
+	static bool GetGridDimensions(const FString &vdbName, const FString &gridID, FVector &startLocation);
+	static bool GetGridDimensions(const FString &vdbName, const FString &gridID, FBox &worldBounds);
+	static bool GetGridDimensions(const FString &vdbName, const FString &gridID, FBox &worldBounds, FVector &startLocation);
 	static FIntVector GetRegionIndex(const FString &vdbName, const FVector &worldLocation);
 	static void WriteAllGrids(const FString &vdbName);
 };
