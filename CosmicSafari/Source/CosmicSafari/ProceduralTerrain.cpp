@@ -152,17 +152,18 @@ void AProceduralTerrain::Tick(float DeltaTime)
 
 	if (NumberMeshingStatesRemaining == 0)
 	{
-		//Nothing left to do
+		//Nothing left to do for any sections
 		return;
 	}
 
-	//Queue up each section to be asynchronously meshed and then finish each section for anything that must be done on the game thread
 	int32 numStates = 0;
 	UProceduralTerrainMeshComponent *terrainMeshComponentPtr = nullptr;
 	for (auto i = TerrainMeshComponents.CreateIterator(); i; ++i)
 	{
 		terrainMeshComponentPtr = i.Value();
 		check(terrainMeshComponentPtr != nullptr);
+		//Queue up the section to be asynchronously meshed, or if the async meshing operations are complete,
+		//finish the section for anything that must be done on the game thread (e.g. physx collisions)
 		numStates += EnqueueOrFinishSection(terrainMeshComponentPtr);
 	}
 
@@ -185,10 +186,7 @@ int32 AProceduralTerrain::EnqueueOrFinishSection(UProceduralTerrainMeshComponent
 			if (isChangedToFinished)
 			{
 				NumberRegionsComplete++;
-
-				static int32 idx = 1;
 				//Collision creation is expensive so finish only one region per call
-				GEngine->AddOnScreenDebugMessage(idx++, 1.f, FColor::Red, FString::Printf(TEXT("%s finished (visible %d) %s %s"), *terrainMeshComponent.GetName(), terrainMeshComponent.IsVisible(), *terrainMeshComponent.SectionBounds.Min.ToString(), *terrainMeshComponent.SectionBounds.Max.ToString()));
 				break;
 			}
 		}
@@ -206,9 +204,10 @@ int32 AProceduralTerrain::EnqueueOrFinishSection(UProceduralTerrainMeshComponent
 	}
 	else
 	{
-		//Grid state is finished
+		//Grid state is finished. Nothing to do here
 		check(terrainMeshComponent.RegionState == EGridState::GRID_STATE_FINISHED);
 		numStates = terrainMeshComponent.NumStatesRemaining;
+		check(numStates == 0);
 	}
 	check(numStates > -1);
 	return numStates;
