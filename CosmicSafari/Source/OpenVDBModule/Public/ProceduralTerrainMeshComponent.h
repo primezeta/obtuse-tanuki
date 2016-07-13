@@ -52,6 +52,8 @@ public:
 		int32 NumStatesRemaining;
 	UPROPERTY()
 		bool IsQueued;
+	UPROPERTY()
+		bool bTickStateAfterFinish;
 	UVdbHandle * VdbHandle;
 
 	UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer);
@@ -72,9 +74,6 @@ public:
 		void MeshGrid();
 	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
 		bool FinishSection(int32 SectionIndex, bool isVisible);
-
-private:
-	bool bWasTickEnabled;
 };
 
 struct FGridMeshingThread : public FRunnable

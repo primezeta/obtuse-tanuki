@@ -21,14 +21,13 @@ UProceduralTerrainMeshComponent::UProceduralTerrainMeshComponent(const FObjectIn
 	SectionBounds = FBox(EForceInit::ForceInit);
 	BodyInstance.SetUseAsyncScene(true);
 	bWantsInitializeComponent = true;
+	bTickStateAfterFinish = true;
+	SetComponentTickEnabled(IsComponentTickEnabled());
 }
 
 void UProceduralTerrainMeshComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
-	//Must disable ticking until asynchronous grid creation and meshing is complete, otherwise MarkActorComponentForNeededEndOfFrameUpdate() fails an assertion
-	bWasTickEnabled = IsComponentTickEnabled();
-	SetComponentTickEnabled(false);
 }
 
 void UProceduralTerrainMeshComponent::AddGrid()
@@ -100,7 +99,7 @@ bool UProceduralTerrainMeshComponent::FinishSection(int32 SectionIndex, bool isV
 			//Calculate collision
 			FinishCollison();
 			sectionChangedToFinished = true;
-			SetComponentTickEnabled(bWasTickEnabled);
+			SetComponentTickEnabled(bTickStateAfterFinish);
 		}
 		NumStatesRemaining--;
 	}

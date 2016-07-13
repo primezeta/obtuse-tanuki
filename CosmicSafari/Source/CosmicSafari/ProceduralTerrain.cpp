@@ -81,6 +81,7 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 	terrainMesh.AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 	terrainMesh.VdbHandle = VdbHandle;
 	terrainMesh.RegionIndex = gridIndex;
+	terrainMesh.bTickStateAfterFinish = true;
 
 	//Initialize an empty mesh section per voxel type and create a material for each voxel type
 	for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
@@ -131,6 +132,9 @@ void AProceduralTerrain::Tick(float DeltaTime)
 	//If initial location has not yet been set, set it based on the defined start region name
 	if (!bIsInitialLocationSet && TerrainMeshComponents[StartRegion]->RegionState == EGridState::GRID_STATE_FINISHED)
 	{
+		//Set spawn point to the start regions start location (Note: *this is a APlayerStart)
+		SetActorLocation(TerrainMeshComponents[StartRegion]->StartLocation);
+
 		UWorld * World = GetWorld();
 		check(World);
 		//Drop control of the original pawn, spawn a new pawn at the start location, and start controlling the new pawn
@@ -139,14 +143,13 @@ void AProceduralTerrain::Tick(float DeltaTime)
 		APlayerController * FirstPlayerController = World->GetFirstPlayerController();
 		check(FirstPlayerController);
 		ACharacter * OriginalCharacter = FirstPlayerController->GetCharacter();
-		//ACharacter * Character = World->SpawnActor<AFirstPersonCPPCharacter>(TerrainMeshComponents[StartRegion]->StartLocation, FRotator::ZeroRotator);
-		//check(Character);
-		//FirstPlayerController->UnPossess();
-		//FirstPlayerController->Possess(Character);
-		//if (OriginalCharacter)
-		//{
-		//	OriginalCharacter->Destroy();
-		//}
+		ACharacter * Character = World->SpawnActor<AFirstPersonCPPCharacter>(AFirstPersonCPPCharacter::StaticClass());
+		check(Character);
+		FirstPlayerController->Possess(Character);
+		if (OriginalCharacter)
+		{
+			OriginalCharacter->Destroy();
+		}
 		bIsInitialLocationSet = true; //Only need to set once
 	}
 
