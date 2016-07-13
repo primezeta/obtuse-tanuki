@@ -55,6 +55,8 @@ public:
 	UVdbHandle * VdbHandle;
 
 	UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer);
+	
+	virtual void InitializeComponent() override;
 
 	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
 		void AddGrid();
@@ -70,6 +72,9 @@ public:
 		void MeshGrid();
 	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
 		bool FinishSection(int32 SectionIndex, bool isVisible);
+
+private:
+	bool bWasTickEnabled;
 };
 
 struct FGridMeshingThread : public FRunnable
@@ -89,18 +94,12 @@ struct FGridMeshingThread : public FRunnable
 			{
 				check(terrainMeshComponentPtr != nullptr);
 				UProceduralTerrainMeshComponent &terrainMeshComponent = *terrainMeshComponentPtr;
-				terrainMeshComponent.SetComponentTickEnabled(false);
 				terrainMeshComponent.AddGrid();
-				terrainMeshComponent.NumStatesRemaining--;
 				terrainMeshComponent.ReadGridTree();
-				terrainMeshComponent.NumStatesRemaining--;
 				terrainMeshComponent.FillTreeValues();
-				terrainMeshComponent.NumStatesRemaining--;
 				terrainMeshComponent.ExtractIsoSurface();
-				terrainMeshComponent.NumStatesRemaining--;
 				terrainMeshComponent.MeshGrid();
 				terrainMeshComponent.FinishRender();
-				terrainMeshComponent.NumStatesRemaining--;
 				terrainMeshComponent.IsQueued = false;
 			}
 		}

@@ -20,14 +20,24 @@ UProceduralTerrainMeshComponent::UProceduralTerrainMeshComponent(const FObjectIn
 	}
 	SectionBounds = FBox(EForceInit::ForceInit);
 	BodyInstance.SetUseAsyncScene(true);
+	bWantsInitializeComponent = true;
+}
+
+void UProceduralTerrainMeshComponent::InitializeComponent()
+{
+	Super::InitializeComponent();
+	//Must disable ticking until asynchronous grid creation and meshing is complete, otherwise MarkActorComponentForNeededEndOfFrameUpdate() fails an assertion
+	bWasTickEnabled = IsComponentTickEnabled();
+	SetComponentTickEnabled(false);
 }
 
 void UProceduralTerrainMeshComponent::AddGrid()
 {
 	check(VdbHandle != nullptr);
 	check(RegionState == EGridState::GRID_STATE_INIT);
-	RegionState = EGridState::GRID_STATE_READ_TREE;
 	MeshID = VdbHandle->AddGrid(MeshID, RegionIndex, VoxelSize, ProcMeshSections);
+	RegionState = EGridState::GRID_STATE_READ_TREE;
+	NumStatesRemaining--;
 }
 
 void UProceduralTerrainMeshComponent::ReadGridTree()
@@ -39,6 +49,7 @@ void UProceduralTerrainMeshComponent::ReadGridTree()
 	//The actual bounds of active voxels are valid after calling ExtractIsoSurface in which voxels spanning the isosurface are set to active.
 	VdbHandle->GetGridDimensions(MeshID, SectionBounds);
 	RegionState = EGridState::GRID_STATE_FILL_VALUES;
+	NumStatesRemaining--;
 }
 
 void UProceduralTerrainMeshComponent::FillTreeValues()
@@ -47,6 +58,7 @@ void UProceduralTerrainMeshComponent::FillTreeValues()
 	check(RegionState == EGridState::GRID_STATE_FILL_VALUES);
 	VdbHandle->FillTreePerlin(MeshID, StartIndex, EndIndex);
 	RegionState = EGridState::GRID_STATE_EXTRACT_SURFACE;
+	NumStatesRemaining--;
 }
 
 void UProceduralTerrainMeshComponent::ExtractIsoSurface()
@@ -55,6 +67,7 @@ void UProceduralTerrainMeshComponent::ExtractIsoSurface()
 	check(RegionState == EGridState::GRID_STATE_EXTRACT_SURFACE);
 	VdbHandle->ExtractIsoSurface(MeshID, SectionMaterialIDs, SectionBounds, StartLocation);
 	RegionState = EGridState::GRID_STATE_MESH;
+	NumStatesRemaining--;
 }
 
 void UProceduralTerrainMeshComponent::MeshGrid()
@@ -63,6 +76,7 @@ void UProceduralTerrainMeshComponent::MeshGrid()
 	check(RegionState == EGridState::GRID_STATE_MESH);
 	VdbHandle->MeshGrid(MeshID);
 	RegionState = EGridState::GRID_STATE_READY;
+	NumStatesRemaining--;
 }
 
 bool UProceduralTerrainMeshComponent::FinishSection(int32 SectionIndex, bool isVisible)
@@ -74,17 +88,23 @@ bool UProceduralTerrainMeshComponent::FinishSection(int32 SectionIndex, bool isV
 	{
 		IsSectionFinished[SectionIndex] = (int32)true;
 		NumReadySections++;
-		SetMeshSectionVisible(SectionIndex, isVisible);
-		if (NumReadySections == FVoxelData::VOXEL_TYPE_COUNT)
+		check(NumReadySections <= FVoxelData::VOXEL_TYPE_COUNT);
+		if (NumReadySections < FVoxelData::VOXEL_TYPE_COUNT)
+		{
+			SetMeshSectionVisible(SectionIndex, isVisible);
+		}
+		else if (NumReadySections == FVoxelData::VOXEL_TYPE_COUNT)
 		{
 			RegionState = EGridState::GRID_STATE_FINISHED;
 			NumStatesRemaining--;
 			//Calculate collision
 			FinishCollison();
 			sectionChangedToFinished = true;
+			SetComponentTickEnabled(bWasTickEnabled);
 		}
 		NumStatesRemaining--;
 	}
+	check(NumStatesRemaining > -1);
 	return sectionChangedToFinished;
 }
 

@@ -28,7 +28,7 @@ public:
 		UVdbHandle * VdbHandle;
 
 	TQueue<UProceduralTerrainMeshComponent*, EQueueMode::Mpsc> DirtyGridRegions;
-	int32 NumTotalGridStates;
+	int32 NumberTotalGridStates;
 	//Terrain mesh per grid region that has a mesh section per voxel type (i.e. per material)
 	TMap<FString, UProceduralTerrainMeshComponent*> TerrainMeshComponents;
 
@@ -58,6 +58,9 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Number of regions padding the start region (z-axis)"))
 		int32 RegionRadiusZ;
+
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Number of mesh creation steps remaining"))
+		int32 NumberRegionsComplete;
 
 	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Number of mesh creation steps remaining"))
 		int32 NumberMeshingStatesRemaining;

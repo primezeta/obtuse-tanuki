@@ -32,7 +32,7 @@ enum class EGridState : uint8
 	GRID_STATE_FINISHED				UMETA(DisplayName = "Nothing left to do"),
 };
 
-const static int32 NUM_GRID_STATES = (int32)EGridState::GRID_STATE_FINISHED;
+const static int32 NUM_GRID_STATES = 1+(int32)EGridState::GRID_STATE_FINISHED;
 
 USTRUCT()
 struct FVoxelData
@@ -60,5 +60,5 @@ struct FVoxelData
 	const static int32 VOXEL_TYPE_COUNT = (int32)EVoxelType::VOXEL_NONE;
 };
 
-//One state per actual grid state except GRID_STATE_READY which has a number of states according to number of voxel types (except VOXEL_NONE)
-const static int32 NUM_TOTAL_GRID_STATES = (NUM_GRID_STATES) + (FVoxelData::VOXEL_TYPE_COUNT);
+//One state per actual grid state except GRID_STATE_READY which has a number of states according to number of voxel types
+const static int32 NUM_TOTAL_GRID_STATES = (NUM_GRID_STATES-1) + FVoxelData::VOXEL_TYPE_COUNT;

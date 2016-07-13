@@ -29,7 +29,8 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 	RegionRadiusX = 0; //Radius 0 means the start region will be generated, but 0 surrounding regions (in the respective axis) will be generated
 	RegionRadiusY = 0;
 	RegionRadiusZ = 0;
-	NumTotalGridStates = 0;
+	NumberTotalGridStates = 0;
+	NumberRegionsComplete = 0;
 	NumberMeshingStatesRemaining = 0;
 	bIsInitialLocationSet = false;
 	PercentMeshingComplete = 0.0f;
@@ -97,8 +98,8 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 		}
 	}
 	TerrainMeshComponents.Add(regionName, TerrainMesh);
-	NumTotalGridStates = TerrainMeshComponents.Num() * NUM_TOTAL_GRID_STATES;
-	NumberMeshingStatesRemaining = NumTotalGridStates;
+	NumberTotalGridStates += terrainMesh.NumStatesRemaining;
+	NumberMeshingStatesRemaining = NumberTotalGridStates;
 	return regionName;
 }
 
@@ -128,9 +129,24 @@ void AProceduralTerrain::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	//If initial location has not yet been set, set it based on the defined start region name
-	if (!bIsInitialLocationSet && TerrainMeshComponents[StartRegion]->RegionState > EGridState::GRID_STATE_EXTRACT_SURFACE)
+	if (!bIsInitialLocationSet && TerrainMeshComponents[StartRegion]->RegionState == EGridState::GRID_STATE_FINISHED)
 	{
-		SetActorRelativeLocation(-TerrainMeshComponents[StartRegion]->StartLocation);
+		UWorld * World = GetWorld();
+		check(World);
+		//Drop control of the original pawn, spawn a new pawn at the start location, and start controlling the new pawn
+		//TODO: Get player locations in a more robust way (instead of just from the first player controller)
+		FVector PlayerLocation(0.0f, 0.0f, 0.0f);
+		APlayerController * FirstPlayerController = World->GetFirstPlayerController();
+		check(FirstPlayerController);
+		ACharacter * OriginalCharacter = FirstPlayerController->GetCharacter();
+		//ACharacter * Character = World->SpawnActor<AFirstPersonCPPCharacter>(TerrainMeshComponents[StartRegion]->StartLocation, FRotator::ZeroRotator);
+		//check(Character);
+		//FirstPlayerController->UnPossess();
+		//FirstPlayerController->Possess(Character);
+		//if (OriginalCharacter)
+		//{
+		//	OriginalCharacter->Destroy();
+		//}
 		bIsInitialLocationSet = true; //Only need to set once
 	}
 
@@ -151,7 +167,7 @@ void AProceduralTerrain::Tick(float DeltaTime)
 	}
 
 	NumberMeshingStatesRemaining = numStates;
-	PercentMeshingComplete = 100.0f - 100.0f * ((float)NumberMeshingStatesRemaining / (float)NumTotalGridStates);
+	PercentMeshingComplete = 100.0f - 100.0f * ((float)NumberMeshingStatesRemaining / (float)NumberTotalGridStates);
 }
 
 int32 AProceduralTerrain::EnqueueOrFinishSection(UProceduralTerrainMeshComponent *terrainMeshComponentPtr)
@@ -159,13 +175,8 @@ int32 AProceduralTerrain::EnqueueOrFinishSection(UProceduralTerrainMeshComponent
 	UProceduralTerrainMeshComponent& terrainMeshComponent = *terrainMeshComponentPtr;
 
 	const bool isVisible = true; //TODO
-	int32 numStates = 0;
-	if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_FINISHED)
-	{
-		//Nothing to do
-		numStates = terrainMeshComponent.NumStatesRemaining;
-	}
-	else if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_READY)
+	int32 numStates = -1;
+	if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_READY)
 	{
 		//The region is ready. Now complete the parts of the section that must be done on the game thread (e.g. physx collision)
 		for (int32 j = 0; j < FVoxelData::VOXEL_TYPE_COUNT; ++j)
@@ -173,20 +184,32 @@ int32 AProceduralTerrain::EnqueueOrFinishSection(UProceduralTerrainMeshComponent
 			const bool isChangedToFinished = terrainMeshComponent.FinishSection(j, isVisible);
 			if (isChangedToFinished)
 			{
+				NumberRegionsComplete++;
+
 				static int32 idx = 1;
 				//Collision creation is expensive so finish only one region per call
 				GEngine->AddOnScreenDebugMessage(idx++, 1.f, FColor::Red, FString::Printf(TEXT("%s finished (visible %d) %s %s"), *terrainMeshComponent.GetName(), terrainMeshComponent.IsVisible(), *terrainMeshComponent.SectionBounds.Min.ToString(), *terrainMeshComponent.SectionBounds.Max.ToString()));
-				numStates = terrainMeshComponent.NumStatesRemaining;
 				break;
 			}
 		}
+		numStates = terrainMeshComponent.NumStatesRemaining;
 	}
-	else if (terrainMeshComponent.IsGridDirty && !terrainMeshComponent.IsQueued)
+	else if (terrainMeshComponent.RegionState < EGridState::GRID_STATE_READY)
 	{
-		//The grid changed and is not currently queued - queue it up
-		terrainMeshComponent.IsQueued = true;
-		numStates = terrainMeshComponent.NumStatesRemaining; //get state count so that the state value doesn't change unexpectedly
-		DirtyGridRegions.Enqueue(terrainMeshComponentPtr);
+		numStates = terrainMeshComponent.NumStatesRemaining; //get state count prior to queuing to prevent a potential race condition
+		if (terrainMeshComponent.IsGridDirty && !terrainMeshComponent.IsQueued)
+		{
+			//The grid changed and is not currently queued - queue it up
+			terrainMeshComponent.IsQueued = true;
+			DirtyGridRegions.Enqueue(terrainMeshComponentPtr);
+		}
 	}
+	else
+	{
+		//Grid state is finished
+		check(terrainMeshComponent.RegionState == EGridState::GRID_STATE_FINISHED);
+		numStates = terrainMeshComponent.NumStatesRemaining;
+	}
+	check(numStates > -1);
 	return numStates;
 }
