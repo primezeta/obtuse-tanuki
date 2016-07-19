@@ -790,9 +790,9 @@ private:
 		const FString fileName = FPaths::GetCleanFilename(filePath);
 		const bool isPathValid = FPaths::ValidatePath(filePath, &PathNotValidReason);
 		const bool isFileValid = !fileName.IsEmpty();
-		const bool arePreviousChangesPending = FilePtr.IsValid() && !IsFileMetaInSync;
+		const bool arePreviousChangesPending = FilePtr.IsValid() && AreChangesPending();
 		const bool doesFileExist = FPaths::FileExists(filePath);
-		const bool canDiscardAnyPending = !arePreviousChangesPending || discardUnwrittenChanges || filePath != UTF8_TO_TCHAR(FilePtr->filename().c_str());
+		const bool canDiscardAnyPending = !arePreviousChangesPending || discardUnwrittenChanges;
 		const bool canOverwriteAnyExisting = !doesFileExist || forceOverwriteExistingFile;
 		if (!(isPathValid && isFileValid && canDiscardAnyPending && canOverwriteAnyExisting))
 		{
@@ -890,14 +890,17 @@ private:
 			return false;
 		}
 
-		const FString PreviousFilePath = UTF8_TO_TCHAR(FilePtr->filename().c_str());
+		const FString PreviousFilePath = FilePtr.IsValid() ? UTF8_TO_TCHAR(FilePtr->filename().c_str()) : TEXT("");
 		EnableGridStats = enableGridStats;
 		EnableDelayLoad = enableDelayLoad;
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Configuring voxel database [%s] grid_stats=%d, delay_load=%d, discard_unwritten=%d, overwrite_existing_file=%d"), *filePath, enableGridStats, enableDelayLoad, discardUnwrittenChanges, forceOverwriteExistingFile);
 
 		if (PreviousFilePath != filePath)
 		{
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Changing voxel database path from [%s] to [%s]"), *PreviousFilePath, *filePath);
+			if (!PreviousFilePath.IsEmpty())
+			{
+				UE_LOG(LogOpenVDBModule, Display, TEXT("Changing voxel database path from [%s] to [%s]"), *PreviousFilePath, *filePath);
+			}
 			FilePtr = TSharedPtr<openvdb::io::File>(new openvdb::io::File(TCHAR_TO_UTF8(*(filePath))));
 			check(FilePtr.IsValid());
 		}

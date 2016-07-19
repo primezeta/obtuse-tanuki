@@ -18,15 +18,13 @@ UVdbHandle::UVdbHandle(const FObjectInitializer& ObjectInitializer)
 	PerlinOctaveCount = 9;
 	ThreadedGridOps = true;
 	IsOpen = false;
+	bWantsInitializeComponent = true;
 }
 
 void UVdbHandle::InitializeComponent()
 {
 	Super::InitializeComponent();
-#if WITH_ENGINE
-	OpenVoxelDatabaseGuard();
-	//TODO: Add logging
-#endif
+	RegisterComponent();
 }
 
 void UVdbHandle::BeginDestroy()
@@ -35,6 +33,7 @@ void UVdbHandle::BeginDestroy()
 	{
 		const bool isAsync = false; //TODO
 		FOpenVDBModule::CloseVoxelDatabase(VdbName, isAsync);
+		IsOpen = false;
 	}
 	Super::BeginDestroy();
 }

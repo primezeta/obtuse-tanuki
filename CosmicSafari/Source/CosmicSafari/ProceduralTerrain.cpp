@@ -6,9 +6,11 @@
 #include "Engine.h"
 
 // Sets default values
-AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializer)
+UProceduralTerrain::UProceduralTerrain(const FObjectInitializer& ObjectInitializer)
 {
-	VdbHandle = nullptr;
+	VdbHandle = CreateDefaultSubobject<UVdbHandle>(TEXT("VDBConfiguration"));
+	check(VdbHandle != nullptr);
+
 	MeshMaterials.SetNum(FVoxelData::VOXEL_TYPE_COUNT);
 	for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
 	{
@@ -17,10 +19,8 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 		MeshMaterials[i] = Material;
 	}
 
-	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
-	SetActorEnableCollision(true);
-	SetActorTickEnabled(true);
+	SetComponentTickEnabled(true);
+	//SetActorEnableCollision(true);
 
 	VoxelSize = FVector(1.0f, 1.0f, 1.0f);
 	GridMeshingThread = nullptr;
@@ -32,11 +32,13 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 	NumberMeshingStatesRemaining = 0;
 	PercentMeshingComplete = 0.0f;
 	OldestGridState = EGridState::GRID_STATE_INIT;
+	bWantsInitializeComponent = true;
 }
 
-void AProceduralTerrain::PostInitializeComponents()
+void UProceduralTerrain::InitializeComponent()
 {
-	Super::PostInitializeComponents();
+	Super::InitializeComponent();
+	RegisterComponent();
 
 	//Set the number of voxels per grid region index
 	check(VdbHandle);
@@ -62,7 +64,7 @@ void AProceduralTerrain::PostInitializeComponents()
 	OldestGridState = EGridState::GRID_STATE_INIT;
 }
 
-FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
+FString UProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 {
 	//TODO: Check if terrain component already exists
 	const FString regionName = TEXT("[") + gridIndex.ToString() + TEXT("]");	
@@ -79,8 +81,9 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 	terrainMesh.VoxelSize = FVector(1.0f);
 	terrainMesh.SetWorldScale3D(VoxelSize);
 	terrainMesh.RegisterComponent();
-	terrainMesh.AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
-	terrainMesh.VdbHandle = VdbHandle; check(VdbHandle);
+	//terrainMesh.AttachToComponent(this, FAttachmentTransformRules::KeepRelativeTransform);
+	terrainMesh.VdbHandle = VdbHandle;
+	check(VdbHandle);
 	terrainMesh.RegionIndex = gridIndex;
 	terrainMesh.bTickStateAfterFinish = true;
 	terrainMesh.RegionState = EGridState::GRID_STATE_INIT;
@@ -106,7 +109,7 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 	return regionName;
 }
 
-UProceduralTerrainMeshComponent * AProceduralTerrain::GetTerrainComponent(const FIntVector &gridIndex)
+UProceduralTerrainMeshComponent * UProceduralTerrain::GetTerrainComponent(const FIntVector &gridIndex)
 {
 	for (auto i = TerrainMeshComponents.CreateConstIterator(); i; ++i)
 	{
@@ -119,7 +122,7 @@ UProceduralTerrainMeshComponent * AProceduralTerrain::GetTerrainComponent(const 
 }
 
 // Called when the game starts or when spawned
-void AProceduralTerrain::BeginPlay()
+void UProceduralTerrain::BeginPlay()
 {
 	Super::BeginPlay();
 	check(!GridMeshingThread.IsValid());
@@ -129,7 +132,7 @@ void AProceduralTerrain::BeginPlay()
 	FRunnableThread::Create(GridMeshingThread.Get(), *FString::Printf(TEXT("GridMeshingThread:%s"), *name));
 }
 
-void AProceduralTerrain::EndPlay(const EEndPlayReason::Type EndPlayReason)
+void UProceduralTerrain::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	check(VdbHandle);
 	if (GridMeshingThread.IsValid())
@@ -141,9 +144,9 @@ void AProceduralTerrain::EndPlay(const EEndPlayReason::Type EndPlayReason)
 }
 
 // Called every frame
-void AProceduralTerrain::Tick(float DeltaTime)
+void UProceduralTerrain::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
-	Super::Tick(DeltaTime);
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	if (NumberMeshingStatesRemaining == 0)
 	{
@@ -181,7 +184,7 @@ void AProceduralTerrain::Tick(float DeltaTime)
 	}
 }
 
-int32 AProceduralTerrain::EnqueueOrFinishSection(UProceduralTerrainMeshComponent *terrainMeshComponentPtr)
+int32 UProceduralTerrain::EnqueueOrFinishSection(UProceduralTerrainMeshComponent *terrainMeshComponentPtr)
 {
 	UProceduralTerrainMeshComponent& terrainMeshComponent = *terrainMeshComponentPtr;
 

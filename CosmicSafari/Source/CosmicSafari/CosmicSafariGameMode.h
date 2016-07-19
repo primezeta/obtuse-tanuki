@@ -14,11 +14,8 @@ public:
 	ACosmicSafariGameMode();
 
 	UPROPERTY()
-		AProceduralTerrain * Grids;
-	UPROPERTY(BlueprintReadOnly, Category = "Voxel database configuration", Meta = (DisplayName = "Voxel Database", ToolTip = "Configure VBD properties"))
-		UVdbHandle * VdbHandle;
+		UProceduralTerrain * Grids;
 
-	virtual void PreInitializeComponents() override;
 	virtual void Tick(float DeltaSeconds) override;
 
 private:

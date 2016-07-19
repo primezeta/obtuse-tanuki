@@ -9,14 +9,14 @@
 DECLARE_DELEGATE_OneParam(FEarliestGridState, EGridState);
 
 UCLASS(Category = "Procedural Terrain")
-class COSMICSAFARI_API AProceduralTerrain : public AActor
+class COSMICSAFARI_API UProceduralTerrain : public UActorComponent
 {
 	GENERATED_BODY()
 	
 public:
-	AProceduralTerrain(const FObjectInitializer& ObjectInitializer);
+	UProceduralTerrain(const FObjectInitializer& ObjectInitializer);
 
-	virtual void PostInitializeComponents() override;
+	virtual void InitializeComponent() override;
 
 	// Called when the game starts
 	virtual void BeginPlay() override;
@@ -24,9 +24,9 @@ public:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	// Called every frame
-	virtual void Tick(float DeltaSeconds) override;
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Voxel database configuration", Meta=(DisplayName="Voxel Database", ToolTip="Configure VBD properties"))
+	UPROPERTY(BlueprintReadOnly, Category = "Voxel database configuration", Meta = (DisplayName = "Voxel Database", ToolTip = "Configure VBD properties"))
 		UVdbHandle * VdbHandle;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Terrain volume name"))

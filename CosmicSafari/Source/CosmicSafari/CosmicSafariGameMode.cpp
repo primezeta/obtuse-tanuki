@@ -10,19 +10,8 @@ ACosmicSafariGameMode::ACosmicSafariGameMode()
 	DefaultPawnClass = ACosmicSafariPawn::StaticClass();
 	bIsInitialLocationSet = false;
 	bStartPlayersAsSpectators = true;
-	Grids = CreateDefaultSubobject<AProceduralTerrain>(TEXT("Grids"));
+	Grids = CreateDefaultSubobject<UProceduralTerrain>(TEXT("Grids"));
 	check(Grids);
-	VdbHandle = CreateDefaultSubobject<UVdbHandle>(TEXT("VDBConfiguration"));
-	check(VdbHandle != nullptr);
-	VdbHandle->bWantsInitializeComponent = true;
-	VdbHandle->bNeverNeedsRenderUpdate = true;
-	VdbHandle->bAutoRegister = true;
-}
-
-void ACosmicSafariGameMode::PreInitializeComponents()
-{
-	Grids->VdbHandle = VdbHandle; //TODO
-	Super::PreInitializeComponents();
 }
 
 void ACosmicSafariGameMode::Tick(float DeltaSeconds)
