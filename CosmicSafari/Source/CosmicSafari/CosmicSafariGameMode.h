@@ -13,7 +13,7 @@ class ACosmicSafariGameMode : public AGameMode
 public:
 	ACosmicSafariGameMode();
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Voxel database configuration")
 		UProceduralTerrain * Grids;
 
 	virtual void Tick(float DeltaSeconds) override;
