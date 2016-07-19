@@ -35,6 +35,8 @@ public:
 	UPROPERTY()
 		FVector StartLocation;
 	UPROPERTY()
+		APlayerStart * RegionStart;
+	UPROPERTY()
 		int32 SectionCount;
 	UPROPERTY()
 		FIntVector RegionIndex;

@@ -5,19 +5,26 @@ DEFINE_LOG_CATEGORY(LogOpenVDBModule)
 typedef TMap<FString, TSharedPtr<VdbHandlePrivateType>> VdbRegistryType;
 static VdbRegistryType VdbRegistry;
 
-bool FOpenVDBModule::RegisterVdb(const FString &vdbName, const FString &vdbFilepath, bool enableGridStats, bool enableDelayLoad)
+bool FOpenVDBModule::OpenVoxelDatabase(const FString &vdbName, const FString &vdbFilepath, bool enableGridStats, bool enableDelayLoad)
 {
-	bool isRegistered = false;
+	bool isOpened = false;
 	try
 	{
-		if (!VdbRegistry.Contains(vdbName))
+		TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr;
+		check(!VdbHandlePrivatePtr.IsValid());
+		TSharedPtr<VdbHandlePrivateType> *vdb = VdbRegistry.Find(vdbName);
+		if (vdb == nullptr)
 		{
-			TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = TSharedPtr<VdbHandlePrivateType>(new VdbHandlePrivateType(vdbFilepath, enableGridStats, enableDelayLoad));
-			VdbHandlePrivatePtr->InitGrids();
+			VdbHandlePrivatePtr = TSharedPtr<VdbHandlePrivateType>(new VdbHandlePrivateType());
 			VdbRegistry.Add(vdbName, VdbHandlePrivatePtr);
 		}
-		//Registration successful if we made it here with no errors thrown
-		isRegistered = true;
+		else
+		{
+			check(vdb->IsValid());
+			VdbHandlePrivatePtr = *vdb;
+		}
+		check(VdbHandlePrivatePtr.IsValid());
+		isOpened = VdbHandlePrivatePtr->InitializeDatabase(vdbFilepath, enableGridStats, enableDelayLoad);
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -35,16 +42,71 @@ bool FOpenVDBModule::RegisterVdb(const FString &vdbName, const FString &vdbFilep
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
 	}
-	return isRegistered;
+	return isOpened;
 }
 
-void FOpenVDBModule::UnregisterVdb(const FString &vdbName)
+bool FOpenVDBModule::CloseVoxelDatabase(const FString &vdbName, bool asyncWrite)
 {
+	bool isClosed = false;
 	try
 	{
-		if (VdbRegistry.Contains(vdbName))
+		const bool isFinal = true;
+		bool isFileChanged = false;
+		TSharedPtr<VdbHandlePrivateType> *vdb = VdbRegistry.Find(vdbName);
+		if (vdb)
 		{
-			VdbRegistry[vdbName]->WriteChanges();
+			//If changes successfully end up in the file then remove the VDB
+			check(vdb->IsValid());
+			if (asyncWrite)
+			{
+				check(false); //TODO: Need a mechanism for waiting on async changes. For now just die
+				isFileChanged = (*vdb)->WriteChangesAsync(isFinal);
+			}
+			else
+			{
+				isFileChanged = (*vdb)->WriteChanges(isFinal);
+			}
+
+			if (isFileChanged)
+			{
+				VdbRegistry.Remove(vdbName);
+			}
+		}
+		isClosed = true;
+	}
+	catch (const openvdb::Exception &e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule OpenVDB exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::exception& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::string& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.c_str()));
+	}
+	catch (...)
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
+	}
+	return isClosed;
+}
+
+bool FOpenVDBModule::WriteChanges(const FString &vdbName, bool isFinal, bool asyncWrite)
+{
+	bool isFileChanged = false;
+	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
+	try
+	{
+		if (asyncWrite)
+		{
+			check(false); //TODO: Need a mechanism for waiting on async changes. For now just die
+			isFileChanged = VdbHandlePrivatePtr->WriteChangesAsync(isFinal);
+		}
+		else
+		{
+			isFileChanged = VdbHandlePrivatePtr->WriteChanges(isFinal);
 		}
 	}
 	catch (const openvdb::Exception &e)
@@ -63,6 +125,7 @@ void FOpenVDBModule::UnregisterVdb(const FString &vdbName)
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
 	}
+	return isFileChanged;
 }
 
 FString FOpenVDBModule::AddGrid(const FString &vdbName, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FProcMeshSection> &sectionBuffers)
@@ -130,7 +193,7 @@ void FOpenVDBModule::ReadGridTree(const FString &vdbName, const FString &gridID,
 	}
 }
 
-void FOpenVDBModule::FillTreePerlin(const FString &vdbName,
+bool FOpenVDBModule::FillTreePerlin(const FString &vdbName,
 	const FString &gridID,
 	FIntVector &startFill,
 	FIntVector &endFill,
@@ -141,11 +204,15 @@ void FOpenVDBModule::FillTreePerlin(const FString &vdbName,
 	int32 octaveCount,
 	bool threaded)
 {
+	bool isChanged = false;
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
 	try
 	{
-		VdbHandlePrivatePtr->FillGrid_PerlinDensity(gridID, threaded, startFill, endFill, seed, frequency, lacunarity, persistence, octaveCount);
-		VdbHandlePrivatePtr->CalculateGradient(gridID, threaded);
+		isChanged = VdbHandlePrivatePtr->FillGrid_PerlinDensity(gridID, threaded, startFill, endFill, seed, frequency, lacunarity, persistence, octaveCount);
+		if (isChanged)
+		{
+			VdbHandlePrivatePtr->CalculateGradient(gridID, threaded);
+		}
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -163,6 +230,7 @@ void FOpenVDBModule::FillTreePerlin(const FString &vdbName,
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
 	}
+	return isChanged;
 }
 
 bool FOpenVDBModule::ExtractIsoSurface(const FString &vdbName, const FString &gridID, EMeshType MeshMethod, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FBox &gridDimensions, FVector &initialLocation, bool threaded)
@@ -177,7 +245,6 @@ bool FOpenVDBModule::ExtractIsoSurface(const FString &vdbName, const FString &gr
 		}
 		else if (MeshMethod == EMeshType::MESH_TYPE_MARCHING_CUBES)
 		{
-			//TODO sectionMaterialIDs
 			VdbHandlePrivatePtr->ExtractGridSurface_MarchingCubes(gridID, threaded);
 		}
 		else
@@ -275,8 +342,6 @@ void FOpenVDBModule::RemoveGrid(const FString &vdbName, const FString &gridID)
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
 	try
 	{
-		//TODO: Remove terrain mesh component and reconcile mesh section indices
-		VdbHandlePrivatePtr->RemoveFileMeta(gridID);
 		VdbHandlePrivatePtr->RemoveGridFromGridVec(gridID);
 	}
 	catch (const openvdb::Exception &e)
@@ -380,31 +445,6 @@ FIntVector FOpenVDBModule::GetRegionIndex(const FString &vdbName, const FVector 
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
 	}
 	return regionIndex;
-}
-
-void FOpenVDBModule::WriteAllGrids(const FString &vdbName)
-{
-	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
-	try
-	{
-		VdbHandlePrivatePtr->WriteChanges();
-	}
-	catch (const openvdb::Exception &e)
-	{
-		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule OpenVDB exception: %s"), UTF8_TO_TCHAR(e.what()));
-	}
-	catch (const std::exception& e)
-	{
-		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.what()));
-	}
-	catch (const std::string& e)
-	{
-		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.c_str()));
-	}
-	catch (...)
-	{
-		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
-	}
 }
 
 bool FOpenVDBModule::GetGridDimensions(const FString &vdbName, const FString &gridID, FVector &startLocation)

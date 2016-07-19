@@ -17,11 +17,12 @@ public:
 		return FModuleManager::Get().IsModuleLoaded("OpenVDBModule");
 	}
 
-	static bool RegisterVdb(const FString &vdbName, const FString &vdbFilepath, bool enableGridStats, bool enableDelayLoad);
-	static void UnregisterVdb(const FString &vdbName);
+	static bool OpenVoxelDatabase(const FString &vdbName, const FString &vdbFilepath, bool enableGridStats, bool enableDelayLoad);
+	static bool CloseVoxelDatabase(const FString &vdbName, bool asyncWrite = false);
+	static bool WriteChanges(const FString &vdbName, bool isFinal, bool asyncWrite);
 	static FString AddGrid(const FString &vdbName, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FProcMeshSection> &sectionBuffers);
 	static void ReadGridTree(const FString &vdbName, const FString &gridID, FIntVector &startIndex, FIntVector &endIndex);
-	static void FillTreePerlin(const FString &vdbName, const FString &gridID, FIntVector &startFill, FIntVector &endFill, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount, bool threaded = true);
+	static bool FillTreePerlin(const FString &vdbName, const FString &gridID, FIntVector &startFill, FIntVector &endFill, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount, bool threaded = true);
 	static bool ExtractIsoSurface(const FString &vdbName, const FString &gridID, EMeshType MeshMethod, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FBox &gridDimensions, FVector &initialLocation, bool threaded = true);
 	static void MeshGrid(const FString &vdbName, const FString &gridID, EMeshType MeshMethod);
 	static TArray<FString> GetAllGridIDs(const FString &vdbName);
@@ -32,7 +33,6 @@ public:
 	static bool GetGridDimensions(const FString &vdbName, const FString &gridID, FBox &worldBounds);
 	static bool GetGridDimensions(const FString &vdbName, const FString &gridID, FBox &worldBounds, FVector &startLocation);
 	static FIntVector GetRegionIndex(const FString &vdbName, const FVector &worldLocation);
-	static void WriteAllGrids(const FString &vdbName);
 };
 
 #endif

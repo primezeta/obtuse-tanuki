@@ -6,8 +6,10 @@
 #include "ProceduralTerrainMeshComponent.h"
 #include "ProceduralTerrain.generated.h"
 
+DECLARE_DELEGATE_OneParam(FEarliestGridState, EGridState);
+
 UCLASS(Category = "Procedural Terrain")
-class COSMICSAFARI_API AProceduralTerrain : public APlayerStart
+class COSMICSAFARI_API AProceduralTerrain : public AActor
 {
 	GENERATED_BODY()
 	
@@ -24,13 +26,8 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaSeconds) override;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, SimpleDisplay, Category = "Procedural Terrain")
+	UPROPERTY(BlueprintReadOnly, Category = "Voxel database configuration", Meta=(DisplayName="Voxel Database", ToolTip="Configure VBD properties"))
 		UVdbHandle * VdbHandle;
-
-	TQueue<UProceduralTerrainMeshComponent*, EQueueMode::Mpsc> DirtyGridRegions;
-	int32 NumberTotalGridStates;
-	//Terrain mesh per grid region that has a mesh section per voxel type (i.e. per material)
-	TMap<FString, UProceduralTerrainMeshComponent*> TerrainMeshComponents;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Terrain volume name"))
 		FString VolumeName;
@@ -67,11 +64,22 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Percent (0.0-100.0) mesh creation that is completed among all mesh sections"))
 		float PercentMeshingComplete;
+	
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Procedural Terrain", Meta = (ToolTip = "Terrain mesh components per grid region"))
+		TArray<UProceduralTerrainMeshComponent*> TerrainMeshComponents;
 
 	UFUNCTION()
 		FString AddTerrainComponent(const FIntVector &gridIndex);
 
+	UFUNCTION()
+		UProceduralTerrainMeshComponent * GetTerrainComponent(const FIntVector &gridIndex);
+
+	EGridState OldestGridState;
+
+private:
+	TQueue<UProceduralTerrainMeshComponent*, EQueueMode::Mpsc> DirtyGridRegions;
+	int32 NumberTotalGridStates;
+	//Terrain mesh per grid region that has a mesh section per voxel type (i.e. per material)
 	TSharedPtr<FGridMeshingThread> GridMeshingThread;
-	bool bIsInitialLocationSet;
 	int32 EnqueueOrFinishSection(UProceduralTerrainMeshComponent *terrainMeshComponentPtr);
 };

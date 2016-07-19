@@ -8,9 +8,7 @@
 // Sets default values
 AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializer)
 {
-	VdbHandle = ObjectInitializer.CreateDefaultSubobject<UVdbHandle>(this, TEXT("VDBHandle"));
-	check(VdbHandle != nullptr);
-
+	VdbHandle = nullptr;
 	MeshMaterials.SetNum(FVoxelData::VOXEL_TYPE_COUNT);
 	for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
 	{
@@ -22,18 +20,18 @@ AProceduralTerrain::AProceduralTerrain(const FObjectInitializer& ObjectInitializ
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	SetActorEnableCollision(true);
+	SetActorTickEnabled(true);
 
 	VoxelSize = FVector(1.0f, 1.0f, 1.0f);
 	GridMeshingThread = nullptr;
-	SetActorTickEnabled(true);
 	RegionRadiusX = 0; //Radius 0 means the start region will be generated, but 0 surrounding regions (in the respective axis) will be generated
 	RegionRadiusY = 0;
 	RegionRadiusZ = 0;
 	NumberTotalGridStates = 0;
 	NumberRegionsComplete = 0;
 	NumberMeshingStatesRemaining = 0;
-	bIsInitialLocationSet = false;
 	PercentMeshingComplete = 0.0f;
+	OldestGridState = EGridState::GRID_STATE_INIT;
 }
 
 void AProceduralTerrain::PostInitializeComponents()
@@ -41,6 +39,7 @@ void AProceduralTerrain::PostInitializeComponents()
 	Super::PostInitializeComponents();
 
 	//Set the number of voxels per grid region index
+	check(VdbHandle);
 	VdbHandle->SetRegionScale(RegionDimensions);
 
 	//Add the first grid region and surrounding regions
@@ -59,6 +58,8 @@ void AProceduralTerrain::PostInitializeComponents()
 			}
 		}
 	}
+
+	OldestGridState = EGridState::GRID_STATE_INIT;
 }
 
 FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
@@ -79,9 +80,10 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 	terrainMesh.SetWorldScale3D(VoxelSize);
 	terrainMesh.RegisterComponent();
 	terrainMesh.AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
-	terrainMesh.VdbHandle = VdbHandle;
+	terrainMesh.VdbHandle = VdbHandle; check(VdbHandle);
 	terrainMesh.RegionIndex = gridIndex;
 	terrainMesh.bTickStateAfterFinish = true;
+	terrainMesh.RegionState = EGridState::GRID_STATE_INIT;
 
 	//Initialize an empty mesh section per voxel type and create a material for each voxel type
 	for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
@@ -98,10 +100,22 @@ FString AProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 			UE_LOG(LogFlying, Display, TEXT("%s section %d material set to %s"), *terrainMesh.MeshID, i, *sectionMat->GetName());
 		}
 	}
-	TerrainMeshComponents.Add(regionName, TerrainMesh);
+	TerrainMeshComponents.Add(TerrainMesh);
 	NumberTotalGridStates += terrainMesh.NumStatesRemaining;
 	NumberMeshingStatesRemaining = NumberTotalGridStates;
 	return regionName;
+}
+
+UProceduralTerrainMeshComponent * AProceduralTerrain::GetTerrainComponent(const FIntVector &gridIndex)
+{
+	for (auto i = TerrainMeshComponents.CreateConstIterator(); i; ++i)
+	{
+		if ((*i)->RegionIndex == gridIndex)
+		{
+			return *i;
+		}
+	}
+	return nullptr;
 }
 
 // Called when the game starts or when spawned
@@ -117,11 +131,13 @@ void AProceduralTerrain::BeginPlay()
 
 void AProceduralTerrain::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	VdbHandle->WriteAllGrids();
+	check(VdbHandle);
 	if (GridMeshingThread.IsValid())
 	{
 		GridMeshingThread->Stop();
+		while (GridMeshingThread->isRunning);
 	}
+	VdbHandle->WriteAllGrids();
 }
 
 // Called every frame
@@ -129,49 +145,40 @@ void AProceduralTerrain::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	//If initial location has not yet been set, set it based on the defined start region name
-	if (!bIsInitialLocationSet && TerrainMeshComponents[StartRegion]->RegionState == EGridState::GRID_STATE_FINISHED)
-	{
-		//Set spawn point to the start regions start location (Note: *this is a APlayerStart)
-		SetActorLocation(TerrainMeshComponents[StartRegion]->StartLocation);
-
-		UWorld * World = GetWorld();
-		check(World);
-		//Drop control of the original pawn, spawn a new pawn at the start location, and start controlling the new pawn
-		//TODO: Get player locations in a more robust way (instead of just from the first player controller)
-		FVector PlayerLocation(0.0f, 0.0f, 0.0f);
-		APlayerController * FirstPlayerController = World->GetFirstPlayerController();
-		check(FirstPlayerController);
-		ACharacter * OriginalCharacter = FirstPlayerController->GetCharacter();
-		ACharacter * Character = World->SpawnActor<AFirstPersonCPPCharacter>(AFirstPersonCPPCharacter::StaticClass());
-		check(Character);
-		FirstPlayerController->Possess(Character);
-		if (OriginalCharacter)
-		{
-			OriginalCharacter->Destroy();
-		}
-		bIsInitialLocationSet = true; //Only need to set once
-	}
-
 	if (NumberMeshingStatesRemaining == 0)
 	{
 		//Nothing left to do for any sections
 		return;
 	}
 
+	int32 earliestGridState = NUM_GRID_STATES;
+	const int32 prevEarliestGridState = (int32)OldestGridState;
 	int32 numStates = 0;
-	UProceduralTerrainMeshComponent *terrainMeshComponentPtr = nullptr;
 	for (auto i = TerrainMeshComponents.CreateIterator(); i; ++i)
 	{
-		terrainMeshComponentPtr = i.Value();
-		check(terrainMeshComponentPtr != nullptr);
+		check(*i);
+		UProceduralTerrainMeshComponent * terrainMeshComponentPtr = *i;
 		//Queue up the section to be asynchronously meshed, or if the async meshing operations are complete,
 		//finish the section for anything that must be done on the game thread (e.g. physx collisions)
 		numStates += EnqueueOrFinishSection(terrainMeshComponentPtr);
+		const EGridState regionCurrentState = terrainMeshComponentPtr->RegionState;
+		if (earliestGridState > (int32)regionCurrentState)
+		{
+			earliestGridState = (int32)regionCurrentState;
+		}
 	}
 
 	NumberMeshingStatesRemaining = numStates;
 	PercentMeshingComplete = 100.0f - 100.0f * ((float)NumberMeshingStatesRemaining / (float)NumberTotalGridStates);
+
+	//Did one of the regions' state change during this tick?
+	check(prevEarliestGridState > -1 && prevEarliestGridState < NUM_GRID_STATES);
+	check(earliestGridState > -1);
+	if (earliestGridState < NUM_GRID_STATES && earliestGridState != prevEarliestGridState)
+	{
+		//Notify of the changed grid state
+		OldestGridState = (EGridState)earliestGridState;
+	}
 }
 
 int32 AProceduralTerrain::EnqueueOrFinishSection(UProceduralTerrainMeshComponent *terrainMeshComponentPtr)
@@ -186,6 +193,7 @@ int32 AProceduralTerrain::EnqueueOrFinishSection(UProceduralTerrainMeshComponent
 		for (int32 j = 0; j < FVoxelData::VOXEL_TYPE_COUNT; ++j)
 		{
 			const bool isChangedToFinished = terrainMeshComponent.FinishSection(j, isVisible);
+			UE_LOG(LogFlying, Display, TEXT("%s section %d finished"), *terrainMeshComponent.MeshID, j);
 			if (isChangedToFinished)
 			{
 				NumberRegionsComplete++;
@@ -201,6 +209,7 @@ int32 AProceduralTerrain::EnqueueOrFinishSection(UProceduralTerrainMeshComponent
 		if (terrainMeshComponent.IsGridDirty && !terrainMeshComponent.IsQueued)
 		{
 			//The grid changed and is not currently queued - queue it up
+			UE_LOG(LogFlying, Display, TEXT("%s queued for meshing"), *terrainMeshComponent.MeshID);
 			terrainMeshComponent.IsQueued = true;
 			DirtyGridRegions.Enqueue(terrainMeshComponentPtr);
 		}
@@ -211,6 +220,7 @@ int32 AProceduralTerrain::EnqueueOrFinishSection(UProceduralTerrainMeshComponent
 		check(terrainMeshComponent.RegionState == EGridState::GRID_STATE_FINISHED);
 		numStates = terrainMeshComponent.NumStatesRemaining;
 		check(numStates == 0);
+		UE_LOG(LogFlying, Display, TEXT("%s all sections meshed"), *terrainMeshComponent.MeshID);
 	}
 	check(numStates > -1);
 	return numStates;

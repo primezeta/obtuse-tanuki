@@ -23,6 +23,8 @@ UProceduralTerrainMeshComponent::UProceduralTerrainMeshComponent(const FObjectIn
 	bWantsInitializeComponent = true;
 	bTickStateAfterFinish = true;
 	SetComponentTickEnabled(IsComponentTickEnabled());
+	RegionStart = CreateDefaultSubobject<APlayerStart>(*FString::Printf(TEXT("%s_%s"), TEXT("PlayerStart"), *GetName()));
+	check(RegionStart);
 }
 
 void UProceduralTerrainMeshComponent::InitializeComponent()
@@ -85,7 +87,6 @@ bool UProceduralTerrainMeshComponent::FinishSection(int32 SectionIndex, bool isV
 	check(RegionState == EGridState::GRID_STATE_READY);
 	if (IsSectionFinished[SectionIndex] == (int32)false)
 	{
-		IsSectionFinished[SectionIndex] = (int32)true;
 		NumReadySections++;
 		check(NumReadySections <= FVoxelData::VOXEL_TYPE_COUNT);
 		if (NumReadySections < FVoxelData::VOXEL_TYPE_COUNT)
@@ -100,8 +101,11 @@ bool UProceduralTerrainMeshComponent::FinishSection(int32 SectionIndex, bool isV
 			FinishCollison();
 			sectionChangedToFinished = true;
 			SetComponentTickEnabled(bTickStateAfterFinish);
+			check(RegionStart);
+			RegionStart->SetActorLocation(StartLocation);
 		}
 		NumStatesRemaining--;
+		IsSectionFinished[SectionIndex] = (int32)true;
 	}
 	check(NumStatesRemaining > -1);
 	return sectionChangedToFinished;

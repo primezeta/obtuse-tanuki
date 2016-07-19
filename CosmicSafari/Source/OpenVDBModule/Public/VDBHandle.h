@@ -8,7 +8,7 @@
 #include "VdbHandle.generated.h"
 
 UCLASS()
-class OPENVDBMODULE_API UVdbHandle : public UActorComponent //, public IVdbInterface TODO
+class OPENVDBMODULE_API UVdbHandle : public UActorComponent
 {
 	GENERATED_BODY()
 
@@ -49,9 +49,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VDB")
 		void ReadGridTree(const FString &gridID, FIntVector &startIndex, FIntVector &endIndex);
 	UFUNCTION(BlueprintCallable, Category = "VDB")
-		void FillTreePerlin(const FString &gridID, FIntVector &startFill, FIntVector &endFill);
+		bool FillTreePerlin(const FString &gridID, FIntVector &startFill, FIntVector &endFill);
 	UFUNCTION(BlueprintCallable, Category = "VDB")
-		void ExtractIsoSurface(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FBox &gridDimensions, FVector &initialLocation);
+		bool ExtractIsoSurface(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FBox &gridDimensions, FVector &initialLocation);
 	UFUNCTION(BlueprintCallable, Category = "VDB")
 		void MeshGrid(const FString &gridID);
 	UFUNCTION(BlueprintCallable, Category = "VDB")
@@ -72,5 +72,6 @@ public:
 	const FString VdbName;
 
 private:
-	bool isRegistered;
+	bool IsOpen;
+	void OpenVoxelDatabaseGuard();
 };

@@ -14,4 +14,5 @@ AFirstPersonCPPGameMode::AFirstPersonCPPGameMode()
 
 	// use our custom HUD class
 	HUDClass = AFirstPersonCPPHUD::StaticClass();
+	bStartPlayersAsSpectators = true;
 }

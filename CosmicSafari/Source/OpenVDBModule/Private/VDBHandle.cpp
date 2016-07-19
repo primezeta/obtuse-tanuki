@@ -5,156 +5,154 @@
 UVdbHandle::UVdbHandle(const FObjectInitializer& ObjectInitializer)
 	: VdbName(GetFName().ToString())
 {
+	//TODO: VDB configuration options in the editor (via plugin?)
 	MeshMethod = EMeshType::MESH_TYPE_CUBES;
-	FilePath = "";
+	FilePath = TEXT("C:\\Users\\zach\\Documents\\Unreal Projects\\obtuse-tanuki\\CosmicSafari\\Binaries\\Win64\\vdbs\\perlin.vdb"); //TODO: Remove this path
 	EnableDelayLoad = true;
 	EnableGridStats = true;
-	WorldName = "";
+	WorldName = TEXT("perlin_test");
 	PerlinSeed = 0;
 	PerlinFrequency = 4.0f;
 	PerlinLacunarity = 0.49f;
 	PerlinPersistence = 2.01f;
 	PerlinOctaveCount = 9;
 	ThreadedGridOps = true;
-	bWantsInitializeComponent = true;
+	IsOpen = false;
 }
 
 void UVdbHandle::InitializeComponent()
 {
 	Super::InitializeComponent();
-	isRegistered = FOpenVDBModule::IsAvailable() && !FilePath.IsEmpty() && FOpenVDBModule::RegisterVdb(VdbName, FilePath, EnableGridStats, EnableDelayLoad);
+#if WITH_ENGINE
+	OpenVoxelDatabaseGuard();
+	//TODO: Add logging
+#endif
 }
 
 void UVdbHandle::BeginDestroy()
 {
-	if (isRegistered)
+	if (IsOpen)
 	{
-		FOpenVDBModule::UnregisterVdb(VdbName);
+		const bool isAsync = false; //TODO
+		FOpenVDBModule::CloseVoxelDatabase(VdbName, isAsync);
 	}
 	Super::BeginDestroy();
 }
 
 FString UVdbHandle::AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FProcMeshSection> &sectionBuffers)
 {
-	FString gridID;
-	if (isRegistered)
-	{
-		gridID = FOpenVDBModule::AddGrid(VdbName, gridName, regionIndex, voxelSize, sectionBuffers);
-	}
+	OpenVoxelDatabaseGuard();
+	const FString gridID = FOpenVDBModule::AddGrid(VdbName, gridName, regionIndex, voxelSize, sectionBuffers);
 	return gridID;
 }
 
 void UVdbHandle::ReadGridTree(const FString &gridID, FIntVector &startIndex, FIntVector &endIndex)
 {
-	if (isRegistered)
-	{
-		FOpenVDBModule::ReadGridTree(VdbName, gridID, startIndex, endIndex);
-	}
+	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::ReadGridTree(VdbName, gridID, startIndex, endIndex);
 }
 
-void UVdbHandle::FillTreePerlin(const FString &gridID, FIntVector &startFill, FIntVector &endFill)
+bool UVdbHandle::FillTreePerlin(const FString &gridID, FIntVector &startFill, FIntVector &endFill)
 {
-	if (isRegistered)
-	{
-		FOpenVDBModule::FillTreePerlin(VdbName, gridID, startFill, endFill, PerlinSeed, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, ThreadedGridOps);
-	}
+	OpenVoxelDatabaseGuard();
+	const bool isChanged = FOpenVDBModule::FillTreePerlin(VdbName, gridID, startFill, endFill, PerlinSeed, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, ThreadedGridOps);
+	return isChanged;
 }
 
-void UVdbHandle::ExtractIsoSurface(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FBox &gridDimensions, FVector &initialLocation)
+bool UVdbHandle::ExtractIsoSurface(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FBox &gridDimensions, FVector &initialLocation)
 {
-	if (isRegistered)
-	{
-		FOpenVDBModule::ExtractIsoSurface(VdbName, gridID, MeshMethod, sectionMaterialIDs, gridDimensions, initialLocation, ThreadedGridOps);
-	}
+	OpenVoxelDatabaseGuard();
+	const bool hasActiveVoxels = FOpenVDBModule::ExtractIsoSurface(VdbName, gridID, MeshMethod, sectionMaterialIDs, gridDimensions, initialLocation, ThreadedGridOps);
+	return hasActiveVoxels;
 }
 
 void UVdbHandle::MeshGrid(const FString &gridID)
 {
-	if (isRegistered)
-	{
-		FOpenVDBModule::MeshGrid(VdbName, gridID, MeshMethod);
-	}
+	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::MeshGrid(VdbName, gridID, MeshMethod);
 }
 
 TArray<FString> UVdbHandle::GetAllGridIDs()
 {
-	TArray<FString> GridIDs;
-	if (isRegistered)
-	{
-		GridIDs = FOpenVDBModule::GetAllGridIDs(VdbName);
-	}
+	OpenVoxelDatabaseGuard();
+	const TArray<FString> GridIDs = FOpenVDBModule::GetAllGridIDs(VdbName); //TODO: Return as const &
 	return GridIDs;
 }
 
 void UVdbHandle::RemoveGrid(const FString &gridID)
 {
-	if (isRegistered)
-	{
-		FOpenVDBModule::RemoveGrid(VdbName, gridID); //TODO: Remove mesh component
-	}
+	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::RemoveGrid(VdbName, gridID);
 }
 
 void UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 {
-	if (isRegistered)
-	{
-		check(regionScale.X > 0 && regionScale.Y > 0 && regionScale.Z > 0);
-		FOpenVDBModule::SetRegionScale(VdbName, regionScale);
-	}
+	OpenVoxelDatabaseGuard();
+	check(regionScale.X > 0 && regionScale.Y > 0 && regionScale.Z > 0);
+	FOpenVDBModule::SetRegionScale(VdbName, regionScale);
 }
 
 void UVdbHandle::GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord)
 {
-	if (isRegistered)
-	{
-		FOpenVDBModule::GetVoxelCoord(VdbName, gridID, worldLocation, outVoxelCoord);
-	}
+	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::GetVoxelCoord(VdbName, gridID, worldLocation, outVoxelCoord);
 }
 
 bool UVdbHandle::GetGridDimensions(const FString &gridID, FVector &startLocation)
 {
-	bool hasActiveVoxels = false;
-	if (isRegistered)
-	{
-		hasActiveVoxels = FOpenVDBModule::GetGridDimensions(VdbName, gridID, startLocation);
-	}
+	OpenVoxelDatabaseGuard();
+	const bool hasActiveVoxels = FOpenVDBModule::GetGridDimensions(VdbName, gridID, startLocation);
 	return hasActiveVoxels;
 }
 
 bool UVdbHandle::GetGridDimensions(const FString &gridID, FBox &worldBounds)
 {
-	bool hasActiveVoxels = false;
-	if (isRegistered)
-	{
-		hasActiveVoxels = FOpenVDBModule::GetGridDimensions(VdbName, gridID, worldBounds);
-	}
+	OpenVoxelDatabaseGuard();
+	const bool hasActiveVoxels = FOpenVDBModule::GetGridDimensions(VdbName, gridID, worldBounds);
 	return hasActiveVoxels;
 }
 
 bool UVdbHandle::GetGridDimensions(const FString &gridID, FBox &worldBounds, FVector &startLocation)
 {
-	bool hasActiveVoxels = false;
-	if (isRegistered)
-	{
-		hasActiveVoxels = FOpenVDBModule::GetGridDimensions(VdbName, gridID, worldBounds, startLocation);
-	}
+	OpenVoxelDatabaseGuard();
+	const bool hasActiveVoxels = FOpenVDBModule::GetGridDimensions(VdbName, gridID, worldBounds, startLocation);
 	return hasActiveVoxels;
 }
 
 FIntVector UVdbHandle::GetRegionIndex(const FVector &worldLocation)
 {
-	FIntVector regionIndex;
-	if (isRegistered)
-	{
-		regionIndex = FOpenVDBModule::GetRegionIndex(VdbName, worldLocation);
-	}
+	OpenVoxelDatabaseGuard();
+	const FIntVector regionIndex = FOpenVDBModule::GetRegionIndex(VdbName, worldLocation);
 	return regionIndex;
 }
 
 void UVdbHandle::WriteAllGrids()
 {
-	if (isRegistered)
+	OpenVoxelDatabaseGuard();
+	const bool isFinal = false;
+	const bool isAsync = false; //TODO
+	FOpenVDBModule::WriteChanges(VdbName, isFinal, isAsync);
+}
+
+void UVdbHandle::OpenVoxelDatabaseGuard()
+{
+	if (!IsOpen)
 	{
-		FOpenVDBModule::WriteAllGrids(VdbName);
+		check(!FilePath.IsEmpty());
+		IsOpen = FOpenVDBModule::IsAvailable() && !FilePath.IsEmpty() && FOpenVDBModule::OpenVoxelDatabase(VdbName, FilePath, EnableGridStats, EnableDelayLoad);
+		check(IsOpen);
 	}
 }
+
+//virtual void OnRegister();
+//
+///**
+//* Called when a component is unregistered. Called after DestroyRenderState_Concurrent and DestroyPhysicsState are called.
+//*/
+//virtual void OnUnregister();
+//
+//// Always called immediately before properties are received from the remote.
+//virtual void PreNetReceive() override { }
+//
+//// Always called immediately after properties are received from the remote.
+//virtual void PostNetReceive() override { }
