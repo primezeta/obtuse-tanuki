@@ -57,7 +57,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VDB")
 		void RemoveGrid(const FString &gridID);
 	UFUNCTION(BlueprintCallable, Category = "VDB")
-		void SetRegionScale(const FIntVector &regionScale);
+		bool SetRegionScale(const FIntVector &regionScale);
 	UFUNCTION(BlueprintCallable, Category = "VDB")
 		void GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord);
 

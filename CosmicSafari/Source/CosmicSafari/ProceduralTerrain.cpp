@@ -19,6 +19,7 @@ UProceduralTerrain::UProceduralTerrain(const FObjectInitializer& ObjectInitializ
 		MeshMaterials[i] = Material;
 	}
 
+	PrimaryComponentTick.bCanEverTick = true;
 	SetComponentTickEnabled(true);
 	//SetActorEnableCollision(true);
 
@@ -39,29 +40,6 @@ void UProceduralTerrain::InitializeComponent()
 {
 	Super::InitializeComponent();
 	RegisterComponent();
-
-	//Set the number of voxels per grid region index
-	check(VdbHandle);
-	VdbHandle->SetRegionScale(RegionDimensions);
-
-	//Add the first grid region and surrounding regions
-	StartRegion = AddTerrainComponent(FIntVector(0, 0, 0));
-	for (int32 x = 0; x <= RegionRadiusX; ++x)
-	{
-		for (int32 y = 0; y <= RegionRadiusY; ++y)
-		{
-			for (int32 z = 0; z <= RegionRadiusZ; ++z)
-			{
-				if (x != 0 || y != 0 || z != 0)
-				{
-					AddTerrainComponent(FIntVector(x, y, z));
-					AddTerrainComponent(FIntVector(-x, -y, -z));
-				}
-			}
-		}
-	}
-
-	OldestGridState = EGridState::GRID_STATE_INIT;
 }
 
 FString UProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
@@ -123,8 +101,32 @@ UProceduralTerrainMeshComponent * UProceduralTerrain::GetTerrainComponent(const 
 
 // Called when the game starts or when spawned
 void UProceduralTerrain::BeginPlay()
-{
+{	
 	Super::BeginPlay();
+
+	//Set the number of voxels per grid region index
+	check(VdbHandle);
+	if (VdbHandle->SetRegionScale(RegionDimensions))
+	{
+		//Add the first grid region and surrounding regions
+		StartRegion = AddTerrainComponent(FIntVector(0, 0, 0));
+		for (int32 x = 0; x <= RegionRadiusX; ++x)
+		{
+			for (int32 y = 0; y <= RegionRadiusY; ++y)
+			{
+				for (int32 z = 0; z <= RegionRadiusZ; ++z)
+				{
+					if (x != 0 || y != 0 || z != 0)
+					{
+						AddTerrainComponent(FIntVector(x, y, z));
+						AddTerrainComponent(FIntVector(-x, -y, -z));
+					}
+				}
+			}
+		}
+	}
+
+	OldestGridState = EGridState::GRID_STATE_INIT;
 	check(!GridMeshingThread.IsValid());
 	GridMeshingThread = TSharedPtr<FGridMeshingThread>(new FGridMeshingThread(DirtyGridRegions));
 	FString name;
@@ -140,7 +142,6 @@ void UProceduralTerrain::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		GridMeshingThread->Stop();
 		while (GridMeshingThread->isRunning);
 	}
-	VdbHandle->WriteAllGrids();
 }
 
 // Called every frame

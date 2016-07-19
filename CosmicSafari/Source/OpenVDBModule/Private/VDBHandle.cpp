@@ -84,11 +84,16 @@ void UVdbHandle::RemoveGrid(const FString &gridID)
 	FOpenVDBModule::RemoveGrid(VdbName, gridID);
 }
 
-void UVdbHandle::SetRegionScale(const FIntVector &regionScale)
+bool UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 {
+	bool isScaleValid = false;
 	OpenVoxelDatabaseGuard();
-	check(regionScale.X > 0 && regionScale.Y > 0 && regionScale.Z > 0);
-	FOpenVDBModule::SetRegionScale(VdbName, regionScale);
+	if (regionScale.X > 0 && regionScale.Y > 0 && regionScale.Z > 0)
+	{
+		FOpenVDBModule::SetRegionScale(VdbName, regionScale);
+		isScaleValid = true;
+	}
+	return isScaleValid;
 }
 
 void UVdbHandle::GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord)
