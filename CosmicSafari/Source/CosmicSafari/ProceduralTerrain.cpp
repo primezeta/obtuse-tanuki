@@ -89,7 +89,6 @@ FString UProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 	terrainMesh.VoxelSize = FVector(1.0f);
 	terrainMesh.VdbHandle = VdbHandle;
 	terrainMesh.RegionIndex = gridIndex;
-	terrainMesh.bTickStateAfterFinish = true;
 	terrainMesh.RegionState = EGridState::GRID_STATE_INIT;
 	terrainMesh.SetWorldScale3D(VoxelSize);
 	terrainMesh.RegisterComponent();

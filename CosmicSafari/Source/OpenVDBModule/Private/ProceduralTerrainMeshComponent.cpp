@@ -39,7 +39,6 @@ UProceduralTerrainMeshComponent::UProceduralTerrainMeshComponent(const FObjectIn
 
 void UProceduralTerrainMeshComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
-	check(ThisTickFunction == &PrimaryComponentTick);
 	if (RegionState == EGridState::GRID_STATE_INIT && IsStateStarted[(int32)EGridState::GRID_STATE_INIT] == 0)
 	{
 		//Initialize the grid on the render thread
@@ -158,7 +157,7 @@ void UProceduralTerrainMeshComponent::FinishAllSections(ENamedThreads::Type Curr
 	check(RegionState == EGridState::GRID_STATE_READY);
 	
 	//Finish each individual section
-	for (auto i = 0; i < NUM_GRID_STATES; ++i)
+	for (auto i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
 	{
 		FinishSection(i, true);
 	}
@@ -179,7 +178,7 @@ void UProceduralTerrainMeshComponent::FinishSection(int32 SectionIndex, bool isV
 	NumReadySections++;
 	check(NumReadySections >= 0 && NumReadySections <= FVoxelData::VOXEL_TYPE_COUNT);
 	NumStatesRemaining--;
-	check(NumStatesRemaining >= 0);
+	check(NumStatesRemaining >= 0 && NumStatesRemaining <= NUM_GRID_STATES);
 	SetMeshSectionVisible(SectionIndex, isVisible);
 }
 

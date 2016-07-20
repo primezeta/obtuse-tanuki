@@ -16,7 +16,8 @@ ACosmicSafariGameMode::ACosmicSafariGameMode()
 
 void ACosmicSafariGameMode::Tick(float DeltaSeconds)
 {
-	if (Grids->OldestGridState == EGridState::GRID_STATE_FINISHED && !bIsInitialLocationSet)
+	//TODO: Register a delegate for when number states remaining transitions to 0?
+	if (Grids->NumberMeshingStatesRemaining == 0 && !bIsInitialLocationSet)
 	{
 		//Wait until all grid regions are finished meshing then define a player start location.
 		//TODO: Get player locations in a more robust way (instead of just from the first player controller)
@@ -24,7 +25,8 @@ void ACosmicSafariGameMode::Tick(float DeltaSeconds)
 		check(World);
 		APlayerController * PlayerController = World->GetFirstPlayerController();
 		check(PlayerController);
-		UProceduralTerrainMeshComponent * TerrainMeshComponent = Grids->GetTerrainComponent(FIntVector::ZeroValue);
+		//Get the "start region" (i.e. the terrain mesh component with index 0,0,0)
+		UProceduralTerrainMeshComponent * TerrainMeshComponent = Grids->GetTerrainComponent(FIntVector(0, 0, 0));
 		check(TerrainMeshComponent);
 		APawn * SpawnedPawn = SpawnDefaultPawnFor(PlayerController, TerrainMeshComponent->RegionStart);
 		check(SpawnedPawn);
