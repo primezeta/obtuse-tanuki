@@ -180,27 +180,27 @@ public:
 
 		//Grid start index has changed or start index meta value does not exist?
 		//TODO: Update logic to not use MetaName_RegionIndexStart since now all grids start from 0,0,0
-		const openvdb::Vec3IMetadata::Ptr currentIndexStartMeta = grid.getMetadata<openvdb::Vec3IMetadata>(MetaName_RegionIndexStart(true));
+		const openvdb::Vec3IMetadata::Ptr currentIndexStartMeta = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()));
 		const openvdb::Vec3i indexStartVec(0, 0, 0);
 		const openvdb::Vec3d worldStart = map->applyMap(openvdb::Vec3d(indexStartVec.x(), indexStartVec.y(), indexStartVec.z()));
 		if (currentIndexStartMeta == nullptr || !openvdb::math::isExactlyEqual(currentIndexStartMeta->value(), indexStartVec))
 		{
 			UE_LOG(LogOpenVDBModule, Display, TEXT("Setting grid [%s] start to [%s] (index [%s])"), *gridID, UTF8_TO_TCHAR(worldStart.str().c_str()), UTF8_TO_TCHAR(indexStartVec.str().c_str()));
-			grid.insertMeta(MetaName_RegionIndexStart(true), openvdb::Vec3IMetadata(indexStartVec));
-			grid.insertMeta(MetaName_RegionStart(true), openvdb::Vec3DMetadata(worldStart));
+			grid.insertMeta(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()), openvdb::Vec3IMetadata(indexStartVec));
+			grid.insertMeta(TCHAR_TO_UTF8(*MetaName_RegionStart()), openvdb::Vec3DMetadata(worldStart));
 			DesyncGridsStatus();
 		}
 
 		//Grid end index has changed or end index meta value does not exist?
 		//TODO: Update logic to not use MetaName_RegionIndexStart since now all grids start from 0,0,0
-		const openvdb::Vec3IMetadata::Ptr currentIndexEndMeta = grid.getMetadata<openvdb::Vec3IMetadata>(MetaName_RegionIndexEnd(true));
+		const openvdb::Vec3IMetadata::Ptr currentIndexEndMeta = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()));
 		const openvdb::Vec3i indexEndVec(gridDimensions.X, gridDimensions.Y, gridDimensions.Z);
 		const openvdb::Vec3d worldEnd = map->applyMap(openvdb::Vec3d(indexEndVec.x(), indexEndVec.y(), indexEndVec.z()));
 		if (currentIndexEndMeta == nullptr || !openvdb::math::isExactlyEqual(currentIndexEndMeta->value(), indexEndVec))
 		{
 			UE_LOG(LogOpenVDBModule, Display, TEXT("Setting grid [%s] start to [%s] (index [%s])"), *gridID, UTF8_TO_TCHAR(worldEnd.str().c_str()), UTF8_TO_TCHAR(indexEndVec.str().c_str()));
-			grid.insertMeta(MetaName_RegionIndexEnd(true), openvdb::Vec3IMetadata(indexEndVec));
-			grid.insertMeta(MetaName_RegionEnd(true), openvdb::Vec3DMetadata(worldEnd));
+			grid.insertMeta(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()), openvdb::Vec3IMetadata(indexEndVec));
+			grid.insertMeta(TCHAR_TO_UTF8(*MetaName_RegionEnd()), openvdb::Vec3DMetadata(worldEnd));
 			DesyncGridsStatus();
 		}
 	}
@@ -230,8 +230,8 @@ public:
 		//Give the defined start/end indices for this grid
 		//TODO: Update logic to not use MetaName_RegionIndexStart since now all grids start from 0,0,0
 		//TODO: Create FIntBox class
-		const auto metaMin = grid.getMetadata<openvdb::Vec3IMetadata>(MetaName_RegionIndexStart(true));
-		const auto metaMax = grid.getMetadata<openvdb::Vec3IMetadata>(MetaName_RegionIndexEnd(true));
+		const auto metaMin = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()));
+		const auto metaMax = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()));
 		const openvdb::CoordBBox indexBBox(openvdb::Coord(metaMin->value()), openvdb::Coord(metaMax->value()));
 		indexStart.X = indexBBox.min().x();
 		indexStart.Y = indexBBox.min().y();
@@ -595,8 +595,8 @@ public:
 		if (!hasActiveVoxels)
 		{
 			//The grid has no active values so provide the defined bounds of the entire volume
-			const auto metaMin = grid.getMetadata<openvdb::Vec3IMetadata>(MetaName_RegionIndexStart(true));
-			const auto metaMax = grid.getMetadata<openvdb::Vec3IMetadata>(MetaName_RegionIndexEnd(true));
+			const auto metaMin = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()));
+			const auto metaMax = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()));
 			activeIndexBBox = openvdb::CoordBBox(openvdb::Coord(metaMin->value()), openvdb::Coord(metaMax->value()));
 		}
 		const openvdb::BBoxd worldBBox = grid.transform().indexToWorld(activeIndexBBox);
@@ -624,8 +624,8 @@ public:
 		else
 		{
 			//The grid has no active values so provide the defined bounds of the entire volume
-			const auto metaMin = grid.getMetadata<openvdb::Vec3IMetadata>(MetaName_RegionIndexStart(true));
-			const auto metaMax = grid.getMetadata<openvdb::Vec3IMetadata>(MetaName_RegionIndexEnd(true));
+			const auto metaMin = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()));
+			const auto metaMax = grid.getMetadata<openvdb::Vec3IMetadata>(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()));
 			activeIndexBBox = openvdb::CoordBBox(openvdb::Coord(metaMin->value()), openvdb::Coord(metaMax->value()));
 			startLocation = FVector(FLT_TRUE_MIN, FLT_TRUE_MIN, FLT_TRUE_MIN);
 		}
