@@ -1023,7 +1023,7 @@ struct AsyncIOJob
 		: JobID(jobID), Database(TSharedPtr<VdbHandlePrivateType>(vbdHandlePrivatePtr)), IsFinal(IsFinal), IsStarted(false), IsFinished(false)
 	{
 		check(Database.IsValid());
-		check(Database->GridsPtr);
+		check(Database->GridsPtr != nullptr);
 		check(Database->FilePtr.IsValid());
 		UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d created"), JobID);
 	}
@@ -1032,7 +1032,7 @@ struct AsyncIOJob
 	{
 		bool isComplete = false;
 		check(Database.IsValid());
-		check(Database->GridsPtr);
+		check(Database->GridsPtr != nullptr);
 		check(Database->FilePtr.IsValid());
 		check(OutGrids.empty());
 		check(Database->AsyncIOJobID == JobID);
