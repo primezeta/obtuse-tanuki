@@ -4,6 +4,7 @@
 DEFINE_LOG_CATEGORY(LogOpenVDBModule)
 typedef TMap<FString, TSharedPtr<VdbHandlePrivateType>> VdbRegistryType;
 static VdbRegistryType VdbRegistry;
+static AsyncIONotifierType AsyncIO;
 
 bool FOpenVDBModule::OpenVoxelDatabase(const FString &vdbName, const FString &vdbFilepath, bool enableGridStats, bool enableDelayLoad)
 {
@@ -15,7 +16,7 @@ bool FOpenVDBModule::OpenVoxelDatabase(const FString &vdbName, const FString &vd
 		TSharedPtr<VdbHandlePrivateType> *vdb = VdbRegistry.Find(vdbName);
 		if (vdb == nullptr)
 		{
-			VdbHandlePrivatePtr = TSharedPtr<VdbHandlePrivateType>(new VdbHandlePrivateType());
+			VdbHandlePrivatePtr = TSharedPtr<VdbHandlePrivateType>(new VdbHandlePrivateType(AsyncIO));
 			VdbRegistry.Add(vdbName, VdbHandlePrivatePtr);
 		}
 		else
@@ -134,19 +135,20 @@ FString FOpenVDBModule::AddGrid(const FString &vdbName, const FString &gridName,
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
 	try
 	{
-		TSharedPtr<openvdb::TypedMetadata<openvdb::math::ScaleMap>> regionSizeMetaValue = VdbHandlePrivatePtr->GetFileMetaValue<openvdb::math::ScaleMap>(VdbHandlePrivateType::MetaName_RegionScale());
-		check(regionSizeMetaValue.IsValid());
+		openvdb::math::ScaleMap regionSizeMetaValue(openvdb::Vec3d(0,0,0));
+		const bool isMetaValueValid = VdbHandlePrivatePtr->GetFileMetaValue<openvdb::math::ScaleMap>(MetaName_RegionScale(), regionSizeMetaValue);
+		check(isMetaValueValid);
 
 		const openvdb::Coord startIndexCoord = openvdb::Coord((int32)regionIndex.X, (int32)regionIndex.Y, (int32)regionIndex.Z);
 		const openvdb::Coord endIndexCoord = openvdb::Coord((int32)regionIndex.X + 1, (int32)regionIndex.Y + 1, (int32)regionIndex.Z + 1);
-		const openvdb::Vec3d regionStart = regionSizeMetaValue->value().applyMap(openvdb::Vec3d((double)startIndexCoord.x(), (double)startIndexCoord.y(), (double)startIndexCoord.z()));
-		const openvdb::Vec3d regionEnd = regionSizeMetaValue->value().applyMap(openvdb::Vec3d((double)endIndexCoord.x(), (double)endIndexCoord.y(), (double)endIndexCoord.z()));
+		const openvdb::Vec3d regionStart = regionSizeMetaValue.applyMap(openvdb::Vec3d((double)startIndexCoord.x(), (double)startIndexCoord.y(), (double)startIndexCoord.z()));
+		const openvdb::Vec3d regionEnd = regionSizeMetaValue.applyMap(openvdb::Vec3d((double)endIndexCoord.x(), (double)endIndexCoord.y(), (double)endIndexCoord.z()));
 		const openvdb::Vec3d regionDimensions = regionEnd - regionStart;
 
 		const FVector startWorld(regionStart.x(), regionStart.y(), regionStart.z());
 		const FVector endWorld(regionEnd.x()-1, regionEnd.y()-1, regionEnd.z()-1); //Minus 1 of each coordinate just for the display string. The value is not used
 		const FIntVector dimensions = FIntVector(regionDimensions.x(), regionDimensions.y(), regionDimensions.z()) - FIntVector(1, 1, 1);
-		gridID = gridName + TEXT(" ") + startWorld.ToString() + TEXT(",") + endWorld.ToString();
+		gridID = gridName + TEXT("_") + startWorld.ToString();
 		VdbHandlePrivatePtr->AddGrid(gridID, dimensions, startWorld, voxelSize, sectionBuffers);
 	}
 	catch (const openvdb::Exception &e)
@@ -369,7 +371,7 @@ void FOpenVDBModule::SetRegionScale(const FString &vdbName, const FIntVector &re
 	{
 		if (regionScale.X > 0 && regionScale.Y > 0 && regionScale.Z > 0)
 		{
-			VdbHandlePrivatePtr->InsertFileMeta<openvdb::math::ScaleMap>(VdbHandlePrivateType::MetaName_RegionScale(), openvdb::math::ScaleMap(openvdb::Vec3d((double)regionScale.X, (double)regionScale.Y, (double)regionScale.Z)));
+			VdbHandlePrivatePtr->InsertFileMeta<openvdb::math::ScaleMap>(MetaName_RegionScale(), openvdb::math::ScaleMap(openvdb::Vec3d((double)regionScale.X, (double)regionScale.Y, (double)regionScale.Z)));
 		}
 	}
 	catch (const openvdb::Exception &e)
@@ -421,9 +423,11 @@ FIntVector FOpenVDBModule::GetRegionIndex(const FString &vdbName, const FVector 
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
 	try
 	{
-		TSharedPtr<openvdb::TypedMetadata<openvdb::math::ScaleMap>> regionSizeMetaValue = VdbHandlePrivatePtr->GetFileMetaValue<openvdb::math::ScaleMap>(VdbHandlePrivateType::MetaName_RegionScale());
-		check(regionSizeMetaValue.IsValid());
-		openvdb::Vec3d regionCoords = regionSizeMetaValue->value().applyMap(openvdb::Vec3d(worldLocation.X, worldLocation.Y, worldLocation.Z));
+		openvdb::math::ScaleMap regionSizeMetaValue(openvdb::Vec3d(0,0,0));
+		const bool isMetaValueValid = VdbHandlePrivatePtr->GetFileMetaValue<openvdb::math::ScaleMap>(MetaName_RegionScale(), regionSizeMetaValue);
+		check(isMetaValueValid);
+
+		openvdb::Vec3d regionCoords = regionSizeMetaValue.applyMap(openvdb::Vec3d(worldLocation.X, worldLocation.Y, worldLocation.Z));
 		regionIndex.X = regionCoords.x();
 		regionIndex.Y = regionCoords.y();
 		regionIndex.Z = regionCoords.z();
