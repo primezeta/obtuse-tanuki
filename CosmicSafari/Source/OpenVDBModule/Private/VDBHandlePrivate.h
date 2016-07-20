@@ -59,7 +59,7 @@ public:
 
 	~VdbHandlePrivate()
 	{
-		WriteChanges(true); //TODO: Async write on destructor...however would need a non-member AsyncIONotifier object
+		WriteChangesAsync(true);
 		openvdb::uninitialize();
 		if (GridType::isRegistered())
 		{
@@ -141,7 +141,7 @@ public:
 		else
 		{
 			//Grid found
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Found existing grid [%s]"), *gridID);
+			UE_LOG(LogOpenVDBModule, Verbose, TEXT("Found existing grid [%s]"), *gridID);
 			gridPtr = openvdb::gridPtrCast<GridType>(*CachedGrid);
 		}
 		check(gridPtr != nullptr);
@@ -171,7 +171,7 @@ public:
 		GridType &grid = GetOrCreateGrid(gridID, isNewGrid);
 		if (isNewGrid || grid.transform() != *xformPtr)
 		{
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Setting grid [%s] transform to [%s]"), UTF8_TO_TCHAR(grid.getName().c_str()), UTF8_TO_TCHAR(map->str().c_str()));
+			UE_LOG(LogOpenVDBModule, Verbose, TEXT("Setting grid [%s] transform to [%s]"), UTF8_TO_TCHAR(grid.getName().c_str()), UTF8_TO_TCHAR(map->str().c_str()));
 			grid.setTransform(xformPtr);
 			CubesMeshOps.Emplace(gridID, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>(new Vdb::GridOps::CubeMesher<GridTreeType>(grid, sectionBuffers)));
 			MarchingCubesMeshOps.Emplace(gridID, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>(new Vdb::GridOps::MarchingCubesMesher<GridTreeType>(grid, sectionBuffers)));
@@ -185,7 +185,7 @@ public:
 		const openvdb::Vec3d worldStart = map->applyMap(openvdb::Vec3d(indexStartVec.x(), indexStartVec.y(), indexStartVec.z()));
 		if (currentIndexStartMeta == nullptr || !openvdb::math::isExactlyEqual(currentIndexStartMeta->value(), indexStartVec))
 		{
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Setting grid [%s] start to [%s] (index [%s])"), *gridID, UTF8_TO_TCHAR(worldStart.str().c_str()), UTF8_TO_TCHAR(indexStartVec.str().c_str()));
+			UE_LOG(LogOpenVDBModule, Verbose, TEXT("Setting grid [%s] start to [%s] (index [%s])"), *gridID, UTF8_TO_TCHAR(worldStart.str().c_str()), UTF8_TO_TCHAR(indexStartVec.str().c_str()));
 			grid.insertMeta(TCHAR_TO_UTF8(*MetaName_RegionIndexStart()), openvdb::Vec3IMetadata(indexStartVec));
 			grid.insertMeta(TCHAR_TO_UTF8(*MetaName_RegionStart()), openvdb::Vec3DMetadata(worldStart));
 			DesyncGridsStatus();
@@ -198,7 +198,7 @@ public:
 		const openvdb::Vec3d worldEnd = map->applyMap(openvdb::Vec3d(indexEndVec.x(), indexEndVec.y(), indexEndVec.z()));
 		if (currentIndexEndMeta == nullptr || !openvdb::math::isExactlyEqual(currentIndexEndMeta->value(), indexEndVec))
 		{
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Setting grid [%s] end to [%s] (index [%s])"), *gridID, UTF8_TO_TCHAR(worldEnd.str().c_str()), UTF8_TO_TCHAR(indexEndVec.str().c_str()));
+			UE_LOG(LogOpenVDBModule, Verbose, TEXT("Setting grid [%s] end to [%s] (index [%s])"), *gridID, UTF8_TO_TCHAR(worldEnd.str().c_str()), UTF8_TO_TCHAR(indexEndVec.str().c_str()));
 			grid.insertMeta(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()), openvdb::Vec3IMetadata(indexEndVec));
 			grid.insertMeta(TCHAR_TO_UTF8(*MetaName_RegionEnd()), openvdb::Vec3DMetadata(worldEnd));
 			DesyncGridsStatus();
@@ -213,11 +213,11 @@ public:
 		const openvdb::Index64 activeVoxelCount = grid.activeVoxelCount();
 		if (activeVoxelCount == 0)
 		{
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Grid [%s] tree is empty"), *gridID);
+			UE_LOG(LogOpenVDBModule, Verbose, TEXT("Grid [%s] tree is empty"), *gridID);
 			if (FilePtr->hasGrid(TCHAR_TO_UTF8(*gridID)))
 			{
 				//Read the tree from file then swap the current grid tree to the tree from file
-				UE_LOG(LogOpenVDBModule, Display, TEXT("Reading grid [%s] tree from file"), *gridID);
+				UE_LOG(LogOpenVDBModule, Verbose, TEXT("Reading grid [%s] tree from file"), *gridID);
 				OpenFileGuard();
 				GridTypePtr activeGrid = openvdb::gridPtrCast<GridType>(FilePtr->readGrid(TCHAR_TO_UTF8(*gridID)));
 				check(activeGrid != nullptr);
@@ -225,7 +225,7 @@ public:
 				grid.setTree(activeGrid->treePtr());
 			}
 		}
-		UE_LOG(LogOpenVDBModule, Display, TEXT("Grid [%s] tree has %d active voxels"), *gridID, activeVoxelCount);
+		UE_LOG(LogOpenVDBModule, Verbose, TEXT("Grid [%s] tree has %d active voxels"), *gridID, activeVoxelCount);
 
 		//Give the defined start/end indices for this grid
 		//TODO: Update logic to not use MetaName_RegionIndexStart since now all grids start from 0,0,0
@@ -267,7 +267,7 @@ public:
 		//Insert file meta and flag the file as changed if the value to be inserted is different or new
 		CloseFileGuard();
 		openvdb::TypedMetadata<FileMetaType>::Ptr currentFileMeta = FileMetaPtr->getMetadata<openvdb::TypedMetadata<FileMetaType>>(TCHAR_TO_UTF8(*metaName));
-		UE_LOG(LogOpenVDBModule, Display, TEXT("Inserting file meta [%s] into [%s]"), *metaName, UTF8_TO_TCHAR(FilePtr->filename().c_str()));
+		UE_LOG(LogOpenVDBModule, Verbose, TEXT("Inserting file meta [%s] into [%s]"), *metaName, UTF8_TO_TCHAR(FilePtr->filename().c_str()));
 		if (currentFileMeta == nullptr || !openvdb::math::isExactlyEqual(currentFileMeta->value(), metaValue))
 		{
 			FileMetaPtr->insertMeta(TCHAR_TO_UTF8(*metaName), openvdb::TypedMetadata<FileMetaType>(metaValue));
@@ -330,7 +330,7 @@ public:
 		openvdb::TypedMetadata<GridMetaType>::Ptr metaDataPtr = grid.getMetadata<openvdb::TypedMetadata<GridMetaType>>(TCHAR_TO_UTF8(*metaName));
 		if (metaDataPtr != nullptr)
 		{
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Getting grid meta [%s] from [%s]"), *metaName, *gridID);
+			UE_LOG(LogOpenVDBModule, Verbose, TEXT("Getting grid meta [%s] from [%s]"), *metaName, *gridID);
 			metaValue = metaDataPtr->value();
 			isMetaFound = true;
 		}
@@ -347,7 +347,7 @@ public:
 		//Insert grid meta and flag the file as changed if the value to be inserted is different or new
 		GridType &grid = GetGrid(gridID);
 		openvdb::TypedMetadata<GridMetaType>::Ptr currentGridMeta = grid.getMetadata<openvdb::TypedMetadata<GridMetaType>>(TCHAR_TO_UTF8(*metaName));
-		UE_LOG(LogOpenVDBModule, Display, TEXT("Inserting grid meta [%s] into [%s]"), *metaName, *gridID);
+		UE_LOG(LogOpenVDBModule, Verbose, TEXT("Inserting grid meta [%s] into [%s]"), *metaName, *gridID);
 		if (currentGridMeta == nullptr || !openvdb::math::isExactlyEqual(currentGridMeta->value(), metaValue))
 		{
 			grid.insertMeta(TCHAR_TO_UTF8(*metaName), openvdb::TypedMetadata<GridMetaType>(metaValue));
@@ -423,7 +423,7 @@ public:
 			AsyncIOJobID = AsyncIO.AddJob(this, isFinal); //TODO: Handle case when the same VDBHandlePrivate is being added to the async jobs
 			if (isFinal)
 			{
-				UE_LOG(LogOpenVDBModule, Display, TEXT("Async changes to [%s] will be finalized"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
+				UE_LOG(LogOpenVDBModule, Verbose, TEXT("Async changes to [%s] will be finalized"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
 			}
 		}
 		return isFileChanged; //TODO: Provide mechanism to wait on async changes to complete
@@ -483,7 +483,7 @@ public:
 		BasicExtractSurfaceProcessor BasicExtractSurfaceProc(grid.beginValueOn(), BasicExtractSurfaceOp);
 		BasicExtractSurfaceProc.process(threaded);
 		DesyncGridsStatus();
-		UE_LOG(LogOpenVDBModule, Display, TEXT("[%s] %d active voxels"), UTF8_TO_TCHAR(grid.getName().c_str()), grid.activeVoxelCount());
+		UE_LOG(LogOpenVDBModule, Verbose, TEXT("[%s] %d active voxels"), UTF8_TO_TCHAR(grid.getName().c_str()), grid.activeVoxelCount());
 	}
 
 	void ExtractGridSurface_MarchingCubes(const FString &gridName, bool threaded)
@@ -496,7 +496,7 @@ public:
 		ExtractSurfaceProcessor ExtractSurfaceProc(grid.beginValueOn(), Adapter::tree(MarchingCubesMeshOps[gridName]->Grid), ExtractSurfaceOp, openvdb::MERGE_ACTIVE_STATES);
 		ExtractSurfaceProc.process(threaded);
 		DesyncGridsStatus();
-		UE_LOG(LogOpenVDBModule, Display, TEXT("[%s] %d active voxels"), UTF8_TO_TCHAR(grid.getName().c_str()), grid.activeVoxelCount());
+		UE_LOG(LogOpenVDBModule, Verbose, TEXT("[%s] %d active voxels"), UTF8_TO_TCHAR(grid.getName().c_str()), grid.activeVoxelCount());
 	}
 
 	void CalculateGradient(const FString &gridName, bool threaded)
@@ -534,7 +534,7 @@ public:
 			msg = FString::Printf(TEXT("[%s] has no active voxel types"), UTF8_TO_TCHAR(grid.getName().c_str()));
 		}
 		DesyncGridsStatus();
-		UE_LOG(LogOpenVDBModule, Display, TEXT("%s"), *msg);
+		UE_LOG(LogOpenVDBModule, Verbose, TEXT("%s"), *msg);
 	}
 
 	void MeshRegionCubes(const FString &gridName)
@@ -726,7 +726,7 @@ public:
 private:
 	inline void ResetSharedResources()
 	{
-		UE_LOG(LogOpenVDBModule, Verbose, TEXT("Resetting all shared resources for [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
+		UE_LOG(LogOpenVDBModule, Display, TEXT("Resetting all shared resources for [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
 		FilePtr.Reset();
 		GridsPtr.reset();
 		FileMetaPtr.reset();
@@ -843,62 +843,71 @@ private:
 		}
 
 		//Write unwritten changes to file if configured to do so
-		if (FilePtr.IsValid() && !discardUnwrittenChanges)
+		if (FilePtr.IsValid())
 		{
-			//Determine if the current state is different from the previous state.
-			//To determine if file-level meta is changed, just use openvdb::MetaMap::operator== (which compares sorted metamaps).
-			//To determine if grids are changed, first just check if grid vectors are of different length. If the same length,
-			//then check the mesh ops which contain a "changed" flag.
-			OpenFileGuard();
-			openvdb::MetaMap::Ptr previousFileMetaPtr = FilePtr->getMetadata();
-			openvdb::GridPtrVecPtr previousGridsPtr = FilePtr->readAllGridMetadata();
-			const bool isFileMetaValid = FileMetaPtr != nullptr;
-			const bool isPreviousFileMetaValid = previousFileMetaPtr != nullptr;
-			const bool isFileMetaChanged = (isFileMetaValid != isPreviousFileMetaValid) || (isFileMetaValid && *FileMetaPtr != *FilePtr->getMetadata());
-			const bool isGridsPtrValid = GridsPtr != nullptr;
-			const bool isPreviousGridsPtrValid = previousGridsPtr != nullptr;
-			const size_t numGrids = isGridsPtrValid ? GridsPtr->size() : 0;
-			const size_t numPreviousGrids = isPreviousGridsPtrValid ? previousGridsPtr->size() : 0;
-			
-			//TODO: Ability to check for changed grid without finding the grid in every type of mesh op
-			//Initially do the easy check for change in number of grids. If the same, then check for changed mesh op. TODO: Check flags instead?
-			bool isAnyGridChanged = numGrids != numPreviousGrids;
-			for (auto i = GridsPtr->cbegin(); i != GridsPtr->cend() && !isAnyGridChanged; ++i)
+			if (discardUnwrittenChanges)
 			{
-				const FString gridName = UTF8_TO_TCHAR((*i)->getName().c_str());
-				auto cubesMeshOp = CubesMeshOps.Find(gridName);
-				check(cubesMeshOp);
-				auto marchingCubesMeshOp = MarchingCubesMeshOps.Find(gridName);
-				check(marchingCubesMeshOp);
-				//TODO: Need to worry about case when the grid does not have a mesh op?
-				check(cubesMeshOp != nullptr);
-				check(marchingCubesMeshOp != nullptr);
-				if ((*cubesMeshOp)->isChanged || (*marchingCubesMeshOp)->isChanged)
-				{
-					isAnyGridChanged = true;
-				}
+				//Ignore unwritten changes - just ensure the file is closed
+				CloseFileGuard();
 			}
+			else
+			{
+				//Determine if the current state is different from the previous state.
+				//To determine if file-level meta is changed, just use openvdb::MetaMap::operator== (which compares sorted metamaps).
+				//To determine if grids are changed, first just check if grid vectors are of different length. If the same length,
+				//then check the mesh ops which contain a "changed" flag.
+				OpenFileGuard();
+				openvdb::MetaMap::Ptr previousFileMetaPtr = FilePtr->getMetadata();
+				openvdb::GridPtrVecPtr previousGridsPtr = FilePtr->readAllGridMetadata();
+				const bool isFileMetaValid = FileMetaPtr != nullptr;
+				const bool isPreviousFileMetaValid = previousFileMetaPtr != nullptr;
+				const bool isFileMetaChanged = (isFileMetaValid != isPreviousFileMetaValid) || (isFileMetaValid && *FileMetaPtr != *FilePtr->getMetadata());
+				const bool isGridsPtrValid = GridsPtr != nullptr;
+				const bool isPreviousGridsPtrValid = previousGridsPtr != nullptr;
+				const size_t numGrids = isGridsPtrValid ? GridsPtr->size() : 0;
+				const size_t numPreviousGrids = isPreviousGridsPtrValid ? previousGridsPtr->size() : 0;
 
-			//Write the pending changes
-			if (isFileMetaChanged || isAnyGridChanged)
-			{
-				CloseFileGuard(); //openvdb::io::File must be closed in order to write
-								  //openvdb::io::File can write only grids or both grids and file meta but can't write only file meta
-				if (isAnyGridChanged && FileMetaPtr == nullptr)
+				//TODO: Ability to check for changed grid without finding the grid in every type of mesh op
+				//Initially do the easy check for change in number of grids. If the same, then check for changed mesh op. TODO: Check flags instead?
+				bool isAnyGridChanged = numGrids != numPreviousGrids;
+				for (auto i = GridsPtr->cbegin(); i != GridsPtr->cend() && !isAnyGridChanged; ++i)
 				{
-					check(GridsPtr);
-					UE_LOG(LogOpenVDBModule, Display, TEXT("Writing pending grid changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
-					FilePtr->write(*GridsPtr);
+					const FString gridName = UTF8_TO_TCHAR((*i)->getName().c_str());
+					auto cubesMeshOp = CubesMeshOps.Find(gridName);
+					check(cubesMeshOp);
+					auto marchingCubesMeshOp = MarchingCubesMeshOps.Find(gridName);
+					check(marchingCubesMeshOp);
+					//TODO: Need to worry about case when the grid does not have a mesh op?
+					check(cubesMeshOp != nullptr);
+					check(marchingCubesMeshOp != nullptr);
+					if ((*cubesMeshOp)->isChanged || (*marchingCubesMeshOp)->isChanged)
+					{
+						isAnyGridChanged = true;
+					}
 				}
-				else
+
+				//Write the pending changes
+				if (isFileMetaChanged || isAnyGridChanged)
 				{
-					check(GridsPtr);
-					check(FileMetaPtr);
-					UE_LOG(LogOpenVDBModule, Display, TEXT("Writing pending grid and file meta changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
-					FilePtr->write(*GridsPtr, *FileMetaPtr);
+					CloseFileGuard(); //openvdb::io::File must be closed in order to write
+									  //openvdb::io::File can write only grids or both grids and file meta but can't write only file meta
+					if (isAnyGridChanged && FileMetaPtr == nullptr)
+					{
+						check(GridsPtr);
+						UE_LOG(LogOpenVDBModule, Display, TEXT("Writing pending grid changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
+						FilePtr->write(*GridsPtr);
+					}
+					else
+					{
+						check(GridsPtr);
+						check(FileMetaPtr);
+						UE_LOG(LogOpenVDBModule, Display, TEXT("Writing pending grid and file meta changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
+						FilePtr->write(*GridsPtr, *FileMetaPtr);
+					}
 				}
-				FilePtr.Reset();
 			}
+			//Any existing unwritten changes are written to file so we're done with the file
+			FilePtr.Reset();
 		}
 		return true;
 	}
@@ -909,34 +918,32 @@ private:
 		const bool discardUnwrittenChanges = false,
 		const bool forceOverwriteExistingFile = false)
 	{
+		const FString PreviousFilePath = FilePtr.IsValid() ? UTF8_TO_TCHAR(FilePtr->filename().c_str()) : filePath;
+		const bool PreviousEnableGridStats = FilePtr.IsValid() ? FilePtr->isGridStatsMetadataEnabled() : enableGridStats;
+		const bool PreviousEnableDelayLoad = FilePtr.IsValid() ? FilePtr->isDelayedLoadingEnabled() : enableDelayLoad;
 		if (!SetAndVerifyConfiguration(filePath, enableGridStats, enableDelayLoad, discardUnwrittenChanges, forceOverwriteExistingFile))
 		{
-			UE_LOG(LogOpenVDBModule, Error, TEXT("Failed to configure voxel database [%s] grid_stats=%d, delay_load=%d, discard_unwritten=%d, overwrite_existing_file=%d"), *filePath, enableGridStats, enableDelayLoad, discardUnwrittenChanges, forceOverwriteExistingFile);
+			UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to configure voxel database [%s] grid_stats=%d, delay_load=%d, discard_unwritten=%d, overwrite_existing_file=%d"), *filePath, enableGridStats, enableDelayLoad, discardUnwrittenChanges, forceOverwriteExistingFile);
 			return false;
 		}
+		check(!FilePtr.IsValid());
 
-		const FString PreviousFilePath = FilePtr.IsValid() ? UTF8_TO_TCHAR(FilePtr->filename().c_str()) : TEXT("");
+		UE_LOG(LogOpenVDBModule, Display, TEXT("Configuring voxel database [%s] grid_stats=%d, delay_load=%d, discard_unwritten=%d, overwrite_existing_file=%d"), *filePath, enableGridStats, enableDelayLoad, discardUnwrittenChanges, forceOverwriteExistingFile);
 		EnableGridStats = enableGridStats;
 		EnableDelayLoad = enableDelayLoad;
-		UE_LOG(LogOpenVDBModule, Display, TEXT("Configuring voxel database [%s] grid_stats=%d, delay_load=%d, discard_unwritten=%d, overwrite_existing_file=%d"), *filePath, enableGridStats, enableDelayLoad, discardUnwrittenChanges, forceOverwriteExistingFile);
 
-		if (PreviousFilePath != filePath)
-		{
-			if (!PreviousFilePath.IsEmpty())
-			{
-				UE_LOG(LogOpenVDBModule, Display, TEXT("Changing voxel database path from [%s] to [%s]"), *PreviousFilePath, *filePath);
-			}
-			FilePtr = TSharedPtr<openvdb::io::File>(new openvdb::io::File(TCHAR_TO_UTF8(*(filePath))));
-			check(FilePtr.IsValid());
-		}
-		check(FilePtr->filename() == std::string(TCHAR_TO_UTF8(*filePath)));
+		UE_LOG(LogOpenVDBModule, Display, TEXT("Changing voxel database path and config from [%s] (DL%d GS%d) to [%s] (DL%d GS%d)"), *PreviousFilePath, PreviousEnableGridStats, PreviousEnableDelayLoad, *filePath, enableGridStats, enableDelayLoad);
+		const std::string filepathStd = TCHAR_TO_UTF8(*filePath);
+		FilePtr = TSharedPtr<openvdb::io::File>(new openvdb::io::File(filepathStd));
+		check(FilePtr.IsValid());
+		check(FilePtr->filename() == filepathStd);
 		FilePtr->setGridStatsMetadataEnabled(EnableGridStats);
 
 		//TODO: Ensure path exists before writing file?
 		if (!FPaths::FileExists(filePath))
 		{
 			//Create an empty vdb file
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Creating voxel database [%s]"), *filePath);
+			UE_LOG(LogOpenVDBModule, Display, TEXT("Creating empty voxel database [%s]"), *filePath);
 			FilePtr->write(openvdb::GridCPtrVec(), openvdb::MetaMap());
 		}
 		check(FPaths::FileExists(filePath)); //TODO: Error handling when unable to create file. For now assume the file exists
