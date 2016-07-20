@@ -21,8 +21,6 @@ public:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
@@ -74,12 +72,6 @@ public:
 	UFUNCTION()
 		UProceduralTerrainMeshComponent * GetTerrainComponent(const FIntVector &gridIndex);
 
-	EGridState OldestGridState;
-
 private:
-	TQueue<UProceduralTerrainMeshComponent*, EQueueMode::Mpsc> DirtyGridRegions;
 	int32 NumberTotalGridStates;
-	//Terrain mesh per grid region that has a mesh section per voxel type (i.e. per material)
-	TSharedPtr<FGridMeshingThread> GridMeshingThread;
-	int32 EnqueueOrFinishSection(UProceduralTerrainMeshComponent *terrainMeshComponentPtr);
 };

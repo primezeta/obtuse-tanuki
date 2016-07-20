@@ -9,6 +9,7 @@
 DECLARE_STATS_GROUP(TEXT("ProceduralMesh_Async"), STATGROUP_ProceduralMeshAsync, STATCAT_Advanced);
 DECLARE_CYCLE_STAT(TEXT("Create ProcMesh_Async Proxy"), STAT_ProcMeshAsync_CreateSceneProxy, STATGROUP_ProceduralMeshAsync);
 DECLARE_CYCLE_STAT(TEXT("Create Mesh Section Async"), STAT_ProcMeshAsync_CreateMeshSection, STATGROUP_ProceduralMeshAsync);
+DECLARE_CYCLE_STAT(TEXT("Create Empty Mesh Section Async"), STAT_ProcMeshAsync_CreateEmptyMeshSection, STATGROUP_ProceduralMeshAsync);
 DECLARE_CYCLE_STAT(TEXT("UpdateSection GT Async"), STAT_ProcMeshAsync_UpdateSectionGT, STATGROUP_ProceduralMeshAsync);
 DECLARE_CYCLE_STAT(TEXT("UpdateSection RT Async"), STAT_ProcMeshAsync_UpdateSectionRT, STATGROUP_ProceduralMeshAsync);
 DECLARE_CYCLE_STAT(TEXT("Get ProcMesh Elements Async"), STAT_ProcMeshAsync_GetMeshElements, STATGROUP_ProceduralMeshAsync);
@@ -562,19 +563,23 @@ void UProceduralMeshComponent_Async::SetMeshSectionVisible(int32 SectionIndex, b
 {
 	if (SectionIndex < ProcMeshSections.Num())
 	{
-		// Set game thread state
-		ProcMeshSections[SectionIndex].bSectionVisible = bNewVisibility;
+		//TODO: Determine if it is always ok to not enqueue the render command if the game thread state has not changed
+		if (ProcMeshSections[SectionIndex].bSectionVisible != bNewVisibility)
+		{
+			// Set game thread state
+			ProcMeshSections[SectionIndex].bSectionVisible = bNewVisibility;
 
-		// Enqueue command to modify render thread info
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			FProcMeshSectionVisibilityUpdate,
-			FProceduralMeshSceneProxy*, ProcMeshSceneProxy, (FProceduralMeshSceneProxy*)SceneProxy,
-			int32, SectionIndex, SectionIndex,
-			bool, bNewVisibility, bNewVisibility,
-			{
-				ProcMeshSceneProxy->SetSectionVisibility_RenderThread(SectionIndex, bNewVisibility);
-			}
-		);
+			// Enqueue command to modify render thread info
+			ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+				FProcMeshSectionVisibilityUpdate,
+				FProceduralMeshSceneProxy*, ProcMeshSceneProxy, (FProceduralMeshSceneProxy*)SceneProxy,
+				int32, SectionIndex, SectionIndex,
+				bool, bNewVisibility, bNewVisibility,
+				{
+					ProcMeshSceneProxy->SetSectionVisibility_RenderThread(SectionIndex, bNewVisibility);
+				}
+			);
+		}
 	}
 }
 
@@ -723,11 +728,14 @@ UBodySetup* UProceduralMeshComponent_Async::GetBodySetup()
 
 void UProceduralMeshComponent_Async::CreateEmptyMeshSection(int32 SectionIndex, bool bCreateCollision, int32 NumVerts, int32 NumTriIndices)
 {
-	SCOPE_CYCLE_COUNTER(STAT_ProcMeshAsync_CreateMeshSection);
+	SCOPE_CYCLE_COUNTER(STAT_ProcMeshAsync_CreateEmptyMeshSection);
 	check(SectionIndex > -1);
 
 	// Ensure sections array is long enough
-	ProcMeshSections.SetNum(SectionIndex + 1, false);
+	if (ProcMeshSections.Num() <= SectionIndex)
+	{
+		ProcMeshSections.SetNum(SectionIndex + 1, false);
+	}
 
 	// Reset this section (in case it already existed) and preallocate vertices array if NumVerts is valid
 	FProcMeshSection& NewSection = ProcMeshSections[SectionIndex];
@@ -749,7 +757,7 @@ void UProceduralMeshComponent_Async::FinishRender()
 	MarkRenderStateDirty(); // New section requires recreating scene proxy
 }
 
-void UProceduralMeshComponent_Async::FinishCollison()
+void UProceduralMeshComponent_Async::FinishCollision()
 {
 	UpdateCollision(); // Mark collision as dirty
 }

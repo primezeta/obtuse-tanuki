@@ -17,9 +17,13 @@ class OPENVDBMODULE_API UProceduralTerrainMeshComponent : public UProceduralMesh
 
 public:
 	UPROPERTY()
+		FString MeshName;
+	UPROPERTY()
 		FString MeshID;
 	UPROPERTY()
 		EGridState RegionState;
+	UPROPERTY()
+		int32 IsStateStarted[NUM_GRID_STATES];
 	UPROPERTY()
 		bool IsTreeReady;
 	UPROPERTY()
@@ -30,8 +34,6 @@ public:
 		int32 IsSectionFinished[FVoxelData::VOXEL_TYPE_COUNT];
 	UPROPERTY()
 		bool CreateCollision;
-	UPROPERTY()
-		TMap<int32, EVoxelType> MeshTypes;
 	UPROPERTY()
 		FVector StartLocation;
 	UPROPERTY()
@@ -54,64 +56,17 @@ public:
 		int32 NumStatesRemaining;
 	UPROPERTY()
 		bool IsQueued;
-	UPROPERTY()
-		bool bTickStateAfterFinish;
 	UVdbHandle * VdbHandle;
 
 	UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer);
-	
-	virtual void InitializeComponent() override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
-	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
-		void AddGrid();
-	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
-		void ReadGridTree();
-	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
-		void FillTreeValues();
-	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
-		void ExtractIsoSurface();
-	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
-		void RemoveGrid();
-	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
-		void MeshGrid();
-	UFUNCTION(BlueprintCallable, Category = "Procedural terrain mesh component")
-		bool FinishSection(int32 SectionIndex, bool isVisible);
-};
-
-struct FGridMeshingThread : public FRunnable
-{
-	FGridMeshingThread(TQueue<UProceduralTerrainMeshComponent*, EQueueMode::Mpsc> &dirtyGridRegions)
-		: DirtyGridRegions(dirtyGridRegions)
-	{
-	}
-
-	virtual uint32 Run() override
-	{
-		isRunning = true;
-		while (isRunning)
-		{
-			UProceduralTerrainMeshComponent* terrainMeshComponentPtr = nullptr;
-			while (DirtyGridRegions.Dequeue(terrainMeshComponentPtr))
-			{
-				check(terrainMeshComponentPtr != nullptr);
-				UProceduralTerrainMeshComponent &terrainMeshComponent = *terrainMeshComponentPtr;
-				terrainMeshComponent.AddGrid();
-				terrainMeshComponent.ReadGridTree();
-				terrainMeshComponent.FillTreeValues();
-				terrainMeshComponent.ExtractIsoSurface();
-				terrainMeshComponent.MeshGrid();
-				terrainMeshComponent.FinishRender();
-				terrainMeshComponent.IsQueued = false;
-			}
-		}
-		return 0;
-	}
-
-	virtual void Stop() override
-	{
-		isRunning = false;
-	}
-
-	bool isRunning;
-	TQueue<UProceduralTerrainMeshComponent*, EQueueMode::Mpsc> &DirtyGridRegions;
+	void AddGrid(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
+	void ReadGridTree(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
+	void FillTreeValues(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
+	void ExtractIsoSurface(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
+	void RemoveGrid(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
+	void MeshGrid(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
+	void FinishAllSections(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
+	void FinishSection(int32 SectionIndex, bool isVisible);
 };

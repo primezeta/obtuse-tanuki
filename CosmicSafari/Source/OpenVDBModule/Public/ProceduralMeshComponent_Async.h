@@ -59,7 +59,7 @@ class OPENVDBMODULE_API UProceduralMeshComponent_Async : public UMeshComponent, 
 		void FinishRender();
 
 	UFUNCTION(BlueprintCallable, Category = "Components|ProceduralMeshAsync")
-		void FinishCollison();
+		void FinishCollision();
 
 	//~ Begin Interface_CollisionDataProvider Interface
 	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;

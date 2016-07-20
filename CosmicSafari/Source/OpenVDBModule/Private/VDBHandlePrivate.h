@@ -198,7 +198,7 @@ public:
 		const openvdb::Vec3d worldEnd = map->applyMap(openvdb::Vec3d(indexEndVec.x(), indexEndVec.y(), indexEndVec.z()));
 		if (currentIndexEndMeta == nullptr || !openvdb::math::isExactlyEqual(currentIndexEndMeta->value(), indexEndVec))
 		{
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Setting grid [%s] start to [%s] (index [%s])"), *gridID, UTF8_TO_TCHAR(worldEnd.str().c_str()), UTF8_TO_TCHAR(indexEndVec.str().c_str()));
+			UE_LOG(LogOpenVDBModule, Display, TEXT("Setting grid [%s] end to [%s] (index [%s])"), *gridID, UTF8_TO_TCHAR(worldEnd.str().c_str()), UTF8_TO_TCHAR(indexEndVec.str().c_str()));
 			grid.insertMeta(TCHAR_TO_UTF8(*MetaName_RegionIndexEnd()), openvdb::Vec3IMetadata(indexEndVec));
 			grid.insertMeta(TCHAR_TO_UTF8(*MetaName_RegionEnd()), openvdb::Vec3DMetadata(worldEnd));
 			DesyncGridsStatus();

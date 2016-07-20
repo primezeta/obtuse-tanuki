@@ -135,7 +135,7 @@ FString FOpenVDBModule::AddGrid(const FString &vdbName, const FString &gridName,
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
 	try
 	{
-		openvdb::math::ScaleMap regionSizeMetaValue(openvdb::Vec3d(0,0,0));
+		openvdb::math::ScaleMap regionSizeMetaValue(openvdb::Vec3d(1));
 		const bool isMetaValueValid = VdbHandlePrivatePtr->GetFileMetaValue<openvdb::math::ScaleMap>(MetaName_RegionScale(), regionSizeMetaValue);
 		check(isMetaValueValid);
 
@@ -148,7 +148,7 @@ FString FOpenVDBModule::AddGrid(const FString &vdbName, const FString &gridName,
 		const FVector startWorld(regionStart.x(), regionStart.y(), regionStart.z());
 		const FVector endWorld(regionEnd.x()-1, regionEnd.y()-1, regionEnd.z()-1); //Minus 1 of each coordinate just for the display string. The value is not used
 		const FIntVector dimensions = FIntVector(regionDimensions.x(), regionDimensions.y(), regionDimensions.z()) - FIntVector(1, 1, 1);
-		gridID = gridName + TEXT("_") + startWorld.ToString();
+		gridID = gridName + TEXT("[") + startWorld.ToString() + TEXT("]");
 		VdbHandlePrivatePtr->AddGrid(gridID, dimensions, startWorld, voxelSize, sectionBuffers);
 	}
 	catch (const openvdb::Exception &e)
@@ -423,7 +423,7 @@ FIntVector FOpenVDBModule::GetRegionIndex(const FString &vdbName, const FVector 
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
 	try
 	{
-		openvdb::math::ScaleMap regionSizeMetaValue(openvdb::Vec3d(0,0,0));
+		openvdb::math::ScaleMap regionSizeMetaValue(openvdb::Vec3d(1));
 		const bool isMetaValueValid = VdbHandlePrivatePtr->GetFileMetaValue<openvdb::math::ScaleMap>(MetaName_RegionScale(), regionSizeMetaValue);
 		check(isMetaValueValid);
 

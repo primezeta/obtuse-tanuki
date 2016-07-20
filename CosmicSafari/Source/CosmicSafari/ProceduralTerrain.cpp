@@ -19,12 +19,11 @@ UProceduralTerrain::UProceduralTerrain(const FObjectInitializer& ObjectInitializ
 		MeshMaterials[i] = Material;
 	}
 
+	PrimaryComponentTick.bStartWithTickEnabled = true;
 	PrimaryComponentTick.bCanEverTick = true;
-	SetComponentTickEnabled(true);
-	//SetActorEnableCollision(true);
+	//SetActorEnableCollision(true); TODO: Need to enable collision on all parents?
 
 	VoxelSize = FVector(1.0f, 1.0f, 1.0f);
-	GridMeshingThread = nullptr;
 	RegionRadiusX = 0; //Radius 0 means the start region will be generated, but 0 surrounding regions (in the respective axis) will be generated
 	RegionRadiusY = 0;
 	RegionRadiusZ = 0;
@@ -32,39 +31,68 @@ UProceduralTerrain::UProceduralTerrain(const FObjectInitializer& ObjectInitializ
 	NumberRegionsComplete = 0;
 	NumberMeshingStatesRemaining = 0;
 	PercentMeshingComplete = 0.0f;
-	OldestGridState = EGridState::GRID_STATE_INIT;
 	bWantsInitializeComponent = true;
+
+	//SetTickableWhenPaused(true); TODO: Tick when paused to allow rendering to finish?
+	//TODO: Set to not replicate subobjects?
 }
 
 void UProceduralTerrain::InitializeComponent()
 {
 	Super::InitializeComponent();
 	RegisterComponent();
+
+	check(VdbHandle);
+	check(RegionRadiusX >= 0);
+	check(RegionRadiusY >= 0);
+	check(RegionRadiusZ >= 0);
+	//Set the number of voxels per grid region index
+	if (VdbHandle->SetRegionScale(RegionDimensions))
+	{
+		//Add the start region
+		StartRegion = AddTerrainComponent(FIntVector(0, 0, 0));
+		//Add the first grid region and surrounding regions, skipping the already added start region
+		for (int32 x = -RegionRadiusX; x <= RegionRadiusX; ++x)
+		{
+			for (int32 y = -RegionRadiusY; y <= RegionRadiusY; ++y)
+			{
+				for (int32 z = -RegionRadiusZ; z <= RegionRadiusZ; ++z)
+				{
+					if (x != 0 || y != 0 || z != 0)
+					{
+						//Add regions surrounding the start region
+						AddTerrainComponent(FIntVector(x, y, z));
+					}
+				}
+			}
+		}
+	}
 }
 
 FString UProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 {
-	//TODO: Check if terrain component already exists
-	const FString regionName = TEXT("[") + gridIndex.ToString() + TEXT("]");	
+	const FString regionName = TEXT("[") + gridIndex.ToString() + TEXT("]");
+	for (auto i = TerrainMeshComponents.CreateConstIterator(); i; ++i)
+	{
+		check((*i)->MeshName != regionName);
+	}
 
 	//Initialize the mesh component for the grid region
 	UProceduralTerrainMeshComponent * TerrainMesh = NewObject<UProceduralTerrainMeshComponent>(this);
 	check(TerrainMesh != nullptr);
 	UProceduralTerrainMeshComponent &terrainMesh = *TerrainMesh;
-	terrainMesh.MeshID = regionName;
+	terrainMesh.MeshName = regionName;
 	terrainMesh.bGenerateOverlapEvents = true;
 	terrainMesh.IsGridDirty = true;
 	terrainMesh.NumReadySections = 0;
 	terrainMesh.CreateCollision = bCreateCollision;
 	terrainMesh.VoxelSize = FVector(1.0f);
-	terrainMesh.SetWorldScale3D(VoxelSize);
-	terrainMesh.RegisterComponent();
-	//terrainMesh.AttachToComponent(this, FAttachmentTransformRules::KeepRelativeTransform);
 	terrainMesh.VdbHandle = VdbHandle;
-	check(VdbHandle);
 	terrainMesh.RegionIndex = gridIndex;
 	terrainMesh.bTickStateAfterFinish = true;
 	terrainMesh.RegionState = EGridState::GRID_STATE_INIT;
+	terrainMesh.SetWorldScale3D(VoxelSize);
+	terrainMesh.RegisterComponent();
 
 	//Initialize an empty mesh section per voxel type and create a material for each voxel type
 	for (int32 i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
@@ -72,14 +100,15 @@ FString UProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
 		const int32 sectionIndex = terrainMesh.SectionCount;
 		terrainMesh.SectionCount++;
 		bool createSectionCollision = bCreateCollision && i != (int32)EVoxelType::VOXEL_WATER;
+		FString logMsg = FString::Printf(TEXT("Creating empty mesh section %s[%d]"), *terrainMesh.MeshName, sectionIndex);
 		terrainMesh.CreateEmptyMeshSection(sectionIndex, createSectionCollision);
-		terrainMesh.MeshTypes.Add(sectionIndex, (EVoxelType)i);
 		UMaterial * sectionMat = MeshMaterials[i];
 		if (sectionMat != nullptr)
 		{
 			terrainMesh.SetMaterial(sectionIndex, sectionMat);
-			UE_LOG(LogFlying, Display, TEXT("%s section %d material set to %s"), *terrainMesh.MeshID, i, *sectionMat->GetName());
+			logMsg += FString::Printf(TEXT(" (%s)"), *sectionMat->GetName());
 		}
+		UE_LOG(LogFlying, Display, TEXT("%s"), *logMsg);
 	}
 	TerrainMeshComponents.Add(TerrainMesh);
 	NumberTotalGridStates += terrainMesh.NumStatesRemaining;
@@ -103,44 +132,12 @@ UProceduralTerrainMeshComponent * UProceduralTerrain::GetTerrainComponent(const 
 void UProceduralTerrain::BeginPlay()
 {	
 	Super::BeginPlay();
-
-	//Set the number of voxels per grid region index
-	check(VdbHandle);
-	if (VdbHandle->SetRegionScale(RegionDimensions))
+	for (auto i = TerrainMeshComponents.CreateConstIterator(); i; ++i)
 	{
-		//Add the first grid region and surrounding regions
-		StartRegion = AddTerrainComponent(FIntVector(0, 0, 0));
-		for (int32 x = 0; x <= RegionRadiusX; ++x)
-		{
-			for (int32 y = 0; y <= RegionRadiusY; ++y)
-			{
-				for (int32 z = 0; z <= RegionRadiusZ; ++z)
-				{
-					if (x != 0 || y != 0 || z != 0)
-					{
-						AddTerrainComponent(FIntVector(x, y, z));
-						AddTerrainComponent(FIntVector(-x, -y, -z));
-					}
-				}
-			}
-		}
-	}
-
-	OldestGridState = EGridState::GRID_STATE_INIT;
-	check(!GridMeshingThread.IsValid());
-	GridMeshingThread = TSharedPtr<FGridMeshingThread>(new FGridMeshingThread(DirtyGridRegions));
-	FString name;
-	GetName(name);
-	FRunnableThread::Create(GridMeshingThread.Get(), *FString::Printf(TEXT("GridMeshingThread:%s"), *name));
-}
-
-void UProceduralTerrain::EndPlay(const EEndPlayReason::Type EndPlayReason)
-{
-	check(VdbHandle);
-	if (GridMeshingThread.IsValid())
-	{
-		GridMeshingThread->Stop();
-		while (GridMeshingThread->isRunning);
+		check(*i);
+		check((*i)->NumStatesRemaining >= 0);
+		//(*i)->SetTickableWhenPaused(true); TODO: Allow ticking when paused?
+		(*i)->SetComponentTickEnabled(true); //TODO: Async set component tick enabled in order to finish BeginPlay quicker?
 	}
 }
 
@@ -148,84 +145,14 @@ void UProceduralTerrain::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void UProceduralTerrain::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	if (NumberMeshingStatesRemaining == 0)
-	{
-		//Nothing left to do for any sections
-		return;
-	}
-
-	int32 earliestGridState = NUM_GRID_STATES;
-	const int32 prevEarliestGridState = (int32)OldestGridState;
+	//Update percentage of sections meshing states that are done
 	int32 numStates = 0;
-	for (auto i = TerrainMeshComponents.CreateIterator(); i; ++i)
+	for (auto i = TerrainMeshComponents.CreateConstIterator(); i; ++i)
 	{
 		check(*i);
-		UProceduralTerrainMeshComponent * terrainMeshComponentPtr = *i;
-		//Queue up the section to be asynchronously meshed, or if the async meshing operations are complete,
-		//finish the section for anything that must be done on the game thread (e.g. physx collisions)
-		numStates += EnqueueOrFinishSection(terrainMeshComponentPtr);
-		const EGridState regionCurrentState = terrainMeshComponentPtr->RegionState;
-		if (earliestGridState > (int32)regionCurrentState)
-		{
-			earliestGridState = (int32)regionCurrentState;
-		}
+		check((*i)->NumStatesRemaining >= 0);
+		numStates += (*i)->NumStatesRemaining;
 	}
-
 	NumberMeshingStatesRemaining = numStates;
 	PercentMeshingComplete = 100.0f - 100.0f * ((float)NumberMeshingStatesRemaining / (float)NumberTotalGridStates);
-
-	//Did one of the regions' state change during this tick?
-	check(prevEarliestGridState > -1 && prevEarliestGridState < NUM_GRID_STATES);
-	check(earliestGridState > -1);
-	if (earliestGridState < NUM_GRID_STATES && earliestGridState != prevEarliestGridState)
-	{
-		//Notify of the changed grid state
-		OldestGridState = (EGridState)earliestGridState;
-	}
-}
-
-int32 UProceduralTerrain::EnqueueOrFinishSection(UProceduralTerrainMeshComponent *terrainMeshComponentPtr)
-{
-	UProceduralTerrainMeshComponent& terrainMeshComponent = *terrainMeshComponentPtr;
-
-	const bool isVisible = true; //TODO
-	int32 numStates = -1;
-	if (terrainMeshComponent.RegionState == EGridState::GRID_STATE_READY)
-	{
-		//The region is ready. Now complete the parts of the section that must be done on the game thread (e.g. physx collision)
-		for (int32 j = 0; j < FVoxelData::VOXEL_TYPE_COUNT; ++j)
-		{
-			const bool isChangedToFinished = terrainMeshComponent.FinishSection(j, isVisible);
-			UE_LOG(LogFlying, Display, TEXT("%s section %d finished"), *terrainMeshComponent.MeshID, j);
-			if (isChangedToFinished)
-			{
-				NumberRegionsComplete++;
-				//Collision creation is expensive so finish only one region per call
-				break;
-			}
-		}
-		numStates = terrainMeshComponent.NumStatesRemaining;
-	}
-	else if (terrainMeshComponent.RegionState < EGridState::GRID_STATE_READY)
-	{
-		numStates = terrainMeshComponent.NumStatesRemaining; //get state count prior to queuing to prevent a potential race condition
-		if (terrainMeshComponent.IsGridDirty && !terrainMeshComponent.IsQueued)
-		{
-			//The grid changed and is not currently queued - queue it up
-			UE_LOG(LogFlying, Display, TEXT("%s queued for meshing"), *terrainMeshComponent.MeshID);
-			terrainMeshComponent.IsQueued = true;
-			DirtyGridRegions.Enqueue(terrainMeshComponentPtr);
-		}
-	}
-	else
-	{
-		//Grid state is finished. Nothing to do here
-		check(terrainMeshComponent.RegionState == EGridState::GRID_STATE_FINISHED);
-		numStates = terrainMeshComponent.NumStatesRemaining;
-		check(numStates == 0);
-		UE_LOG(LogFlying, Display, TEXT("%s all sections meshed"), *terrainMeshComponent.MeshID);
-	}
-	check(numStates > -1);
-	return numStates;
 }
