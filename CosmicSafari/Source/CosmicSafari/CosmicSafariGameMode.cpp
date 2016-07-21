@@ -27,9 +27,11 @@ void ACosmicSafariGameMode::Tick(float DeltaSeconds)
 		check(PlayerController);
 		//Get the "start region" (i.e. the terrain mesh component with index 0,0,0)
 		UProceduralTerrainMeshComponent * TerrainMeshComponent = Grids->GetTerrainComponent(FIntVector(0, 0, 0));
-		check(TerrainMeshComponent);
-		APawn * SpawnedPawn = SpawnDefaultPawnFor(PlayerController, TerrainMeshComponent->RegionStart);
-		check(SpawnedPawn);
-		bIsInitialLocationSet = true; //TODO: Setup logic according to game state
+		if (TerrainMeshComponent)
+		{
+			APawn * SpawnedPawn = SpawnDefaultPawnFor(PlayerController, TerrainMeshComponent->RegionStart);
+			check(SpawnedPawn);
+			bIsInitialLocationSet = true; //TODO: Setup logic according to game state
+		}
 	}
 }
