@@ -19,6 +19,7 @@ UVdbHandle::UVdbHandle(const FObjectInitializer& ObjectInitializer)
 	ThreadedGridOps = true;
 	IsOpen = false;
 	bWantsInitializeComponent = true;
+	OnCloseWriteChangesAsync = true;
 }
 
 void UVdbHandle::InitializeComponent()
@@ -27,14 +28,15 @@ void UVdbHandle::InitializeComponent()
 	RegisterComponent();
 }
 
+void UVdbHandle::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	//if(EndPlayReason != EEndPlayReason::LevelTransition)
+	CloseVoxelDatabaseGuard(OnCloseWriteChangesAsync);
+}
+
 void UVdbHandle::BeginDestroy()
 {
-	if (IsOpen)
-	{
-		const bool isAsync = false; //TODO
-		FOpenVDBModule::CloseVoxelDatabase(VdbName, isAsync);
-		IsOpen = false;
-	}
+	CloseVoxelDatabaseGuard(OnCloseWriteChangesAsync);
 	Super::BeginDestroy();
 }
 
@@ -130,11 +132,10 @@ FIntVector UVdbHandle::GetRegionIndex(const FVector &worldLocation)
 	return regionIndex;
 }
 
-void UVdbHandle::WriteAllGrids()
+void UVdbHandle::WriteAllGrids(bool isAsync)
 {
 	OpenVoxelDatabaseGuard();
-	const bool isFinal = false;
-	const bool isAsync = false; //TODO
+	const bool isFinal = false; //Never final from this level
 	FOpenVDBModule::WriteChanges(VdbName, isFinal, isAsync);
 }
 
@@ -145,6 +146,16 @@ void UVdbHandle::OpenVoxelDatabaseGuard()
 		check(!FilePath.IsEmpty());
 		IsOpen = FOpenVDBModule::IsAvailable() && !FilePath.IsEmpty() && FOpenVDBModule::OpenVoxelDatabase(VdbName, FilePath, EnableGridStats, EnableDelayLoad);
 		check(IsOpen);
+	}
+}
+
+void UVdbHandle::CloseVoxelDatabaseGuard(bool isAsync)
+{
+	if (IsOpen)
+	{
+		const bool isFinal = false;
+		FOpenVDBModule::CloseVoxelDatabase(VdbName, isFinal, isAsync);
+		IsOpen = false;
 	}
 }
 

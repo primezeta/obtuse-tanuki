@@ -18,7 +18,7 @@ public:
 	}
 
 	static bool OpenVoxelDatabase(const FString &vdbName, const FString &vdbFilepath, bool enableGridStats, bool enableDelayLoad);
-	static bool CloseVoxelDatabase(const FString &vdbName, bool asyncWrite = false);
+	static bool CloseVoxelDatabase(const FString &vdbName, bool isFinal, bool asyncWrite);
 	static bool WriteChanges(const FString &vdbName, bool isFinal, bool asyncWrite);
 	static FString AddGrid(const FString &vdbName, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FProcMeshSection> &sectionBuffers);
 	static void ReadGridTree(const FString &vdbName, const FString &gridID, FIntVector &startIndex, FIntVector &endIndex);

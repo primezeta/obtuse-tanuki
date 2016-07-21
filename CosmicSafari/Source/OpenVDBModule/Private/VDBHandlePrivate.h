@@ -13,7 +13,6 @@ DECLARE_LOG_CATEGORY_EXTERN(LogOpenVDBModule, Log, All)
 //5,4,3 is the standard openvdb tree configuration
 typedef openvdb::tree::Tree4<FVoxelData, 5, 4, 3>::Type TreeType;
 struct AsyncIONotifier;
-struct GridNameIs;
 typedef struct AsyncIONotifier AsyncIONotifierType;
 typedef struct GridNameIs GridNameIsType;
 
@@ -29,6 +28,8 @@ public:
 	typedef typename IndexGridType::TreeType IndexTreeType;
 	typedef typename IndexGridType::Ptr IndexGridTypePtr;
 	typedef typename IndexGridType::ConstPtr IndexGridTypeCPtr;
+
+	bool IsDatabaseOpen; //Helper flag for external use
 
 private:
 	bool EnableGridStats;
@@ -53,13 +54,14 @@ public:
 		AreAllGridsInSync(true),
 		IsFileMetaInSync(true),
 		AsyncIO(asyncIO),
-		AsyncIOJobID(INT32_MAX)
+		AsyncIOJobID(UINT32_MAX)
 	{
+		IsDatabaseOpen = false;
 	}
 
 	~VdbHandlePrivate()
 	{
-		WriteChangesAsync(true);
+		WriteChangesAsync();
 		openvdb::uninitialize();
 		if (GridType::isRegistered())
 		{
@@ -71,14 +73,14 @@ public:
 		}
 	}
 
-	bool GetFilename(FString &filename)
+	bool GetDatabasePath(FString &FilePath)
 	{
-		//Return the file's path and if it is valid
+		//Return the path to the vdb file and if the file is valid
 		bool isFileValid = false;
 		if (FilePtr.IsValid())
 		{
-			filename = UTF8_TO_TCHAR(FilePtr->filename().c_str());
-			isFileValid = true;
+			FilePath = UTF8_TO_TCHAR(FilePtr->filename().c_str());
+			isFileValid = FPaths::FileExists(FilePath);
 		}
 		return isFileValid;
 	}
@@ -95,7 +97,7 @@ public:
 		return isFileValid;
 	}
 
-	bool InitializeDatabase(const FString &filePath, const bool &enableGridStats, const bool &enableDelayLoad)
+	bool InitializeDatabase(const FString &validatedFullPathName, const bool &enableGridStats, const bool &enableDelayLoad)
 	{
 		//Initialize OpenVDB, our metadata types, and the vdb file
 		openvdb::initialize();
@@ -109,7 +111,7 @@ public:
 		}
 		InitializeMetadata<MetadataTypeA>(); //TODO: Allow multiple metadata types - for now use just this one (grrr variadic templates)
 
-		const bool isInitialized = CreateOrVerifyDatabase(filePath, enableGridStats, enableDelayLoad);
+		const bool isInitialized = CreateAndVerifyDatabase(validatedFullPathName, enableGridStats, enableDelayLoad);
 		return isInitialized;
 	}
 
@@ -376,57 +378,6 @@ public:
 			}
 		}
 		return isMetaRemoved;
-	}
-
-	bool WriteChanges(bool isFinal)
-	{
-		//Write any pending changes and return if the file actually changed
-		bool isFileChanged = false;
-		if (AreChangesPending())
-		{
-			isFileChanged = true;
-			CloseFileGuard(); //openvdb::io::File must be closed in order to write
-							  //openvdb::io::File can write only grids or both grids and file meta but can't write only file meta
-			if (FileMetaPtr == nullptr)
-			{
-				check(GridsPtr);
-				UE_LOG(LogOpenVDBModule, Display, TEXT("Writing grid changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
-				FilePtr->write(*GridsPtr, openvdb::MetaMap());
-			}
-			else
-			{
-				check(GridsPtr);
-				check(FileMetaPtr);
-				UE_LOG(LogOpenVDBModule, Display, TEXT("Writing grid and file meta changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
-				FilePtr->write(*GridsPtr, *FileMetaPtr);
-			}
-
-			if (isFinal)
-			{
-				UE_LOG(LogOpenVDBModule, Display, TEXT("Finalizing changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
-				ResetSharedResources();
-			}
-		}
-		return isFileChanged;
-	}
-
-	bool WriteChangesAsync(bool isFinal)
-	{
-		//Queue up any pending changes to be written
-		bool isFileChanged = false;
-		if (AreChangesPending() && AsyncIOJobID == INT32_MAX)
-		{
-			isFileChanged = true; //TODO: Provide mechanism to wait on async changes to complete
-			CloseFileGuard(); //openvdb::io::File must be closed in order to write
-							  //openvdb::io::File can write only grids or both grids and file meta but can't write only file meta			
-			//Clear the async IO grids and then deep copy all of the current grids to the async IO. TODO: Better way to do this than deep copying all? Critical section?
-			AsyncIOJobID = AsyncIO.AddJob(this, isFinal); //TODO: Handle case when the same VDBHandlePrivate is being added to the async jobs
-			if (isFinal)
-			{
-				UE_LOG(LogOpenVDBModule, Verbose, TEXT("Async changes to [%s] will be finalized"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
-			}
-		}
-		return isFileChanged; //TODO: Provide mechanism to wait on async changes to complete
 	}
 
 	bool FillGrid_PerlinDensity(const FString &gridName, bool threaded, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount)
@@ -723,6 +674,56 @@ public:
 		}
 	}
 
+	bool WriteChanges(bool isFinal)
+	{
+		//Write any pending changes and return if the file actually changed
+		bool isFileChanged = false;
+		if (AreChangesPending())
+		{
+			CloseFileGuard(); //openvdb::io::File must be closed in order to write
+							  //openvdb::io::File can write only grids or both grids and file meta but can't write only file meta
+			if (FileMetaPtr == nullptr)
+			{
+				check(GridsPtr);
+				UE_LOG(LogOpenVDBModule, Display, TEXT("Writing grid changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
+				FilePtr->write(*GridsPtr, openvdb::MetaMap());
+				isFileChanged = true;
+			}
+			else
+			{
+				check(GridsPtr);
+				check(FileMetaPtr);
+				UE_LOG(LogOpenVDBModule, Display, TEXT("Writing grid and file meta changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
+				FilePtr->write(*GridsPtr, *FileMetaPtr);
+				isFileChanged = true;
+			}
+
+			if (isFinal)
+			{
+				UE_LOG(LogOpenVDBModule, Display, TEXT("Finalizing changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
+				ResetSharedResources();
+			}
+		}
+		return isFileChanged;
+	}
+
+	bool WriteChangesAsync(const bool isFinal = false)
+	{
+		//Default to not final because it is too unsafe to release shared pointers asynchronously
+		check(!isFinal);
+		//Queue up any pending changes to be written
+		bool isJobQueued = false;
+		if (AreChangesPending() && AsyncIOJobID == UINT32_MAX)
+		{
+			CloseFileGuard(); //openvdb::io::File must be closed in order to write
+							  //openvdb::io::File can write only grids or both grids and file meta but can't write only file meta			
+							  //Clear the async IO grids and then deep copy all of the current grids to the async IO. TODO: Better way to do this than deep copying all? Critical section?
+			AsyncIOJobID = AsyncIO.AddJob(this, isFinal); //TODO: Handle case when the same VDBHandlePrivate is being added to the async jobs
+			isJobQueued = true; //TODO: Provide mechanism to wait on async changes to complete
+		}
+		return isJobQueued; //TODO: Provide mechanism to wait on async changes to complete
+	}
+
 private:
 	inline void ResetSharedResources()
 	{
@@ -800,149 +801,137 @@ private:
 		}
 	}
 
-	inline bool SetAndVerifyConfiguration(const FString &filePath,
-		const bool enableGridStats,
-		const bool enableDelayLoad,
-		const bool discardUnwrittenChanges = false,
-		const bool forceOverwriteExistingFile = false)
+	static inline bool IsFileConfigurationValid(const FString &filePath,
+		const FString &previousFilePath,
+		const bool areThereUnwrittenChanges,
+		const bool discardUnwrittenChanges,
+		const bool makeDirIfNotExists,
+		FString &errorMessage)
 	{
-		//Safe to write the new file if:
-		//A) The path is valid (e.g. does not contain disallowed characters).
-		//B) The filename is not empty.
-		//C) No unwritten changes exist OR we are allowed to discard unwritten changes.
-		//D) The file does not exist OR we are allowed to overwrite an existing file.
+		//Configuration is valid if:
+		//A) The path and filename are valid (e.g. does not contain disallowed characters).
+		//B) No unwritten changes exist OR if they do, we are allowed to discard unwritten changes.
+		//C) The new file does not exist OR if it does exist, safe to write if it is the same file as previous.
+		//TODO: Check if directory and file are writable
 		FText PathNotValidReason;
-		const FString fileName = FPaths::GetCleanFilename(filePath);
+		const FString pathName = FPaths::GetPath(filePath);
 		const bool isPathValid = FPaths::ValidatePath(filePath, &PathNotValidReason);
-		const bool isFileValid = !fileName.IsEmpty();
-		const bool arePreviousChangesPending = FilePtr.IsValid() && AreChangesPending();
-		const bool doesFileExist = FPaths::FileExists(filePath);
-		const bool canDiscardAnyPending = !arePreviousChangesPending || discardUnwrittenChanges;
-		const bool canOverwriteAnyExisting = !doesFileExist || forceOverwriteExistingFile;
-		if (!(isPathValid && isFileValid && canDiscardAnyPending && canOverwriteAnyExisting))
+		const bool isFileValid = !FPaths::GetBaseFilename(filePath).IsEmpty();
+		const bool doesTargetPathExist = FPaths::DirectoryExists(pathName);
+		const bool doesTargetFileExist = FPaths::FileExists(filePath);
+		const bool canDiscardPendingChanges = !areThereUnwrittenChanges || discardUnwrittenChanges;
+		const bool canWriteToFileSafely = !doesTargetFileExist || filePath == previousFilePath;
+		const bool isPathWritable = doesTargetPathExist || makeDirIfNotExists;
+		if (!(isPathValid && isFileValid && canDiscardPendingChanges && canWriteToFileSafely && isPathWritable))
 		{
-			FString fileIOErrorMessage = TEXT("Cannot initialize the VDB file state because:");
+			errorMessage = TEXT("");
 			if (!isPathValid)
 			{
-				fileIOErrorMessage += FString::Printf(TEXT("\nInvalid path [%s]"), *filePath);
+				errorMessage += FString::Printf(TEXT("\nInvalid path [%s]: %s"), *filePath, *PathNotValidReason.ToString());
 			}
 			if (!isFileValid)
 			{
-				fileIOErrorMessage += FString::Printf(TEXT("\nInvalid filename [%s]"), *fileName);
+				errorMessage += FString::Printf(TEXT("\nInvalid filename [%s]"), *FPaths::GetCleanFilename(filePath));
 			}
-			if (!canDiscardAnyPending)
+			if (!canDiscardPendingChanges)
 			{
-				fileIOErrorMessage += FString::Printf(TEXT("\nThere are unwritten changes but the VDB is not configured to discard unwritten changes [%s]"), *fileName);
+				errorMessage += FString::Printf(TEXT("\nThere are unwritten changes to [%s] but the VDB is not configured to discard unwritten changes"), *previousFilePath);
 			}
-			if (!canOverwriteAnyExisting)
+			if (!canWriteToFileSafely)
 			{
-				fileIOErrorMessage += FString::Printf(TEXT("\nFile already exists but the VDB is not configured to overwrite existing files [%s]"), *fileName);
+				errorMessage += FString::Printf(TEXT("\n[%s] already exists"), *filePath);
 			}
-			UE_LOG(LogOpenVDBModule, Fatal, TEXT("%s"), *fileIOErrorMessage);
+			if (!isPathWritable)
+			{
+				errorMessage += FString::Printf(TEXT("\nDirectory [%s] does not exist"), *pathName);
+			}
 			return false;
-		}
-
-		//Write unwritten changes to file if configured to do so
-		if (FilePtr.IsValid())
-		{
-			if (discardUnwrittenChanges)
-			{
-				//Ignore unwritten changes - just ensure the file is closed
-				CloseFileGuard();
-			}
-			else
-			{
-				//Determine if the current state is different from the previous state.
-				//To determine if file-level meta is changed, just use openvdb::MetaMap::operator== (which compares sorted metamaps).
-				//To determine if grids are changed, first just check if grid vectors are of different length. If the same length,
-				//then check the mesh ops which contain a "changed" flag.
-				OpenFileGuard();
-				openvdb::MetaMap::Ptr previousFileMetaPtr = FilePtr->getMetadata();
-				openvdb::GridPtrVecPtr previousGridsPtr = FilePtr->readAllGridMetadata();
-				const bool isFileMetaValid = FileMetaPtr != nullptr;
-				const bool isPreviousFileMetaValid = previousFileMetaPtr != nullptr;
-				const bool isFileMetaChanged = (isFileMetaValid != isPreviousFileMetaValid) || (isFileMetaValid && *FileMetaPtr != *FilePtr->getMetadata());
-				const bool isGridsPtrValid = GridsPtr != nullptr;
-				const bool isPreviousGridsPtrValid = previousGridsPtr != nullptr;
-				const size_t numGrids = isGridsPtrValid ? GridsPtr->size() : 0;
-				const size_t numPreviousGrids = isPreviousGridsPtrValid ? previousGridsPtr->size() : 0;
-
-				//TODO: Ability to check for changed grid without finding the grid in every type of mesh op
-				//Initially do the easy check for change in number of grids. If the same, then check for changed mesh op. TODO: Check flags instead?
-				bool isAnyGridChanged = numGrids != numPreviousGrids;
-				for (auto i = GridsPtr->cbegin(); i != GridsPtr->cend() && !isAnyGridChanged; ++i)
-				{
-					const FString gridName = UTF8_TO_TCHAR((*i)->getName().c_str());
-					auto cubesMeshOp = CubesMeshOps.Find(gridName);
-					check(cubesMeshOp);
-					auto marchingCubesMeshOp = MarchingCubesMeshOps.Find(gridName);
-					check(marchingCubesMeshOp);
-					//TODO: Need to worry about case when the grid does not have a mesh op?
-					check(cubesMeshOp != nullptr);
-					check(marchingCubesMeshOp != nullptr);
-					if ((*cubesMeshOp)->isChanged || (*marchingCubesMeshOp)->isChanged)
-					{
-						isAnyGridChanged = true;
-					}
-				}
-
-				//Write the pending changes
-				if (isFileMetaChanged || isAnyGridChanged)
-				{
-					CloseFileGuard(); //openvdb::io::File must be closed in order to write
-									  //openvdb::io::File can write only grids or both grids and file meta but can't write only file meta
-					if (isAnyGridChanged && FileMetaPtr == nullptr)
-					{
-						check(GridsPtr);
-						UE_LOG(LogOpenVDBModule, Display, TEXT("Writing pending grid changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
-						FilePtr->write(*GridsPtr);
-					}
-					else
-					{
-						check(GridsPtr);
-						check(FileMetaPtr);
-						UE_LOG(LogOpenVDBModule, Display, TEXT("Writing pending grid and file meta changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
-						FilePtr->write(*GridsPtr, *FileMetaPtr);
-					}
-				}
-			}
-			//Any existing unwritten changes are written to file so we're done with the file
-			FilePtr.Reset();
 		}
 		return true;
 	}
 
-	inline bool CreateOrVerifyDatabase(const FString &filePath,
+	inline bool CreateAndVerifyDatabase(const FString &filePath,
 		const bool enableGridStats,
 		const bool enableDelayLoad,
-		const bool discardUnwrittenChanges = false,
-		const bool forceOverwriteExistingFile = false)
+		const bool makeDirIfNotExists = false,
+		const bool discardUnwrittenChanges = false)
 	{
-		const FString PreviousFilePath = FilePtr.IsValid() ? UTF8_TO_TCHAR(FilePtr->filename().c_str()) : filePath;
-		const bool PreviousEnableGridStats = FilePtr.IsValid() ? FilePtr->isGridStatsMetadataEnabled() : enableGridStats;
-		const bool PreviousEnableDelayLoad = FilePtr.IsValid() ? FilePtr->isDelayedLoadingEnabled() : enableDelayLoad;
-		if (!SetAndVerifyConfiguration(filePath, enableGridStats, enableDelayLoad, discardUnwrittenChanges, forceOverwriteExistingFile))
+		check(!discardUnwrittenChanges); //TODO: For the time being, never allow discarding of pending changes
+		const bool isPreviousFileValid = FilePtr.IsValid();
+		const FString previousFilePath = isPreviousFileValid ? UTF8_TO_TCHAR(FilePtr->filename().c_str()) : filePath;
+		const bool previousEnableGridStats = isPreviousFileValid ? FilePtr->isGridStatsMetadataEnabled() : enableGridStats;
+		const bool previousEnableDelayLoad = isPreviousFileValid ? FilePtr->isDelayedLoadingEnabled() : enableDelayLoad;
+		const bool areThereUnwrittenChanges = isPreviousFileValid && AreChangesPending();
+		FString configurationErrors;
+
+		//Check for valid paths, if it's ok to write to the new path, etc
+		if (!IsFileConfigurationValid(filePath,
+			previousFilePath,
+			areThereUnwrittenChanges,
+			discardUnwrittenChanges,
+			makeDirIfNotExists,
+			configurationErrors))
 		{
-			UE_LOG(LogOpenVDBModule, Fatal, TEXT("Failed to configure voxel database [%s] grid_stats=%d, delay_load=%d, discard_unwritten=%d, overwrite_existing_file=%d"), *filePath, enableGridStats, enableDelayLoad, discardUnwrittenChanges, forceOverwriteExistingFile);
+			UE_LOG(LogOpenVDBModule, Error, TEXT("Failed to configure voxel database [%s] path=%s GridStats=%s, DelayLoad=%s. Possible reasons: %s"), *filePath, enableGridStats, enableDelayLoad, *configurationErrors);
 			return false;
 		}
-		check(!FilePtr.IsValid());
+		
+		//Configuration is ok, but do nothing if this is actually the same database with the same configuration
+		if (previousFilePath == filePath &&
+			previousEnableGridStats == enableGridStats &&
+			previousEnableDelayLoad == enableDelayLoad)
+		{
+			return true;
+		}
 
-		UE_LOG(LogOpenVDBModule, Display, TEXT("Configuring voxel database [%s] grid_stats=%d, delay_load=%d, discard_unwritten=%d, overwrite_existing_file=%d"), *filePath, enableGridStats, enableDelayLoad, discardUnwrittenChanges, forceOverwriteExistingFile);
+		//Make sure there are no unwritten changes from the previous state
+		if (isPreviousFileValid)
+		{
+			//If we are configured not to discard unwritten changes or we are just changing the
+			//configuration of an existing database, then first write any existing changes.
+			if (!discardUnwrittenChanges || previousFilePath == filePath)
+			{
+				//Write pending changes and invalidate resources only if the path is changing
+				const bool isFinal = previousFilePath != filePath;
+				WriteChanges(isFinal);
+			}
+			CloseFileGuard();
+		}
+
+		//Log the configuration of the upcoming database
+		check(!FPaths::GetPath(filePath).IsEmpty());
+		check(!FPaths::GetBaseFilename(filePath).IsEmpty());
+		UE_LOG(LogOpenVDBModule, Display, TEXT("Voxel database configuration: path=%s GridStats=%s, DelayLoad=%s"), *filePath, enableGridStats ? TEXT("enabled") : TEXT("disabled"), enableDelayLoad ? TEXT("enabled") : TEXT("disabled"));
+		if (isPreviousFileValid)
+		{
+			UE_LOG(LogOpenVDBModule, Display, TEXT("Previous voxel database config: path=%s GridStats=%s, DelayLoad=%s"), *previousFilePath, previousEnableGridStats ? TEXT("enabled") : TEXT("disabled"), previousEnableDelayLoad ? TEXT("enabled") : TEXT("disabled"));
+		}
+
+		if (!FilePtr.IsValid())
+		{
+			//Create the database with the specified configuration
+			const std::string filepathStd = TCHAR_TO_UTF8(*filePath);
+			FilePtr = TSharedPtr<openvdb::io::File>(new openvdb::io::File(filepathStd));
+			check(FilePtr.IsValid());
+			check(FilePtr->filename() == filepathStd);
+		}
+
 		EnableGridStats = enableGridStats;
 		EnableDelayLoad = enableDelayLoad;
-
-		UE_LOG(LogOpenVDBModule, Display, TEXT("Changing voxel database path and config from [%s] (DL%d GS%d) to [%s] (DL%d GS%d)"), *PreviousFilePath, PreviousEnableGridStats, PreviousEnableDelayLoad, *filePath, enableGridStats, enableDelayLoad);
-		const std::string filepathStd = TCHAR_TO_UTF8(*filePath);
-		FilePtr = TSharedPtr<openvdb::io::File>(new openvdb::io::File(filepathStd));
-		check(FilePtr.IsValid());
-		check(FilePtr->filename() == filepathStd);
 		FilePtr->setGridStatsMetadataEnabled(EnableGridStats);
 
-		//TODO: Ensure path exists before writing file?
-		if (!FPaths::FileExists(filePath))
+		if (FPaths::FileExists(filePath))
 		{
-			//Create an empty vdb file
+			//If the IsFileConfigurationValid() works as intended and the path has changed then the file shouldn't exist.
+			//Check in case it was suddenly created by the OS in the intervening time.
+			if (previousFilePath != filePath)
+			{
+				UE_LOG(LogOpenVDBModule, Fatal, TEXT("%s unexpectedly exists! Cannot create voxel database"), *filePath);
+			}
+		}
+		else
+		{
+			//Create the empty vdb file
 			UE_LOG(LogOpenVDBModule, Display, TEXT("Creating empty voxel database [%s]"), *filePath);
 			FilePtr->write(openvdb::GridCPtrVec(), openvdb::MetaMap());
 		}
@@ -951,11 +940,17 @@ private:
 		//Initially read only file-level metadata and metadata for each grid (do not read tree data values for grids yet)
 		OpenFileGuard();
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Reading grid metadata and file metadata from voxel database [%s]"), *filePath);
-		GridsPtr = FilePtr->readAllGridMetadata(); //grid-level metadata for all grids
-		FileMetaPtr = FilePtr->getMetadata(); //file-level metadata
-		CachedGrid = GridsPtr->end();
-		CubesMeshOps.Empty();
-		MarchingCubesMeshOps.Empty();
+		if (GridsPtr == nullptr)
+		{
+			GridsPtr = FilePtr->readAllGridMetadata(); //grid-level metadata for all grids
+			CachedGrid = GridsPtr->end();
+			CubesMeshOps.Empty();
+			MarchingCubesMeshOps.Empty();
+		}
+		if (FileMetaPtr == nullptr)
+		{
+			FileMetaPtr = FilePtr->getMetadata(); //file-level metadata
+		}
 
 		//Start in a clean state
 		SyncGridsAndFileMetaStatus();
@@ -1076,7 +1071,7 @@ struct AsyncIOJob
 		check(Database->AsyncIOJobID == JobID);
 		bool isComplete = false;
 		IsFinished = false;
-		Database->AsyncIOJobID = INT32_MAX;
+		Database->AsyncIOJobID = UINT32_MAX;
 		UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d cleanup (success)"), JobID);
 
 		try
@@ -1110,7 +1105,7 @@ struct AsyncIOJob
 		check(Database->AsyncIOJobID == JobID);
 		bool isComplete = false;
 		IsFinished = false;
-		Database->AsyncIOJobID = INT32_MAX;
+		Database->AsyncIOJobID = UINT32_MAX;
 		UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d cleanup (failure)"), JobID);
 
 		try
@@ -1152,10 +1147,10 @@ struct AsyncIONotifier
 
 	openvdb::io::Queue::Id AddJob(VdbHandlePrivateType * vdbHandlePrivatePtr, bool isFinal)
 	{
-		static openvdb::io::Queue::Id CurrentID = INT32_MIN;
+		static openvdb::io::Queue::Id CurrentID = 0;
 		check(vdbHandlePrivatePtr);
 		const openvdb::io::Queue::Id jobID = CurrentID++;
-		check(jobID != INT32_MAX);
+		check(jobID != UINT32_MAX);
 		IOJobs.insert(std::pair<openvdb::io::Queue::Id, AsyncIOJob>(jobID, AsyncIOJob(jobID, vdbHandlePrivatePtr, isFinal)));
 		return jobID;
 	}
@@ -1198,6 +1193,7 @@ struct AsyncIONotifier
 	}
 };
 
+//Operator to find a grid from GridPtrVec
 struct GridNameIs
 {
 	GridNameIs(const std::string &nameToFind) : NameToFind(nameToFind) {}

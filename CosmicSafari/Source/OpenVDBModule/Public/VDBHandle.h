@@ -37,8 +37,11 @@ public:
 		int32 PerlinOctaveCount;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configuration", Meta = (ToolTip = "Whether or not to run grid operations multithreaded"))
 		bool ThreadedGridOps;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configuration", Meta = (ToolTip = "Whether or not to write changes asynchronously when ending play or being destroyed"))
+		bool OnCloseWriteChangesAsync;
 
 	virtual void InitializeComponent() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void BeginDestroy() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -68,10 +71,11 @@ public:
 
 	TArray<FString> GetAllGridIDs();
 	FIntVector GetRegionIndex(const FVector &worldLocation);
-	void WriteAllGrids();
+	void WriteAllGrids(bool isAsync);
 	const FString VdbName;
 
 private:
 	bool IsOpen;
 	void OpenVoxelDatabaseGuard();
+	void CloseVoxelDatabaseGuard(bool isAsync);
 };

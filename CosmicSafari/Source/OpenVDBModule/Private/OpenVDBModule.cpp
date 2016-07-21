@@ -9,9 +9,9 @@ static AsyncIONotifierType AsyncIO;
 bool FOpenVDBModule::OpenVoxelDatabase(const FString &vdbName, const FString &vdbFilepath, bool enableGridStats, bool enableDelayLoad)
 {
 	bool isOpened = false;
+	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr;
 	try
 	{
-		TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr;
 		check(!VdbHandlePrivatePtr.IsValid());
 		TSharedPtr<VdbHandlePrivateType> *vdb = VdbRegistry.Find(vdbName);
 		if (vdb == nullptr)
@@ -25,7 +25,15 @@ bool FOpenVDBModule::OpenVoxelDatabase(const FString &vdbName, const FString &vd
 			VdbHandlePrivatePtr = *vdb;
 		}
 		check(VdbHandlePrivatePtr.IsValid());
-		isOpened = VdbHandlePrivatePtr->InitializeDatabase(vdbFilepath, enableGridStats, enableDelayLoad);
+
+		FString path = FPaths::GetPath(vdbFilepath);
+		FString file = FPaths::GetCleanFilename(vdbFilepath);
+		FPaths::RemoveDuplicateSlashes(path);
+		FPaths::NormalizeDirectoryName(path);
+		FPaths::NormalizeFilename(file);
+		FString validatedFullPath = path + TEXT("/") + file;
+		FPaths::NormalizeDirectoryName(validatedFullPath);
+		isOpened = VdbHandlePrivatePtr->InitializeDatabase(validatedFullPath, enableGridStats, enableDelayLoad);
 	}
 	catch (const openvdb::Exception &e)
 	{
@@ -43,34 +51,35 @@ bool FOpenVDBModule::OpenVoxelDatabase(const FString &vdbName, const FString &vd
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
 	}
+
+	if (VdbHandlePrivatePtr.IsValid())
+	{
+		VdbHandlePrivatePtr->IsDatabaseOpen = isOpened;
+	}
 	return isOpened;
 }
 
-bool FOpenVDBModule::CloseVoxelDatabase(const FString &vdbName, bool asyncWrite)
+bool FOpenVDBModule::CloseVoxelDatabase(const FString &vdbName, bool isFinal, bool asyncWrite)
 {
 	bool isClosed = false;
+	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr;
 	try
 	{
-		const bool isFinal = true;
-		bool isFileChanged = false;
+		//If async writing, never release shared resources after writing
+		check(!VdbHandlePrivatePtr.IsValid());
 		TSharedPtr<VdbHandlePrivateType> *vdb = VdbRegistry.Find(vdbName);
 		if (vdb)
 		{
 			//If changes successfully end up in the file then remove the VDB
 			check(vdb->IsValid());
+			VdbHandlePrivatePtr = *vdb;
 			if (asyncWrite)
 			{
-				check(false); //TODO: Need a mechanism for waiting on async changes. For now just die
-				isFileChanged = (*vdb)->WriteChangesAsync(isFinal);
+				VdbHandlePrivatePtr->WriteChangesAsync(isFinal);
 			}
 			else
 			{
-				isFileChanged = (*vdb)->WriteChanges(isFinal);
-			}
-
-			if (isFileChanged)
-			{
-				VdbRegistry.Remove(vdbName);
+				VdbHandlePrivatePtr->WriteChanges(isFinal);
 			}
 		}
 		isClosed = true;
@@ -91,6 +100,12 @@ bool FOpenVDBModule::CloseVoxelDatabase(const FString &vdbName, bool asyncWrite)
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
 	}
+
+	VdbHandlePrivatePtr->IsDatabaseOpen = !isClosed;
+	if (isFinal)
+	{
+		VdbRegistry.Remove(vdbName);
+	}
 	return isClosed;
 }
 
@@ -102,7 +117,6 @@ bool FOpenVDBModule::WriteChanges(const FString &vdbName, bool isFinal, bool asy
 	{
 		if (asyncWrite)
 		{
-			check(false); //TODO: Need a mechanism for waiting on async changes. For now just die
 			isFileChanged = VdbHandlePrivatePtr->WriteChangesAsync(isFinal);
 		}
 		else
