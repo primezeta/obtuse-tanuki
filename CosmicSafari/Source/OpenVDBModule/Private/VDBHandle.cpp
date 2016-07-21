@@ -31,12 +31,13 @@ void UVdbHandle::InitializeComponent()
 void UVdbHandle::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	//if(EndPlayReason != EEndPlayReason::LevelTransition)
-	CloseVoxelDatabaseGuard(OnCloseWriteChangesAsync);
+	//CloseVoxelDatabaseGuard(OnCloseWriteChangesAsync); TODO: Ever need to close and update the database here?
 }
 
 void UVdbHandle::BeginDestroy()
 {
-	CloseVoxelDatabaseGuard(OnCloseWriteChangesAsync);
+	const bool isFinal = true;
+	CloseVoxelDatabaseGuard(isFinal, OnCloseWriteChangesAsync);
 	Super::BeginDestroy();
 }
 
@@ -149,7 +150,7 @@ void UVdbHandle::OpenVoxelDatabaseGuard()
 	}
 }
 
-void UVdbHandle::CloseVoxelDatabaseGuard(bool isAsync)
+void UVdbHandle::CloseVoxelDatabaseGuard(bool isFinal, bool isAsync)
 {
 	if (IsOpen)
 	{

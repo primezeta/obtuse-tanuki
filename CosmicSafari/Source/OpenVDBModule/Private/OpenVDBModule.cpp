@@ -75,14 +75,13 @@ bool FOpenVDBModule::CloseVoxelDatabase(const FString &vdbName, bool isFinal, bo
 			VdbHandlePrivatePtr = *vdb;
 			if (asyncWrite)
 			{
-				VdbHandlePrivatePtr->WriteChangesAsync(isFinal);
+				isClosed = VdbHandlePrivatePtr->WriteChangesAsync(isFinal);
 			}
 			else
 			{
-				VdbHandlePrivatePtr->WriteChanges(isFinal);
+				isClosed = VdbHandlePrivatePtr->WriteChanges(isFinal);
 			}
 		}
-		isClosed = true;
 	}
 	catch (const openvdb::Exception &e)
 	{

@@ -77,5 +77,5 @@ public:
 private:
 	bool IsOpen;
 	void OpenVoxelDatabaseGuard();
-	void CloseVoxelDatabaseGuard(bool isAsync);
+	void CloseVoxelDatabaseGuard(bool isFinal, bool isAsync);
 };
