@@ -876,17 +876,17 @@ private:
 			return false;
 		}
 		
-		//Configuration is ok, but do nothing if this is actually the same database with the same configuration
-		if (previousFilePath == filePath &&
-			previousEnableGridStats == enableGridStats &&
-			previousEnableDelayLoad == enableDelayLoad)
-		{
-			return true;
-		}
-
-		//Make sure there are no unwritten changes from the previous state
 		if (isPreviousFileValid)
 		{
+			//Configuration is ok, but do nothing because this is actually the same database with the same configuration
+			if (previousFilePath == filePath &&
+				previousEnableGridStats == enableGridStats &&
+				previousEnableDelayLoad == enableDelayLoad)
+			{
+				return true;
+			}
+
+			//Make sure there are no unwritten changes from the previous state.
 			//If we are configured not to discard unwritten changes or we are just changing the
 			//configuration of an existing database, then first write any existing changes.
 			if (!discardUnwrittenChanges || previousFilePath == filePath)
@@ -896,16 +896,13 @@ private:
 				WriteChanges(isFinal);
 			}
 			CloseFileGuard();
+			UE_LOG(LogOpenVDBModule, Display, TEXT("Previous voxel database config: path=%s GridStats=%s, DelayLoad=%s"), *previousFilePath, previousEnableGridStats ? TEXT("enabled") : TEXT("disabled"), previousEnableDelayLoad ? TEXT("enabled") : TEXT("disabled"));
 		}
 
 		//Log the configuration of the upcoming database
 		check(!FPaths::GetPath(filePath).IsEmpty());
 		check(!FPaths::GetBaseFilename(filePath).IsEmpty());
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Voxel database configuration: path=%s GridStats=%s, DelayLoad=%s"), *filePath, enableGridStats ? TEXT("enabled") : TEXT("disabled"), enableDelayLoad ? TEXT("enabled") : TEXT("disabled"));
-		if (isPreviousFileValid)
-		{
-			UE_LOG(LogOpenVDBModule, Display, TEXT("Previous voxel database config: path=%s GridStats=%s, DelayLoad=%s"), *previousFilePath, previousEnableGridStats ? TEXT("enabled") : TEXT("disabled"), previousEnableDelayLoad ? TEXT("enabled") : TEXT("disabled"));
-		}
 
 		if (!FilePtr.IsValid())
 		{
