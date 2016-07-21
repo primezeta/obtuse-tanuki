@@ -41,32 +41,6 @@ void UProceduralTerrain::InitializeComponent()
 {
 	Super::InitializeComponent();
 	RegisterComponent();
-
-	check(VdbHandle);
-	check(RegionRadiusX >= 0);
-	check(RegionRadiusY >= 0);
-	check(RegionRadiusZ >= 0);
-	//Set the number of voxels per grid region index
-	if (VdbHandle->SetRegionScale(RegionDimensions))
-	{
-		//Add the start region
-		StartRegion = AddTerrainComponent(FIntVector(0, 0, 0));
-		//Add the first grid region and surrounding regions, skipping the already added start region
-		for (int32 x = -RegionRadiusX; x <= RegionRadiusX; ++x)
-		{
-			for (int32 y = -RegionRadiusY; y <= RegionRadiusY; ++y)
-			{
-				for (int32 z = -RegionRadiusZ; z <= RegionRadiusZ; ++z)
-				{
-					if (x != 0 || y != 0 || z != 0)
-					{
-						//Add regions surrounding the start region
-						AddTerrainComponent(FIntVector(x, y, z));
-					}
-				}
-			}
-		}
-	}
 }
 
 FString UProceduralTerrain::AddTerrainComponent(const FIntVector &gridIndex)
@@ -131,6 +105,33 @@ UProceduralTerrainMeshComponent * UProceduralTerrain::GetTerrainComponent(const 
 void UProceduralTerrain::BeginPlay()
 {	
 	Super::BeginPlay();
+
+	check(VdbHandle);
+	check(RegionRadiusX >= 0);
+	check(RegionRadiusY >= 0);
+	check(RegionRadiusZ >= 0);
+	//Set the number of voxels per grid region index
+	if (VdbHandle->SetRegionScale(RegionDimensions))
+	{
+		//Add the start region
+		StartRegion = AddTerrainComponent(FIntVector(0, 0, 0));
+		//Add the first grid region and surrounding regions, skipping the already added start region
+		for (int32 x = -RegionRadiusX; x <= RegionRadiusX; ++x)
+		{
+			for (int32 y = -RegionRadiusY; y <= RegionRadiusY; ++y)
+			{
+				for (int32 z = -RegionRadiusZ; z <= RegionRadiusZ; ++z)
+				{
+					if (x != 0 || y != 0 || z != 0)
+					{
+						//Add regions surrounding the start region
+						AddTerrainComponent(FIntVector(x, y, z));
+					}
+				}
+			}
+		}
+	}
+
 	for (auto i = TerrainMeshComponents.CreateConstIterator(); i; ++i)
 	{
 		check(*i);
@@ -152,6 +153,11 @@ void UProceduralTerrain::TickComponent(float DeltaTime, enum ELevelTick TickType
 		check((*i)->NumStatesRemaining >= 0);
 		numStates += (*i)->NumStatesRemaining;
 	}
+
 	NumberMeshingStatesRemaining = numStates;
-	PercentMeshingComplete = 100.0f - 100.0f * ((float)NumberMeshingStatesRemaining / (float)NumberTotalGridStates);
+	PercentMeshingComplete = 100.0f;
+	if(NumberTotalGridStates > 0)
+	{
+		PercentMeshingComplete -= 100.0f * ((float)NumberMeshingStatesRemaining / (float)NumberTotalGridStates);
+	}
 }
