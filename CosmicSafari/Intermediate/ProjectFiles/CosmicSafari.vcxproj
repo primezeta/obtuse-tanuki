@@ -280,6 +280,7 @@
 		<ClCompile Include="..\..\Source\CosmicSafari\ProceduralTerrain.cpp" />
 		<ClInclude Include="..\..\Source\CosmicSafari\ProceduralTerrain.h" />
 		<None Include="..\..\Source\OpenVDBModule\OpenVDBModule.Build.cs" />
+		<ClInclude Include="..\..\Source\OpenVDBModule\Private\ComponentTask.h" />
 		<ClCompile Include="..\..\Source\OpenVDBModule\Private\GridMetadata.cpp" />
 		<ClInclude Include="..\..\Source\OpenVDBModule\Private\GridMetadata.h" />
 		<ClInclude Include="..\..\Source\OpenVDBModule\Private\GridOps.h" />
@@ -291,7 +292,6 @@
 		<ClCompile Include="..\..\Source\OpenVDBModule\Private\VdbHandleEditor.cpp" />
 		<ClCompile Include="..\..\Source\OpenVDBModule\Private\VDBHandlePrivate.cpp" />
 		<ClInclude Include="..\..\Source\OpenVDBModule\Private\VDBHandlePrivate.h" />
-		<ClInclude Include="..\..\Source\OpenVDBModule\Public\ComponentTask.h" />
 		<ClInclude Include="..\..\Source\OpenVDBModule\Public\OpenVDBModule.h" />
 		<ClInclude Include="..\..\Source\OpenVDBModule\Public\ProceduralMeshComponent_Async.h" />
 		<ClInclude Include="..\..\Source\OpenVDBModule\Public\ProceduralTerrainMeshComponent.h" />

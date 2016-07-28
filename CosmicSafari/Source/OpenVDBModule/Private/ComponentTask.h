@@ -1,17 +1,12 @@
 #pragma once
-#include "EngineMinimal.h"
-#include "ComponentTask.generated.h"
 
 /**
 *
 */
-UCLASS()
-class OPENVDBMODULE_API FComponentTask : public FRunnable
+class FComponentTask : public FRunnable
 {
-	GENERATED_BODY()
-
 public:
-	ComponentTask(TFunction<void(void)> &task) : Task(task), bIsRunning(false)
+	FComponentTask(TFunction<void(void)> &task) : Task(task), bIsRunning(false), bIsFinished(false)
 	{
 	}
 
@@ -20,6 +15,7 @@ public:
 		if (!bIsRunning)
 		{
 			bIsRunning = true; //Must always call CreateThread from the same thread for this to work
+			bIsFinished = false;
 			FRunnableThread::Create(this, *ThreadName);
 		}
 	}
@@ -28,10 +24,22 @@ public:
 	{
 		Task();
 		bIsRunning = false;
+		bIsFinished = true;
 		return 0;
+	}
+
+	bool IsTaskRunning()
+	{
+		return bIsRunning;
+	}
+
+	bool IsTaskFinished()
+	{
+		return bIsFinished;
 	}
 
 private:
 	TFunction<void(void)> &Task;
 	bool bIsRunning;
+	bool bIsFinished;
 };
