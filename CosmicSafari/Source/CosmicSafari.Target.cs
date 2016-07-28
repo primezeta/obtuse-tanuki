@@ -22,4 +22,12 @@ public class CosmicSafariTarget : TargetRules
 	{
 		OutExtraModuleNames.AddRange(new string[] { "CosmicSafari", "OpenVDBModule" });
 	}
+
+    public override void SetupGlobalEnvironment(
+        TargetInfo Target,
+        ref LinkEnvironmentConfiguration OutLinkEnvironmentConfiguration,
+        ref CPPEnvironmentConfiguration OutCPPEnvironmentConfiguration
+        )
+    {
+    }
 }
