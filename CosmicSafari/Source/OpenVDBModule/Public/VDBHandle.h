@@ -7,6 +7,9 @@
 #include "VoxelData.h"
 #include "VdbHandle.generated.h"
 
+/**
+*
+*/
 UCLASS()
 class OPENVDBMODULE_API UVdbHandle : public UActorComponent
 {
