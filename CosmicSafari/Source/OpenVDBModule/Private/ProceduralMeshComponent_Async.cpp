@@ -563,23 +563,19 @@ void UProceduralMeshComponent_Async::SetMeshSectionVisible(int32 SectionIndex, b
 {
 	if (SectionIndex < ProcMeshSections.Num())
 	{
-		//TODO: Determine if it is always ok to not enqueue the render command if the game thread state has not changed
-		if (ProcMeshSections[SectionIndex].bSectionVisible != bNewVisibility)
-		{
-			// Set game thread state
-			ProcMeshSections[SectionIndex].bSectionVisible = bNewVisibility;
+		// Set game thread state
+		ProcMeshSections[SectionIndex].bSectionVisible = bNewVisibility;
 
-			// Enqueue command to modify render thread info
-			ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-				FProcMeshSectionVisibilityUpdate,
-				FProceduralMeshSceneProxy*, ProcMeshSceneProxy, (FProceduralMeshSceneProxy*)SceneProxy,
-				int32, SectionIndex, SectionIndex,
-				bool, bNewVisibility, bNewVisibility,
-				{
-					ProcMeshSceneProxy->SetSectionVisibility_RenderThread(SectionIndex, bNewVisibility);
-				}
-			);
-		}
+		// Enqueue command to modify render thread info
+		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+			FProcMeshSectionVisibilityUpdate,
+			FProceduralMeshSceneProxy*, ProcMeshSceneProxy, (FProceduralMeshSceneProxy*)SceneProxy,
+			int32, SectionIndex, SectionIndex,
+			bool, bNewVisibility, bNewVisibility,
+			{
+				ProcMeshSceneProxy->SetSectionVisibility_RenderThread(SectionIndex, bNewVisibility);
+			}
+		);
 	}
 }
 
