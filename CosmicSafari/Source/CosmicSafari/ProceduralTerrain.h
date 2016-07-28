@@ -6,23 +6,19 @@
 #include "ProceduralTerrainMeshComponent.h"
 #include "ProceduralTerrain.generated.h"
 
-DECLARE_DELEGATE_OneParam(FEarliestGridState, EGridState);
-
 UCLASS(Category = "Procedural Terrain")
-class COSMICSAFARI_API UProceduralTerrain : public UActorComponent
+class COSMICSAFARI_API AProceduralTerrain : public AActor
 {
 	GENERATED_BODY()
 	
 public:
-	UProceduralTerrain(const FObjectInitializer& ObjectInitializer);
-
-	virtual void InitializeComponent() override;
+	AProceduralTerrain(const FObjectInitializer& ObjectInitializer);
 
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
 	// Called every frame
-	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
+	virtual void TickActor( float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction ) override;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Voxel database configuration", Meta = (DisplayName = "Voxel Database", ToolTip = "Configure VBD properties"))
 		UVdbHandle * VdbHandle;

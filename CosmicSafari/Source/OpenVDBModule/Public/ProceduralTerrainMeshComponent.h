@@ -21,10 +21,6 @@ public:
 	UPROPERTY()
 		FString MeshID;
 	UPROPERTY()
-		EGridState RegionState;
-	UPROPERTY()
-		int32 IsStateStarted[NUM_GRID_STATES];
-	UPROPERTY()
 		bool IsTreeReady;
 	UPROPERTY()
 		bool IsGridDirty;
@@ -56,17 +52,23 @@ public:
 		int32 NumStatesRemaining;
 	UPROPERTY()
 		bool IsQueued;
+
 	UVdbHandle * VdbHandle;
+	EGridState RegionState;
+	int32 GridStateStatus[NUM_GRID_STATES];
 
 	UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer);
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
-	void AddGrid(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
-	void ReadGridTree(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
-	void FillTreeValues(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
-	void ExtractIsoSurface(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
-	void RemoveGrid(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
-	void MeshGrid(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
-	void FinishAllSections(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
-	void FinishSection(int32 SectionIndex, bool isVisible);
+	void InitializeGrid();
+	bool GridIsInState(EGridState GridState);
+	bool GridStateIsNull();
+	bool GridStateIsDirty(EGridState GridState);
+	bool GridStateIsRunning(EGridState GridState);
+	bool GridStateIsComplete(EGridState GridState);
+	void StartGridState(EGridState GridState);
+	void ReadGridTree();
+	void MeshGrid();
+	void RenderGrid();
+	void FinishAllSections();
 };

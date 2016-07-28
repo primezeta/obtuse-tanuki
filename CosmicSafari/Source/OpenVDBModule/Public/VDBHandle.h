@@ -37,15 +37,17 @@ public:
 		int32 PerlinOctaveCount;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configuration", Meta = (ToolTip = "Whether or not to run grid operations multithreaded"))
 		bool ThreadedGridOps;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configuration", Meta = (ToolTip = "Whether or not to write changes asynchronously when ending play or being destroyed"))
-		bool OnCloseWriteChangesAsync;
 
 	virtual void InitializeComponent() override;
+	virtual void BeginPlay() override;
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction);
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void BeginDestroy() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
+
+	void RunVoxelDatabaseTask(const FString &ThreadName, TFunction<void(void)> &&Task);
 
 	UFUNCTION(BlueprintCallable, Category="VDB")
 		FString AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FProcMeshSection> &sectionBuffers);
@@ -71,11 +73,11 @@ public:
 
 	TArray<FString> GetAllGridIDs();
 	FIntVector GetRegionIndex(const FVector &worldLocation);
-	void WriteAllGrids(bool isAsync);
+	void WriteAllGrids();
 	const FString VdbName;
 
 private:
 	bool IsOpen;
 	void OpenVoxelDatabaseGuard();
-	void CloseVoxelDatabaseGuard(bool isFinal, bool isAsync);
+	void CloseVoxelDatabaseGuard();
 };

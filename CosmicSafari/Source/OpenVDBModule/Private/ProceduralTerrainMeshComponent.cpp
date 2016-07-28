@@ -3,18 +3,10 @@
 #include "OpenVDBModule.h"
 #include "ProceduralTerrainMeshComponent.h"
 
-DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.AddGrid"), STAT_FDelegateGraphTask_AddGrid, STATGROUP_TaskGraphTasks);
-DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.ReadGridTree"), STAT_FDelegateGraphTask_ReadGridTree, STATGROUP_TaskGraphTasks);
-DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.FillTreeValues"), STAT_FDelegateGraphTask_FillTreeValues, STATGROUP_TaskGraphTasks);
-DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.ExtractIsoSurface"), STAT_FDelegateGraphTask_ExtractIsoSurface, STATGROUP_TaskGraphTasks);
-DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.RemoveGrid"), STAT_FDelegateGraphTask_RemoveGrid, STATGROUP_TaskGraphTasks);
-DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.MeshGrid"), STAT_FDelegateGraphTask_MeshGrid, STATGROUP_TaskGraphTasks);
-DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.FinishAllSections"), STAT_FDelegateGraphTask_FinishAllSections, STATGROUP_TaskGraphTasks);
-
 UProceduralTerrainMeshComponent::UProceduralTerrainMeshComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	RegionState = EGridState::GRID_STATE_INIT;
+	RegionState = EGridState::GRID_STATE_NULL;
 	IsTreeReady = false;
 	IsGridDirty = true;
 	IsQueued = false;
@@ -25,7 +17,7 @@ UProceduralTerrainMeshComponent::UProceduralTerrainMeshComponent(const FObjectIn
 	SectionBounds = FBox(EForceInit::ForceInit);
 	BodyInstance.SetUseAsyncScene(true); //TODO: Need async scene?
 	bWantsInitializeComponent = true;
-	SetComponentTickEnabled(IsComponentTickEnabled());
+	SetComponentTickEnabled(false);
 	RegionStart = CreateDefaultSubobject<APlayerStart>(*FString::Printf(TEXT("%s_%s"), TEXT("PlayerStart"), *GetName()));
 	check(RegionStart);
 	const float test = PrimaryComponentTick.TickInterval;
@@ -33,157 +25,157 @@ UProceduralTerrainMeshComponent::UProceduralTerrainMeshComponent(const FObjectIn
 	PrimaryComponentTick.bCanEverTick = true;
 	for (auto i = 0; i < NUM_GRID_STATES; ++i)
 	{
-		IsStateStarted[i] = (int32)false;
+		GridStateStatus[i] = 0;
 	}
 }
 
 void UProceduralTerrainMeshComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
-	if (RegionState == EGridState::GRID_STATE_INIT && IsStateStarted[(int32)EGridState::GRID_STATE_INIT] == 0)
+	//TODO: Try FPlatformTLS::GetCurrentThreadId()
+	//if (RegionState == EGridState::GRID_STATE_FINISHED)
+
+	if (GridStateIsDirty(EGridState::GRID_STATE_EMPTY))
 	{
-		//Initialize the grid on the render thread
-		IsStateStarted[(int32)EGridState::GRID_STATE_INIT] = 1;
-		FDelegateGraphTask::CreateAndDispatchWhenReady(
-			FDelegateGraphTask::FDelegate::CreateUObject(this, &UProceduralTerrainMeshComponent::AddGrid),
-			GET_STATID(STAT_FDelegateGraphTask_AddGrid), nullptr, ENamedThreads::GameThread, ENamedThreads::RenderThread);
+		//Read the grid tree data from file, fill with values (if needed), and extract the isosurface
+		GridStateStatus[(int32)EGridState::GRID_STATE_EMPTY] = 1;
+		ReadGridTree();
 	}
-	else if (RegionState == EGridState::GRID_STATE_READ_TREE && IsStateStarted[(int32)EGridState::GRID_STATE_READ_TREE] == 0)
+
+	if (GridStateIsDirty(EGridState::GRID_STATE_DATA_DESYNC) || GridStateIsDirty(EGridState::GRID_STATE_ACTIVE_STATES_DESYNC))
 	{
-		//Read the grid tree data from file on the render thread
-		IsStateStarted[(int32)EGridState::GRID_STATE_READ_TREE] = 1;
-		FDelegateGraphTask::CreateAndDispatchWhenReady(
-			FDelegateGraphTask::FDelegate::CreateUObject(this, &UProceduralTerrainMeshComponent::ReadGridTree),
-			GET_STATID(STAT_FDelegateGraphTask_ReadGridTree), nullptr, ENamedThreads::GameThread, ENamedThreads::RenderThread);
+		//Start changes to write to file when either data or active states changed
+		GridStateStatus[(int32)EGridState::GRID_STATE_DATA_DESYNC] = 1;
+		GridStateStatus[(int32)EGridState::GRID_STATE_ACTIVE_STATES_DESYNC] = 1;
+		MeshGrid();
 	}
-	else if (RegionState == EGridState::GRID_STATE_FILL_VALUES && IsStateStarted[(int32)EGridState::GRID_STATE_FILL_VALUES] == 0)
+	
+	if (GridStateIsDirty(EGridState::GRID_STATE_CLEAN))
 	{
-		//Fill the grid with values on the render thread
-		IsStateStarted[(int32)EGridState::GRID_STATE_FILL_VALUES] = 1;
-		FDelegateGraphTask::CreateAndDispatchWhenReady(
-			FDelegateGraphTask::FDelegate::CreateUObject(this, &UProceduralTerrainMeshComponent::FillTreeValues),
-			GET_STATID(STAT_FDelegateGraphTask_FillTreeValues), nullptr, ENamedThreads::GameThread, ENamedThreads::RenderThread);
+		//Mark the render state dirty
+		GridStateStatus[(int32)EGridState::GRID_STATE_CLEAN] = 1;
+		RenderGrid();
 	}
-	else if (RegionState == EGridState::GRID_STATE_EXTRACT_SURFACE && IsStateStarted[(int32)EGridState::GRID_STATE_EXTRACT_SURFACE] == 0)
+	
+	if (GridStateIsDirty(EGridState::GRID_STATE_RENDERED))
 	{
-		//Extract the isosurface on the render thread
-		IsStateStarted[(int32)EGridState::GRID_STATE_EXTRACT_SURFACE] = 1;
-		FDelegateGraphTask::CreateAndDispatchWhenReady(
-			FDelegateGraphTask::FDelegate::CreateUObject(this, &UProceduralTerrainMeshComponent::ExtractIsoSurface),
-			GET_STATID(STAT_FDelegateGraphTask_ExtractIsoSurface), nullptr, ENamedThreads::GameThread, ENamedThreads::RenderThread);
+		//Calculate collision on the game thread
+		GridStateStatus[(int32)EGridState::GRID_STATE_RENDERED] = 1;
+		FinishAllSections();
 	}
-	else if (RegionState == EGridState::GRID_STATE_MESH && IsStateStarted[(int32)EGridState::GRID_STATE_MESH] == 0)
-	{
-		//Mesh the grid on the render thread
-		IsStateStarted[(int32)EGridState::GRID_STATE_MESH] = 1;
-		FDelegateGraphTask::CreateAndDispatchWhenReady(
-			FDelegateGraphTask::FDelegate::CreateUObject(this, &UProceduralTerrainMeshComponent::MeshGrid),
-			GET_STATID(STAT_FDelegateGraphTask_MeshGrid), nullptr, ENamedThreads::GameThread, ENamedThreads::RenderThread);
-	}
-	else if (RegionState == EGridState::GRID_STATE_READY && IsStateStarted[(int32)EGridState::GRID_STATE_READY] == 0)
-	{
-		//Finish all sections on the game thread
-		//TODO: Get current thread ID from UE4?
-		IsStateStarted[(int32)EGridState::GRID_STATE_READY] = 1;
-		FDelegateGraphTask::CreateAndDispatchWhenReady(
-			FDelegateGraphTask::FDelegate::CreateUObject(this, &UProceduralTerrainMeshComponent::FinishAllSections),
-			GET_STATID(STAT_FDelegateGraphTask_FinishAllSections), nullptr, ENamedThreads::GameThread, ENamedThreads::GameThread);
-	}
-	SetComponentTickEnabled(false);
 }
 
-void UProceduralTerrainMeshComponent::AddGrid(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+void UProceduralTerrainMeshComponent::InitializeGrid()
 {
-	check(CurrentThread != ENamedThreads::Type::GameThread && CurrentThread != ENamedThreads::Type::GameThread_Local);
-	check(VdbHandle != nullptr);
-	check(RegionState == EGridState::GRID_STATE_INIT);
-	MeshID = VdbHandle->AddGrid(MeshName, RegionIndex, VoxelSize, ProcMeshSections);
-	NumStatesRemaining--;
-	RegionState = EGridState::GRID_STATE_READ_TREE;
-	SetComponentTickEnabled(true);
+	if (GridStateIsNull())
+	{
+		//Initialize the grid
+		MeshID = VdbHandle->AddGrid(MeshName, RegionIndex, VoxelSize, ProcMeshSections);
+		StartGridState(EGridState::GRID_STATE_EMPTY);
+		SetComponentTickEnabled(true);
+	}
 }
 
-void UProceduralTerrainMeshComponent::ReadGridTree(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+bool UProceduralTerrainMeshComponent::GridIsInState(EGridState GridState)
 {
-	check(CurrentThread != ENamedThreads::Type::GameThread && CurrentThread != ENamedThreads::Type::GameThread_Local);
+	return GridState != EGridState::GRID_STATE_NULL && RegionState == GridState;
+}
+
+bool UProceduralTerrainMeshComponent::GridStateIsNull()
+{
+	return RegionState == EGridState::GRID_STATE_NULL;
+}
+
+bool UProceduralTerrainMeshComponent::GridStateIsDirty(EGridState GridState)
+{
+	return GridIsInState(GridState) && GridStateStatus[(int32)GridState] == 0;
+}
+
+bool UProceduralTerrainMeshComponent::GridStateIsRunning(EGridState GridState)
+{
+	return GridIsInState(GridState) && GridStateStatus[(int32)GridState] == 1;
+}
+
+bool UProceduralTerrainMeshComponent::GridStateIsComplete(EGridState GridState)
+{
+	return GridIsInState(GridState) && GridStateStatus[(int32)GridState] == 2;
+}
+
+void UProceduralTerrainMeshComponent::StartGridState(EGridState GridState)
+{
+	if (!GridStateIsRunning(GridState))
+	{
+		RegionState = GridState;
+		GridStateStatus[(int32)GridState] = 0;
+	}
+}
+
+void UProceduralTerrainMeshComponent::ReadGridTree()
+{
 	check(VdbHandle != nullptr);
-	check(RegionState == EGridState::GRID_STATE_READ_TREE);
-	VdbHandle->ReadGridTree(MeshID, StartIndex, EndIndex);
+	check(RegionState == EGridState::GRID_STATE_EMPTY);
 	//Calling GetGridDimensions at this point may result in a SectionBounds that contains the entire grid volume because no voxels may yet be active.
 	//The actual bounds of active voxels are valid after calling ExtractIsoSurface in which voxels spanning the isosurface are set to active.
-	VdbHandle->GetGridDimensions(MeshID, SectionBounds);
-	NumStatesRemaining--;
-	RegionState = EGridState::GRID_STATE_FILL_VALUES;
-	SetComponentTickEnabled(true);
+	VdbHandle->RunVoxelDatabaseTask(MeshID + TEXT("ReadGridTree"),
+		TFunction<void(void)>([&]() {
+			VdbHandle->ReadGridTree(MeshID, StartIndex, EndIndex);
+			VdbHandle->FillTreePerlin(MeshID, StartIndex, EndIndex);
+			NumStatesRemaining--;
+			GridStateStatus[(int32)EGridState::GRID_STATE_EMPTY] = 2;
+			StartGridState(EGridState::GRID_STATE_ACTIVE_STATES_DESYNC);
+			StartGridState(EGridState::GRID_STATE_DATA_DESYNC);
+	}));
 }
 
-void UProceduralTerrainMeshComponent::FillTreeValues(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+void UProceduralTerrainMeshComponent::MeshGrid()
 {
-	check(CurrentThread != ENamedThreads::Type::GameThread && CurrentThread != ENamedThreads::Type::GameThread_Local);
 	check(VdbHandle != nullptr);
-	check(RegionState == EGridState::GRID_STATE_FILL_VALUES);
-	VdbHandle->FillTreePerlin(MeshID, StartIndex, EndIndex);
-	NumStatesRemaining--;
-	RegionState = EGridState::GRID_STATE_EXTRACT_SURFACE;
-	SetComponentTickEnabled(true);
-}
-
-void UProceduralTerrainMeshComponent::ExtractIsoSurface(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-{
-	check(CurrentThread != ENamedThreads::Type::GameThread && CurrentThread != ENamedThreads::Type::GameThread_Local);
-	check(VdbHandle != nullptr);
-	check(RegionState == EGridState::GRID_STATE_EXTRACT_SURFACE);
-	VdbHandle->ExtractIsoSurface(MeshID, SectionMaterialIDs, SectionBounds, StartLocation);
-	NumStatesRemaining--;
-	RegionState = EGridState::GRID_STATE_MESH;
-	SetComponentTickEnabled(true);
-}
-
-void UProceduralTerrainMeshComponent::MeshGrid(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-{
-	check(CurrentThread != ENamedThreads::Type::GameThread && CurrentThread != ENamedThreads::Type::GameThread_Local);
-	check(VdbHandle != nullptr);
-	check(RegionState == EGridState::GRID_STATE_MESH);
-	VdbHandle->MeshGrid(MeshID);
-	FinishRender(); //TODO: Where to call FinishRender()?
-	NumStatesRemaining--;
-	RegionState = EGridState::GRID_STATE_READY;
-	SetComponentTickEnabled(true);
-}
-
-void UProceduralTerrainMeshComponent::FinishAllSections(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-{
-	check(CurrentThread == ENamedThreads::Type::GameThread);
-	check(VdbHandle != nullptr);
-	check(RegionState == EGridState::GRID_STATE_READY);
+	check(RegionState == EGridState::GRID_STATE_DATA_DESYNC || RegionState == EGridState::GRID_STATE_ACTIVE_STATES_DESYNC);
 	
-	//Finish each individual section
-	for (auto i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
-	{
-		FinishSection(i, true);
-	}
-	check(NumStatesRemaining == 1);
+	VdbHandle->WriteAllGrids();
+	NumStatesRemaining--;
+	GridStateStatus[(int32)EGridState::GRID_STATE_ACTIVE_STATES_DESYNC] = 2;
 
-	//All sections are done so calculate collision
-	FinishCollision();
+	VdbHandle->RunVoxelDatabaseTask(MeshID + TEXT("MeshGrid"),
+		TFunction<void(void)>([&]() {
+			if (RegionState == EGridState::GRID_STATE_DATA_DESYNC)
+			{
+				VdbHandle->ExtractIsoSurface(MeshID, SectionMaterialIDs, SectionBounds, StartLocation);
+			}
+			VdbHandle->MeshGrid(MeshID);
+			NumStatesRemaining--;
+			GridStateStatus[(int32)EGridState::GRID_STATE_DATA_DESYNC] = 2;
+			StartGridState(EGridState::GRID_STATE_CLEAN);
+	}));
+}
+
+void UProceduralTerrainMeshComponent::RenderGrid()
+{
+	check(RegionState == EGridState::GRID_STATE_CLEAN);
+	//All sections are meshed so calculate collision
+	FinishRender();
 	check(RegionStart);
 	RegionStart->SetActorLocation(StartLocation);
 	NumStatesRemaining--;
+	GridStateStatus[(int32)EGridState::GRID_STATE_CLEAN] = 2;
+	StartGridState(EGridState::GRID_STATE_RENDERED);
+}
+
+void UProceduralTerrainMeshComponent::FinishAllSections()
+{
+	check(RegionState == EGridState::GRID_STATE_RENDERED);
+
+	//Calculate collision
+	FinishCollision();
+
+	//Last - set each section visible
+	for (auto i = 0; i < FVoxelData::VOXEL_TYPE_COUNT; ++i)
+	{
+		NumReadySections++;
+		check(NumReadySections >= 0 && NumReadySections <= FVoxelData::VOXEL_TYPE_COUNT);
+		SetMeshSectionVisible(i, true);
+	}
 	check(NumStatesRemaining == 0);
-	RegionState = EGridState::GRID_STATE_FINISHED;
-	SetComponentTickEnabled(false);
-}
 
-void UProceduralTerrainMeshComponent::FinishSection(int32 SectionIndex, bool isVisible)
-{
-	NumReadySections++;
-	check(NumReadySections >= 0 && NumReadySections <= FVoxelData::VOXEL_TYPE_COUNT);
-	NumStatesRemaining--;
-	check(NumStatesRemaining >= 0 && NumStatesRemaining <= NUM_GRID_STATES);
-	SetMeshSectionVisible(SectionIndex, isVisible);
-}
-
-void UProceduralTerrainMeshComponent::RemoveGrid(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-{
-	//TODO
-	check(VdbHandle != nullptr);
+	GridStateStatus[(int32)EGridState::GRID_STATE_RENDERED] = 2;
+	StartGridState(EGridState::GRID_STATE_COMPLETE);
 }

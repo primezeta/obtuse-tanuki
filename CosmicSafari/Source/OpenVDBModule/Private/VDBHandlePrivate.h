@@ -8,6 +8,8 @@
 #include "GridOps.h"
 #include "GridMetadata.h"
 
+PRAGMA_DISABLE_OPTIMIZATION
+
 DECLARE_LOG_CATEGORY_EXTERN(LogOpenVDBModule, Log, All)
 
 //5,4,3 is the standard openvdb tree configuration
@@ -29,9 +31,8 @@ public:
 	typedef typename IndexGridType::Ptr IndexGridTypePtr;
 	typedef typename IndexGridType::ConstPtr IndexGridTypeCPtr;
 
-	bool IsDatabaseOpen; //Helper flag for external use
-
 private:
+	const FString HandleName;
 	bool EnableGridStats;
 	bool EnableDelayLoad;
 	bool AreAllGridsInSync;
@@ -43,25 +44,29 @@ private:
 	TMap<FString, TSharedRef<Vdb::GridOps::CubeMesher<GridTreeType>>> CubesMeshOps;
 	TMap<FString, TSharedRef<Vdb::GridOps::MarchingCubesMesher<GridTreeType>>> MarchingCubesMeshOps;
 	AsyncIONotifierType &AsyncIO;
+	openvdb::io::Queue::Id RunningJobID;
 	friend struct AsyncIOJob;
-	openvdb::io::Queue::Id AsyncIOJobID;
 
 public:
 
-	VdbHandlePrivate(AsyncIONotifierType &asyncIO) :
+	VdbHandlePrivate(const FString &uniqueName, AsyncIONotifierType &asyncIO) :
+		HandleName(uniqueName),
 		EnableGridStats(false),
 		EnableDelayLoad(false),
 		AreAllGridsInSync(true),
 		IsFileMetaInSync(true),
-		AsyncIO(asyncIO),
-		AsyncIOJobID(UINT32_MAX)
+		AsyncIO(asyncIO)
 	{
-		IsDatabaseOpen = false;
 	}
 
 	~VdbHandlePrivate()
 	{
-		WriteChangesAsync();
+		if (AreChangesPending())
+		{
+			AsyncIO.StartNextJob(RunningJobID);
+		}
+		ResetSharedResources();
+
 		openvdb::uninitialize();
 		if (GridType::isRegistered())
 		{
@@ -124,6 +129,7 @@ public:
 	inline GridType& GetOrCreateGrid(const FString &gridID, bool &isNewGrid, GridTypePtr gridPtr = nullptr)
 	{
 		//Find the grid using the cached iterator. If not found create a new grid and point the cached iterator to it.
+		check(GridsPtr != nullptr);
 		const std::string gridIDStd = TCHAR_TO_UTF8(*gridID);
 		isNewGrid = false;
 		//TODO: Maybe don't need the cached iterator. Should do performance testing
@@ -156,6 +162,7 @@ public:
 		const FVector &voxelSize,
 		TArray<FProcMeshSection> &sectionBuffers)
 	{
+		check(GridsPtr != nullptr);
 		//All grids are indexed from [0, size of dimension - 1] along x,y,z dimensions.
 		//World coordinates are given by the scale factor translated by the world-space offset.
 		const openvdb::Vec3d voxelScale(voxelSize.X, voxelSize.Y, voxelSize.Z);
@@ -211,6 +218,7 @@ public:
 	{
 		//Only try to read the data tree from file if the current grid has no active voxels
 		//TODO: Handle case when a grid has 0 active voxels legitimately?
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridID);
 		const openvdb::Index64 activeVoxelCount = grid.activeVoxelCount();
 		if (activeVoxelCount == 0)
@@ -248,6 +256,7 @@ public:
 	bool GetFileMetaValue(const FString &metaName, FileMetaType &metaValue)
 	{
 		//Find and copy the file meta value and return if it was found
+		check(FileMetaPtr != nullptr);
 		bool isMetaFound = false;
 		OpenFileGuard();
 		openvdb::TypedMetadata<FileMetaType>::Ptr metaDataPtr = FileMetaPtr->getMetadata<openvdb::TypedMetadata<FileMetaType>>(TCHAR_TO_UTF8(*metaName));
@@ -267,6 +276,7 @@ public:
 	void InsertFileMeta(const FString &metaName, const FileMetaType &metaValue)
 	{
 		//Insert file meta and flag the file as changed if the value to be inserted is different or new
+		check(FileMetaPtr != nullptr);
 		CloseFileGuard();
 		openvdb::TypedMetadata<FileMetaType>::Ptr currentFileMeta = FileMetaPtr->getMetadata<openvdb::TypedMetadata<FileMetaType>>(TCHAR_TO_UTF8(*metaName));
 		UE_LOG(LogOpenVDBModule, Verbose, TEXT("Inserting file meta [%s] into [%s]"), *metaName, UTF8_TO_TCHAR(FilePtr->filename().c_str()));
@@ -280,6 +290,7 @@ public:
 	bool RemoveFileMeta(const FString &metaName)
 	{
 		//Find and remove the file meta and return if it was actually removed
+		check(FileMetaPtr != nullptr);
 		bool isMetaRemoved = false;
 		CloseFileGuard();
 		const std::string metaNameStd = TCHAR_TO_UTF8(*metaName);
@@ -302,6 +313,7 @@ public:
 	bool RemoveGridFromGridVec(const FString &gridID)
 	{
 		//Find and remove the grid and return if it was actually removed
+		check(GridsPtr != nullptr);
 		bool isRemoved = false;
 		const std::string gridIDStd = TCHAR_TO_UTF8(*gridID);
 		auto i = std::find_if(GridsPtr->begin(), GridsPtr->end(), GridNameIsType(gridIDStd));
@@ -327,6 +339,7 @@ public:
 	bool GetGridMetaValue(const FString &gridID, const FString &metaName, GridMetaType &metaValue)
 	{
 		//Find and copy the grid meta value and return if it was found
+		check(GridsPtr != nullptr);
 		bool isMetaFound = false;
 		GridType &grid = GetGrid(gridID);
 		openvdb::TypedMetadata<GridMetaType>::Ptr metaDataPtr = grid.getMetadata<openvdb::TypedMetadata<GridMetaType>>(TCHAR_TO_UTF8(*metaName));
@@ -347,6 +360,7 @@ public:
 	void InsertGridMeta(const FString &gridID, const FString &metaName, const GridMetaType &metaValue)
 	{
 		//Insert grid meta and flag the file as changed if the value to be inserted is different or new
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridID);
 		openvdb::TypedMetadata<GridMetaType>::Ptr currentGridMeta = grid.getMetadata<openvdb::TypedMetadata<GridMetaType>>(TCHAR_TO_UTF8(*metaName));
 		UE_LOG(LogOpenVDBModule, Verbose, TEXT("Inserting grid meta [%s] into [%s]"), *metaName, *gridID);
@@ -361,6 +375,7 @@ public:
 	bool RemoveGridMeta(const FString &gridID, const FString &metaName)
 	{
 		//Find and remove the grid meta and return if it was actually removed
+		check(GridsPtr != nullptr);
 		bool isMetaRemoved = false;
 		GridType &grid = GetGrid(gridID);
 		const std::string metaNameStd = TCHAR_TO_UTF8(*metaName);
@@ -382,10 +397,11 @@ public:
 
 	bool FillGrid_PerlinDensity(const FString &gridName, bool threaded, const FIntVector &fillIndexStart, const FIntVector &fillIndexEnd, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount)
 	{
+		check(GridsPtr != nullptr);
 		bool isChanged = false;
 		GridType &grid = GetGrid(gridName);
 
-		//Noise module parameters are at the grid-level metadata
+		//Noise module parameters are at the grid-level metadata TODO: Should they be at file level?
 		const openvdb::Int32Metadata::Ptr seedMeta = grid.getMetadata<openvdb::Int32Metadata>("seed");
 		const openvdb::FloatMetadata::Ptr frequencyMeta = grid.getMetadata<openvdb::FloatMetadata>("frequency");
 		const openvdb::FloatMetadata::Ptr lacunarityMeta = grid.getMetadata<openvdb::FloatMetadata>("lacunarity");
@@ -429,6 +445,7 @@ public:
 	{
 		typedef typename Vdb::GridOps::BasicExtractSurfaceOp<GridTreeType, GridTreeType::ValueOnIter> BasicExtractSurfaceOpType;
 		typedef typename openvdb::tools::valxform::SharedOpApplier<GridTreeType::ValueOnIter, BasicExtractSurfaceOpType> BasicExtractSurfaceProcessor;
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		BasicExtractSurfaceOpType BasicExtractSurfaceOp(grid);
 		BasicExtractSurfaceProcessor BasicExtractSurfaceProc(grid.beginValueOn(), BasicExtractSurfaceOp);
@@ -442,6 +459,7 @@ public:
 		typedef typename Vdb::GridOps::ExtractSurfaceOp<GridTreeType, GridTreeType::ValueOnIter, Vdb::GridOps::BitTreeType> ExtractSurfaceOpType;
 		typedef typename openvdb::TreeAdapter<openvdb::Grid<Vdb::GridOps::BitTreeType>> Adapter;
 		typedef typename openvdb::tools::valxform::SharedOpTransformer<GridTreeType::ValueOnIter, Adapter::TreeType, ExtractSurfaceOpType> ExtractSurfaceProcessor;
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		ExtractSurfaceOpType ExtractSurfaceOp(grid);
 		ExtractSurfaceProcessor ExtractSurfaceProc(grid.beginValueOn(), Adapter::tree(MarchingCubesMeshOps[gridName]->Grid), ExtractSurfaceOp, openvdb::MERGE_ACTIVE_STATES);
@@ -456,6 +474,7 @@ public:
 		typedef typename Vdb::GridOps::ISGradient_FVoxelData<openvdb::math::CD_2ND, CalcGradientOp_FVoxelDataType::SourceAccessorType>::Vec3Type VecType;
 		typedef typename openvdb::TreeAdapter<openvdb::Grid<openvdb::Vec3fTree>> Adapter;
 		typedef typename openvdb::tools::valxform::SharedOpTransformer<GridTreeType::ValueOnCIter, Adapter::TreeType, CalcGradientOp_FVoxelDataType> CalcGradientOp_FVoxelDataProcessor;
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		openvdb::Grid<openvdb::Vec3fTree> &gradientGrid = MarchingCubesMeshOps[gridName]->Gradient;
 		CalcGradientOp_FVoxelDataType CalcGradientOp_FVoxelDataOp(grid);
@@ -468,6 +487,7 @@ public:
 	{
 		typedef typename Vdb::GridOps::BasicSetVoxelTypeOp<GridTreeType, GridTreeType::ValueOnIter> BasicSetVoxelTypeOpType;
 		typedef typename openvdb::tools::valxform::SharedOpApplier<GridTreeType::ValueOnIter, BasicSetVoxelTypeOpType> BasicSetVoxelProcessor;
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		BasicSetVoxelTypeOpType BasicSetVoxelTypeOp(grid);
 		BasicSetVoxelProcessor BasicSetVoxelProc(grid.beginValueOn(), BasicSetVoxelTypeOp);
@@ -490,6 +510,7 @@ public:
 
 	void MeshRegionCubes(const FString &gridName)
 	{
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		UE_LOG(LogOpenVDBModule, Verbose, TEXT("Running basic cubes mesher for [%s]"), UTF8_TO_TCHAR(grid.getName().c_str()));
 		const bool threaded = true;
@@ -499,6 +520,7 @@ public:
 
 	void MeshRegionMarchingCubes(const FString &gridName)
 	{
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		UE_LOG(LogOpenVDBModule, Verbose, TEXT("Running marching cubes mesher for [%s]"), UTF8_TO_TCHAR(grid.getName().c_str()));
 		const bool threaded = true;
@@ -508,6 +530,7 @@ public:
 
 	void GetAllGridIDs(TArray<FString> &OutGridIDs) const
 	{
+		check(GridsPtr != nullptr);
 		for (auto i = GridsPtr->begin(); i != GridsPtr->end(); ++i)
 		{
 			OutGridIDs.Add(FString(UTF8_TO_TCHAR((*i)->getName().c_str())));
@@ -516,6 +539,7 @@ public:
 
 	bool GetGridDimensions(const FString &gridName, FVector &startLocation)
 	{
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		openvdb::CoordBBox activeIndexBBox = grid.evalActiveVoxelBoundingBox();
 		const bool hasActiveVoxels = grid.activeVoxelCount() > 0;
@@ -540,6 +564,7 @@ public:
 
 	bool GetGridDimensions(const FString &gridName, FBox &worldBounds)
 	{
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		openvdb::CoordBBox activeIndexBBox = grid.evalActiveVoxelBoundingBox();
 		const bool hasActiveVoxels = grid.activeVoxelCount() > 0;
@@ -558,6 +583,7 @@ public:
 
 	bool GetGridDimensions(const FString &gridName, FBox &worldBounds, FVector &startLocation)
 	{
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		openvdb::CoordBBox activeIndexBBox = grid.evalActiveVoxelBoundingBox();
 		const bool hasActiveVoxels = grid.activeVoxelCount() > 0;
@@ -588,6 +614,7 @@ public:
 
 	void GetIndexCoord(const FString &gridName, const FVector &location, FIntVector &outIndexCoord)
 	{
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		//worldToIndex returns a Vec3d, so floor it to get the index coords
 		const openvdb::Coord coord = openvdb::Coord::floor(grid.worldToIndex(openvdb::Vec3d(location.X, location.Y, location.Z)));
@@ -598,6 +625,7 @@ public:
 
 	inline void GetVoxelValue(const FString &gridName, const FIntVector &indexCoord, typename GridType::ValueType &outValue)
 	{
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
 		GridType::ConstAccessor cacc = grid.getConstAccessor();
@@ -606,6 +634,7 @@ public:
 
 	inline bool GetVoxelActiveState(const FString &gridName, const FIntVector &indexCoord)
 	{
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
 		GridType::ConstAccessor cacc = grid.getConstAccessor();
@@ -614,6 +643,7 @@ public:
 
 	inline bool GetVoxelValueAndActiveState(const FString &gridName, const FIntVector &indexCoord, typename GridType::ValueType &outValue)
 	{
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
 		GridType::ConstAccessor cacc = grid.getConstAccessor();
@@ -623,6 +653,7 @@ public:
 
 	inline void SetVoxelValue(const FString &gridName, const FIntVector &indexCoord, const typename GridType::ValueType &value)
 	{
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
 		GridType::Accessor acc = grid.getAccessor();
@@ -638,6 +669,7 @@ public:
 
 	inline void SetVoxelActiveState(const FString &gridName, const FIntVector &indexCoord, const bool &isActive)
 	{
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
 		GridType::Accessor acc = grid.getAccessor();
@@ -653,6 +685,7 @@ public:
 
 	inline void SetVoxelValueAndActiveState(const FString &gridName, const FIntVector &indexCoord, const typename GridType::ValueType &value, const bool &isActive)
 	{
+		check(GridsPtr != nullptr);
 		GridType &grid = GetGrid(gridName);
 		const openvdb::Coord coord(indexCoord.X, indexCoord.Y, indexCoord.Z);
 		GridType::Accessor acc = grid.getAccessor();
@@ -674,66 +707,175 @@ public:
 		}
 	}
 
-	bool WriteChanges(bool isFinal)
+	inline openvdb::io::Queue::Id GetRunningJobID()
 	{
-		//Write any pending changes and return if the file actually changed
-		bool isFileChanged = false;
-		if (AreChangesPending())
-		{
-			CloseFileGuard(); //openvdb::io::File must be closed in order to write
-							  //openvdb::io::File can write only grids or both grids and file meta but can't write only file meta
-			if (FileMetaPtr == nullptr)
-			{
-				check(GridsPtr);
-				UE_LOG(LogOpenVDBModule, Display, TEXT("Writing grid changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
-				FilePtr->write(*GridsPtr, openvdb::MetaMap());
-				isFileChanged = true;
-			}
-			else
-			{
-				check(GridsPtr);
-				check(FileMetaPtr);
-				UE_LOG(LogOpenVDBModule, Display, TEXT("Writing grid and file meta changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
-				FilePtr->write(*GridsPtr, *FileMetaPtr);
-				isFileChanged = true;
-			}
-
-			if (isFinal)
-			{
-				UE_LOG(LogOpenVDBModule, Display, TEXT("Finalizing changes to [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
-				ResetSharedResources();
-			}
-		}
-		return isFileChanged;
+		return RunningJobID;
 	}
 
-	bool WriteChangesAsync(const bool isFinal = false)
+	inline bool IsWriteJobRunning()
 	{
-		//Default to not final because it is too unsafe to release shared pointers asynchronously
-		check(!isFinal);
-		//Queue up any pending changes to be written
-		bool isJobQueued = false;
-		if (AreChangesPending() && AsyncIOJobID == UINT32_MAX)
+		return RunningJobID != UINT32_MAX;
+	}
+
+	inline openvdb::io::Queue::Id AddAsyncWriteJob(bool isFinal)
+	{
+		const openvdb::io::Queue::Id jobID = AsyncIO.AddJob(this, isFinal);
+		//check(AsyncIO.IOJobs.size() > 0); TODO
+		return jobID;
+	}
+
+	inline TFunction<void(void)>&& GetWriteChangesAsyncTimerCallback(openvdb::io::Queue::Id jobID)
+	{
+		return [&]() {
+			AsyncIO.StartNextJob(jobID);
+		};
+	}
+
+	inline void OpenFileGuard()
+	{
+		if (FilePtr.IsValid() && !FilePtr->isOpen())
 		{
-			CloseFileGuard(); //openvdb::io::File must be closed in order to write
-							  //openvdb::io::File can write only grids or both grids and file meta but can't write only file meta			
-							  //Clear the async IO grids and then deep copy all of the current grids to the async IO. TODO: Better way to do this than deep copying all? Critical section?
-			AsyncIOJobID = AsyncIO.AddJob(this, isFinal); //TODO: Handle case when the same VDBHandlePrivate is being added to the async jobs
-			isJobQueued = true; //TODO: Provide mechanism to wait on async changes to complete
+			FilePtr->open(EnableDelayLoad);
 		}
-		return isJobQueued; //TODO: Provide mechanism to wait on async changes to complete
+	}
+
+	inline void CloseFileGuard()
+	{
+		if (FilePtr.IsValid() && FilePtr->isOpen())
+		{
+			FilePtr->close();
+		}
 	}
 
 private:
-	inline void ResetSharedResources()
+
+	inline bool AllocateFileResource(const std::string &pathname)
 	{
-		UE_LOG(LogOpenVDBModule, Display, TEXT("Resetting all shared resources for [%s]"), UTF8_TO_TCHAR(FilePtr->filename().c_str()));
-		FilePtr.Reset();
-		GridsPtr.reset();
-		FileMetaPtr.reset();
+		bool isAllocated = false;
+		FilePtr = TSharedPtr<openvdb::io::File>(new openvdb::io::File(pathname));
+		if (!FilePtr.IsValid())
+		{
+			isAllocated = true;
+			UE_LOG(LogOpenVDBModule, Error, TEXT("%s: Failed to allocate file"), *HandleName)
+		}
+		return isAllocated;
 	}
 
-	inline bool AreChangesPending()
+	inline bool AllocateGridsResource()
+	{
+		bool isAllocated = false;
+		if (FilePtr.IsValid())
+		{
+			try
+			{
+				GridsPtr = FilePtr->readAllGridMetadata();
+				if (GridsPtr != nullptr)
+				{
+					isAllocated = true;
+				}
+			}
+			catch (openvdb::IoError &e) { UE_LOG(LogOpenVDBModule, Error, TEXT("%s: %s"), *HandleName, UTF8_TO_TCHAR(e.what())); }
+			catch (openvdb::Exception &e) { UE_LOG(LogOpenVDBModule, Error, TEXT("%s: %s"), *HandleName, UTF8_TO_TCHAR(e.what())); }
+			catch (std::bad_alloc &e) { UE_LOG(LogOpenVDBModule, Error, TEXT("%s: %s"), *HandleName, UTF8_TO_TCHAR(e.what())); }
+			catch (std::bad_weak_ptr &e) { UE_LOG(LogOpenVDBModule, Error, TEXT("%s: %s"), *HandleName, UTF8_TO_TCHAR(e.what())); }
+			catch (std::exception &e) { UE_LOG(LogOpenVDBModule, Error, TEXT("%s: %s"), *HandleName, UTF8_TO_TCHAR(e.what())); }
+
+			if (!isAllocated)
+			{
+				UE_LOG(LogOpenVDBModule, Error, TEXT("%s: Failed to allocate grids"), *HandleName);
+			}
+		}
+		else
+		{
+			UE_LOG(LogOpenVDBModule, Error, TEXT("%s: Unable to allocate grids resource (File is invalid)"), *HandleName);
+		}
+		return isAllocated;
+	}
+
+	inline bool AllocateFileMetaResource()
+	{
+		bool isAllocated = false;
+		if (FilePtr.IsValid())
+		{
+			try
+			{
+				FileMetaPtr = FilePtr->getMetadata();
+				if (FileMetaPtr != nullptr)
+				{
+					isAllocated = true;
+				}
+			}
+			catch (openvdb::IoError &e) { UE_LOG(LogOpenVDBModule, Error, TEXT("%s: %s"), *HandleName, UTF8_TO_TCHAR(e.what())); }
+			catch (openvdb::Exception &e) { UE_LOG(LogOpenVDBModule, Error, TEXT("%s: %s"), *HandleName, UTF8_TO_TCHAR(e.what())); }
+			catch (std::bad_alloc &e) { UE_LOG(LogOpenVDBModule, Error, TEXT("%s: %s"), *HandleName, UTF8_TO_TCHAR(e.what())); }
+			catch (std::bad_weak_ptr &e) { UE_LOG(LogOpenVDBModule, Error, TEXT("%s: %s"), *HandleName, UTF8_TO_TCHAR(e.what())); }
+			catch (std::exception &e) { UE_LOG(LogOpenVDBModule, Error, TEXT("%s: %s"), *HandleName, UTF8_TO_TCHAR(e.what())); }
+		}
+		else
+		{
+			UE_LOG(LogOpenVDBModule, Error, TEXT("%s: Unable to allocate file-meta resource (File is invalid)"), *HandleName);
+		}
+		return isAllocated;
+	}
+
+	inline bool ResetSharedResources()
+	{
+		bool isFileResetSuccessful = !FilePtr.IsValid(); //Success if not valid (if there is nothing to reset then that's ok)
+		if (FilePtr.IsValid())
+		{
+			FilePtr.Reset();
+			isFileResetSuccessful = true;
+			UE_LOG(LogOpenVDBModule, Verbose, TEXT("%s: File resource released"), *HandleName);
+		}
+
+		bool isGridsResetSuccessful = GridsPtr == nullptr; //Success if not valid (if there is nothing to reset then that's ok)
+		if (GridsPtr != nullptr)
+		{
+			try
+			{
+				GridsPtr.reset();
+				isGridsResetSuccessful = true;
+				UE_LOG(LogOpenVDBModule, Verbose, TEXT("%s: Grids resource released"), *HandleName);
+			}
+			catch (std::bad_alloc &e)
+			{
+				UE_LOG(LogOpenVDBModule, Error, TEXT("%s: Grids resource reset exception (%s)"), UTF8_TO_TCHAR(e.what()));
+			}
+			catch (std::exception &e)
+			{
+				UE_LOG(LogOpenVDBModule, Error, TEXT("%s: Grids resource reset exception (%s)"), UTF8_TO_TCHAR(e.what()));
+			}
+		}
+
+		bool isMetaResetSuccessful = FileMetaPtr == nullptr; //Success if not valid (if there is nothing to reset then that's ok)
+		if (FileMetaPtr != nullptr)
+		{
+			try
+			{
+				FileMetaPtr.reset();
+				isMetaResetSuccessful = true;
+				UE_LOG(LogOpenVDBModule, Verbose, TEXT("%s: Meta resource released"), *HandleName);
+			}
+			catch (std::bad_alloc &e)
+			{
+				UE_LOG(LogOpenVDBModule, Error, TEXT("%s: Meta resource reset exception (%s)"), *HandleName, UTF8_TO_TCHAR(e.what()));
+			}
+			catch (std::exception &e)
+			{
+				UE_LOG(LogOpenVDBModule, Error, TEXT("%s: Meta resource reset exception (%s)"), *HandleName, UTF8_TO_TCHAR(e.what()));
+			}
+		}
+
+		UE_LOG(LogOpenVDBModule, Display, TEXT("%s: Resources reset status: File (%s), Grids (%s), Meta (%s)"),
+			*HandleName,
+			isFileResetSuccessful ? TEXT("succeeded") : TEXT("failed"),
+			isGridsResetSuccessful ? TEXT("succeeded") : TEXT("failed"),
+			isMetaResetSuccessful ? TEXT("succeeded") : TEXT("failed"));
+		return isFileResetSuccessful && isGridsResetSuccessful && isMetaResetSuccessful;
+	}
+
+	//inline bool AreChangesPending()
+	bool AreChangesPending()
 	{
 		return !AreAllGridsInSync || !IsFileMetaInSync;
 	}
@@ -782,22 +924,6 @@ private:
 		if (!openvdb::TypedMetadata<MetadataType>::isRegisteredType())
 		{
 			openvdb::TypedMetadata<MetadataType>::registerType();
-		}
-	}
-
-	inline void OpenFileGuard()
-	{
-		if (FilePtr.IsValid() && !FilePtr->isOpen())
-		{
-			FilePtr->open(EnableDelayLoad);
-		}
-	}
-
-	inline void CloseFileGuard()
-	{
-		if (FilePtr.IsValid() && FilePtr->isOpen())
-		{
-			FilePtr->close();
 		}
 	}
 
@@ -850,6 +976,7 @@ private:
 		return true;
 	}
 
+	//TODO: Use file manager IFileManager
 	inline bool CreateAndVerifyDatabase(const FString &filePath,
 		const bool enableGridStats,
 		const bool enableDelayLoad,
@@ -893,7 +1020,8 @@ private:
 			{
 				//Write pending changes and invalidate resources only if the path is changing
 				const bool isFinal = previousFilePath != filePath;
-				WriteChanges(isFinal);
+				const openvdb::io::Queue::Id jobID = AddAsyncWriteJob(isFinal);
+				GetWriteChangesAsyncTimerCallback(jobID)();
 			}
 			CloseFileGuard();
 			UE_LOG(LogOpenVDBModule, Display, TEXT("Previous voxel database config: path=%s GridStats=%s, DelayLoad=%s"), *previousFilePath, previousEnableGridStats ? TEXT("enabled") : TEXT("disabled"), previousEnableDelayLoad ? TEXT("enabled") : TEXT("disabled"));
@@ -908,8 +1036,8 @@ private:
 		{
 			//Create the database with the specified configuration
 			const std::string filepathStd = TCHAR_TO_UTF8(*filePath);
+			AllocateFileResource(filepathStd);
 			FilePtr = TSharedPtr<openvdb::io::File>(new openvdb::io::File(filepathStd));
-			check(FilePtr.IsValid());
 			check(FilePtr->filename() == filepathStd);
 		}
 
@@ -939,14 +1067,16 @@ private:
 		UE_LOG(LogOpenVDBModule, Display, TEXT("Reading grid metadata and file metadata from voxel database [%s]"), *filePath);
 		if (GridsPtr == nullptr)
 		{
-			GridsPtr = FilePtr->readAllGridMetadata(); //grid-level metadata for all grids
-			CachedGrid = GridsPtr->end();
-			CubesMeshOps.Empty();
-			MarchingCubesMeshOps.Empty();
+			if (AllocateGridsResource()) //read metadata (but not tree data) for all grids
+			{
+				CachedGrid = GridsPtr->end();
+				CubesMeshOps.Empty();
+				MarchingCubesMeshOps.Empty();
+			}
 		}
 		if (FileMetaPtr == nullptr)
 		{
-			FileMetaPtr = FilePtr->getMetadata(); //file-level metadata
+			AllocateFileMetaResource();
 		}
 
 		//Start in a clean state
@@ -1012,44 +1142,75 @@ typedef VdbHandlePrivate<TreeType, Vdb::GridOps::IndexTreeType, openvdb::math::S
 struct AsyncIOJob
 {
 	AsyncIOJob(openvdb::io::Queue::Id jobID, VdbHandlePrivateType * vbdHandlePrivatePtr, bool isFinal)
-		: JobID(jobID), Database(TSharedPtr<VdbHandlePrivateType>(vbdHandlePrivatePtr)), IsFinal(IsFinal), IsStarted(false), IsFinished(false)
+		: JobID(jobID),
+		Database(TSharedPtr<VdbHandlePrivateType>(vbdHandlePrivatePtr)),
+		OutFile(*vbdHandlePrivatePtr->FilePtr), //TODO: Need to handle filename change, or will filename change simple create a whole new vdbprivate?
+		IsFinal(isFinal),
+		IsRunning(false),
+		IsFinished(false)
 	{
 		check(Database.IsValid());
 		check(Database->GridsPtr != nullptr);
 		check(Database->FilePtr.IsValid());
-		UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d created"), JobID);
+		UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d: Created"), JobID);
 	}
 
 	bool StartJob(openvdb::io::Queue &queue)
 	{
-		bool isComplete = false;
+		bool isJobRunning = false;
+		//Must have a valid voxel database and file. It is ok to run the job with empty grid vec or empty file-meta
 		check(Database.IsValid());
-		check(Database->GridsPtr != nullptr);
 		check(Database->FilePtr.IsValid());
-		check(OutGrids.empty());
-		check(Database->AsyncIOJobID == JobID);
-		UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d started"), JobID);
+		UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d: Initializing..."), JobID);
 
 		try
 		{
-			//TODO: Mutex on Database while copying grids, meta, and file?
-			for (auto i = Database->GridsPtr->begin(); i != Database->GridsPtr->end(); ++i)
+			//TODO!!!!! Mutex on Database while copying grids, meta, and file?
+			check(Database->FilePtr.IsValid());
+			if (Database->AreChangesPending()) //No changes pending? ez lyfe
 			{
-				OutGrids.push_back((*i)->deepCopyGrid());
-			}
+				//Copy the file
+				UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d: Copying file descriptor..."), JobID);
+				OutFile = *(Database->FilePtr);
+				UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d: File descriptor copied"), JobID);
 
-			if (Database->FileMetaPtr)
-			{
-				UE_LOG(LogOpenVDBModule, Display, TEXT("AsyncIOJob_%d: Queuing pending grid and file meta changes for async write to [%s]"), JobID, UTF8_TO_TCHAR(Database->FilePtr->filename().c_str()));
-				queue.write(OutGrids, *(Database->FilePtr->copy()), *(Database->FileMetaPtr->deepCopyMeta()));
+				//Initialize grid vec to empty, then if the source has a valid grid vec, deep copy all grids
+				OutGrids = openvdb::GridPtrVec();
+				if (Database->GridsPtr)
+				{
+					UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d: Copying all grids"), JobID);
+					for (auto i = Database->GridsPtr->begin(); i != Database->GridsPtr->end(); ++i)
+					{
+						check(*i);
+						auto &grid = *(*i);
+						OutGrids.push_back(grid.deepCopyGrid());
+						UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d: %s copied"), UTF8_TO_TCHAR(grid.getName().c_str()));
+					}
+					UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d: All grids copied"), JobID);
+				}
+				else
+				{
+					UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d: No grids to copy"), JobID);
+				}
+
+				//Initialize file-meta to empty, then if the source has valid file-meta, deep copy all file-meta
+				OutFileMeta = openvdb::MetaMap();
+				if (Database->FileMetaPtr)
+				{
+					UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d: Copying file-meta"), JobID);
+					OutFileMeta = *(Database->FileMetaPtr->deepCopyMeta());
+					UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d: File-meta copied"), JobID);
+				}
+				else
+				{
+					UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d: No file-meta to copy"), JobID);
+				}
+
+				Database->CloseFileGuard(); //openvdb::io::File must be closed in order to write
+				UE_LOG(LogOpenVDBModule, Display, TEXT("AsyncIOJob_%d: Queuing pending grid and file meta changes for async write to [%s]"), JobID, UTF8_TO_TCHAR(OutFile.filename().c_str()));
+				queue.write(OutGrids, OutFile, OutFileMeta);
 			}
-			else
-			{
-				UE_LOG(LogOpenVDBModule, Display, TEXT("AsyncIOJob_%d: Queuing pending grid changes for async write to [%s]"), JobID, UTF8_TO_TCHAR(Database->FilePtr->filename().c_str()));
-				queue.write(OutGrids, *(Database->FilePtr->copy()), openvdb::MetaMap());
-			}
-			IsStarted = true;
-			isComplete = true;
+			isJobRunning = true;
 		}
 		catch (const openvdb::RuntimeError &e)
 		{
@@ -1059,31 +1220,26 @@ struct AsyncIOJob
 		{
 			UE_LOG(LogOpenVDBModule, Error, TEXT("AsyncIOJob_%d: OpenVDB exception: %s"), JobID, UTF8_TO_TCHAR(e.what()));
 		}
-		return isComplete;
+		isJobRunning = IsRunning;
+		return IsRunning;
 	}
 
-	bool FinishCleanup()
+	bool CleanupJob(bool isJobSuccessful)
 	{
+		bool isJobCleanedUp = false;
+		bool isJobFinished = false;
 		check(Database.IsValid());
-		check(Database->AsyncIOJobID == JobID);
-		bool isComplete = false;
-		IsFinished = false;
-		Database->AsyncIOJobID = UINT32_MAX;
-		UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d cleanup (success)"), JobID);
+		Database->RunningJobID = UINT32_MAX;
+		const std::string &filename = Database->FilePtr->filename();
+		UE_LOG(LogOpenVDBModule, Display, TEXT("AsyncIOJob_%d post-run clean up of [%s]..."), JobID, UTF8_TO_TCHAR(filename.c_str()));
 
 		try
 		{
-			Database->SyncGridsAndFileMetaStatus();
-			const std::string filename = Database->FilePtr->filename();
 			if (IsFinal)
 			{
-				UE_LOG(LogOpenVDBModule, Display, TEXT("AsyncIOJob_%d: Resetting shared resources of [%s]"), JobID, UTF8_TO_TCHAR(Database->FilePtr->filename().c_str()));
-				Database->ResetSharedResources();
+				UE_LOG(LogOpenVDBModule, Display, TEXT("AsyncIOJob_%d: Resetting shared resources"), JobID);
+				isJobCleanedUp = Database->ResetSharedResources();
 			}
-			IsStarted = false;
-			IsFinished = true;
-			UE_LOG(LogOpenVDBModule, Display, TEXT("AsyncIOJob_%d: Successfully wrote [%s]"), JobID, UTF8_TO_TCHAR(filename.c_str()));
-			isComplete = true;
 		}
 		catch (const openvdb::RuntimeError &e)
 		{
@@ -1093,42 +1249,29 @@ struct AsyncIOJob
 		{
 			UE_LOG(LogOpenVDBModule, Error, TEXT("AsyncIOJob_%d: OpenVDB exception: %s"), JobID, UTF8_TO_TCHAR(e.what()));
 		}
-		return isComplete;
-	}
 
-	bool FailCleanup()
-	{
-		check(Database.IsValid());
-		check(Database->AsyncIOJobID == JobID);
-		bool isComplete = false;
-		IsFinished = false;
-		Database->AsyncIOJobID = UINT32_MAX;
-		UE_LOG(LogOpenVDBModule, Verbose, TEXT("AsyncIOJob_%d cleanup (failure)"), JobID);
-
-		try
+		IsFinished = isJobSuccessful && isJobCleanedUp;
+		if (IsFinished)
+		{
+			Database->SyncGridsAndFileMetaStatus();
+			UE_LOG(LogOpenVDBModule, Display, TEXT("AsyncIOJob_%d: Job completed"), JobID);
+		}
+		else
 		{
 			Database->DesyncGridsAndFileMetaStatus();
-			IsStarted = false;
-			UE_LOG(LogOpenVDBModule, Display, TEXT("AsyncIOJob_%d: Failed to write [%s]"), JobID, UTF8_TO_TCHAR(Database->FilePtr->filename().c_str()));
-			isComplete = true;
+			UE_LOG(LogOpenVDBModule, Error, TEXT("AsyncIOJob_%d: Job failed"), JobID);
 		}
-		catch (const openvdb::RuntimeError &e)
-		{
-			UE_LOG(LogOpenVDBModule, Error, TEXT("AsyncIOJob_%d: OpenVDB runtime error: %s"), JobID, UTF8_TO_TCHAR(e.what()));
-		}
-		catch (const openvdb::Exception &e)
-		{
-			UE_LOG(LogOpenVDBModule, Error, TEXT("AsyncIOJob_%d: OpenVDB exception: %s"), JobID, UTF8_TO_TCHAR(e.what()));
-		}
-		return isComplete;
+		return IsFinished;
 	}
 
 	const openvdb::io::Queue::Id JobID;
 	TSharedPtr<VdbHandlePrivateType> Database;
-	bool IsStarted;
+	bool IsRunning;
 	bool IsFinished;
 	const bool IsFinal;
+	openvdb::io::File &OutFile;
 	openvdb::GridPtrVec OutGrids;
+	openvdb::MetaMap OutFileMeta;
 };
 
 struct AsyncIONotifier
@@ -1136,6 +1279,7 @@ struct AsyncIONotifier
 	typedef tbb::concurrent_hash_map<openvdb::io::Queue::Id, AsyncIOJob> AsyncJobs;
 	AsyncJobs IOJobs;
 	openvdb::io::Queue IOQueue;
+	FCriticalSection GetJobIDSection;
 
 	AsyncIONotifier()
 	{
@@ -1144,23 +1288,39 @@ struct AsyncIONotifier
 
 	openvdb::io::Queue::Id AddJob(VdbHandlePrivateType * vdbHandlePrivatePtr, bool isFinal)
 	{
-		static openvdb::io::Queue::Id CurrentID = 0;
-		check(vdbHandlePrivatePtr);
-		const openvdb::io::Queue::Id jobID = CurrentID++;
-		check(jobID != UINT32_MAX);
-		IOJobs.insert(std::pair<openvdb::io::Queue::Id, AsyncIOJob>(jobID, AsyncIOJob(jobID, vdbHandlePrivatePtr, isFinal)));
+		static openvdb::io::Queue::Id LastUsedJobID = 0;
+
+		openvdb::io::Queue::Id jobID = UINT32_MAX;
+		{
+			FScopeLock jobIDSection(&GetJobIDSection);
+			AsyncJobs::const_accessor cacc;
+			do
+			{
+				jobID = LastUsedJobID++;
+			} while (IOJobs.find(cacc, jobID) && jobID != UINT32_MAX);
+		}
+		
+		if (jobID != UINT32_MAX)
+		{
+			check(vdbHandlePrivatePtr);
+			IOJobs.insert(std::pair<openvdb::io::Queue::Id, AsyncIOJob>(jobID, AsyncIOJob(jobID, vdbHandlePrivatePtr, isFinal)));
+		}
 		return jobID;
 	}
 
-	bool StartJob(openvdb::io::Queue::Id id)
+	bool StartNextJob(openvdb::io::Queue::Id nextJobID)
 	{
-		AsyncJobs::accessor acc;
-		bool isFound = IOJobs.find(acc, id);
-		if (isFound)
+		bool isJobStarted = false;
+		if (nextJobID == UINT32_MAX)
 		{
-			acc->second.StartJob(IOQueue);
+			AsyncJobs::accessor acc;
+			const bool isJobFound = IOJobs.find(acc, nextJobID);
+			if (isJobFound)
+			{
+				isJobStarted = acc->second.StartJob(IOQueue);
+			}
 		}
-		return isFound;
+		return isJobStarted;
 	}
 
 	// Callback function called when an AsyncIOJob is completed.
@@ -1170,21 +1330,7 @@ struct AsyncIONotifier
 		AsyncJobs::accessor acc;
 		if (IOJobs.find(acc, id))
 		{
-			if (succeeded)
-			{
-				if (!acc->second.FinishCleanup())
-				{
-					UE_LOG(LogOpenVDBModule, Error, TEXT("AsyncIONotifier: AsyncIOJob_%d failed to cleanup"), id);
-				}
-			}
-			else
-			{
-				UE_LOG(LogOpenVDBModule, Error, TEXT("AsyncIONotifier: AsyncIOJob_%d unsucessful...attempting to cleanup"), id);
-				if(!acc->second.FailCleanup())
-				{
-					UE_LOG(LogOpenVDBModule, Error, TEXT("AsyncIONotifier: AsyncIOJob_%d failed to cleanup"), id);
-				}
-			}
+			acc->second.CleanupJob(succeeded);
 			IOJobs.erase(acc);
 		}
 	}

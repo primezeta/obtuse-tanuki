@@ -23,16 +23,16 @@ enum class EMeshType : uint8
 UENUM(BlueprintType)		//"BlueprintType" is essential to include
 enum class EGridState : uint8
 {
-	GRID_STATE_INIT 				UMETA(DisplayName = "Init"),
-	GRID_STATE_READ_TREE			UMETA(DisplayName = "Read from file"),
-	GRID_STATE_FILL_VALUES			UMETA(DisplayName = "Fill values"),
-	GRID_STATE_EXTRACT_SURFACE		UMETA(DisplayName = "Extract isosurface"),
-	GRID_STATE_MESH					UMETA(DisplayName = "Mesh isosurface"),
-	GRID_STATE_READY   			    UMETA(DisplayName = "Ready to render on the game thread"),
-	GRID_STATE_FINISHED				UMETA(DisplayName = "Nothing left to do"),
+	GRID_STATE_NULL     			UMETA(DisplayName = "Null"),				//Grid is in an undefined state
+	GRID_STATE_EMPTY				UMETA(DisplayName = "Empty"),				//Grid is defined but without meta or tree data
+	GRID_STATE_DATA_DESYNC			UMETA(DisplayName = "DataDesync"),			//Grid data value(s) were changed
+	GRID_STATE_ACTIVE_STATES_DESYNC	UMETA(DisplayName = "ActiveStatesDesync"),	//Grid active state(s) were changed
+	GRID_STATE_CLEAN				UMETA(DisplayName = "Clean"),				//Grid is meshed and should be rendered
+	GRID_STATE_RENDERED				UMETA(DisplayName = "Rendered"),			//Grid is meshed and rendered and needs collision calculated (if configured to do so)
+	GRID_STATE_COMPLETE				UMETA(DisplayName = "Complete"),			//All steps complete
 };
 
-const static int32 NUM_GRID_STATES = 1+(int32)EGridState::GRID_STATE_FINISHED;
+const static int32 NUM_GRID_STATES = 1+(int32)EGridState::GRID_STATE_RENDERED;
 
 USTRUCT()
 struct FVoxelData

@@ -12,11 +12,10 @@ bool FOpenVDBModule::OpenVoxelDatabase(const FString &vdbName, const FString &vd
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr;
 	try
 	{
-		check(!VdbHandlePrivatePtr.IsValid());
 		TSharedPtr<VdbHandlePrivateType> *vdb = VdbRegistry.Find(vdbName);
 		if (vdb == nullptr)
 		{
-			VdbHandlePrivatePtr = TSharedPtr<VdbHandlePrivateType>(new VdbHandlePrivateType(AsyncIO));
+			VdbHandlePrivatePtr = TSharedPtr<VdbHandlePrivateType>(new VdbHandlePrivateType(vdbName, AsyncIO));
 			VdbRegistry.Add(vdbName, VdbHandlePrivatePtr);
 		}
 		else
@@ -52,34 +51,87 @@ bool FOpenVDBModule::OpenVoxelDatabase(const FString &vdbName, const FString &vd
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
 	}
 
-	if (VdbHandlePrivatePtr.IsValid())
-	{
-		VdbHandlePrivatePtr->IsDatabaseOpen = isOpened;
-	}
-	return isOpened;
+	return VdbHandlePrivatePtr.IsValid();
 }
 
-bool FOpenVDBModule::CloseVoxelDatabase(const FString &vdbName, bool isFinal, bool asyncWrite)
+bool FOpenVDBModule::CheckVoxelDatabaseIn(const FString &vdbName)
+{
+	bool isOpened = false;
+	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr;
+	try
+	{
+		VdbHandlePrivateType &vdb = *VdbRegistry.FindChecked(vdbName);
+		vdb.OpenFileGuard();
+	}
+	catch (const openvdb::Exception &e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule OpenVDB exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::exception& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::string& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.c_str()));
+	}
+	catch (...)
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
+	}
+
+	return VdbHandlePrivatePtr.IsValid();
+}
+
+bool FOpenVDBModule::CheckVoxelDatabaseOut(const FString &vdbName)
+{
+	bool isOpened = false;
+	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr;
+	try
+	{
+		VdbHandlePrivateType &vdb = *VdbRegistry.FindChecked(vdbName);
+		vdb.CloseFileGuard();
+	}
+	catch (const openvdb::Exception &e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule OpenVDB exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::exception& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::string& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.c_str()));
+	}
+	catch (...)
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
+	}
+
+	return VdbHandlePrivatePtr.IsValid();
+}
+
+bool FOpenVDBModule::CloseVoxelDatabase(const FString &vdbName, bool saveChanges)
 {
 	bool isClosed = false;
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr;
 	try
 	{
 		//If async writing, never release shared resources after writing
-		check(!VdbHandlePrivatePtr.IsValid());
 		TSharedPtr<VdbHandlePrivateType> *vdb = VdbRegistry.Find(vdbName);
 		if (vdb)
 		{
 			//If changes successfully end up in the file then remove the VDB
 			check(vdb->IsValid());
 			VdbHandlePrivatePtr = *vdb;
-			if (asyncWrite)
+			VdbHandlePrivatePtr->CloseFileGuard();
+			isClosed = true;
+			if (saveChanges)
 			{
-				isClosed = VdbHandlePrivatePtr->WriteChangesAsync(isFinal);
-			}
-			else
-			{
-				isClosed = VdbHandlePrivatePtr->WriteChanges(isFinal);
+				const bool isFinal = false; //Final writing is only used by the database class destructor
+				const openvdb::io::Queue::Id jobID = VdbHandlePrivatePtr->AddAsyncWriteJob(isFinal);
+				VdbHandlePrivatePtr->GetWriteChangesAsyncTimerCallback(jobID)();
 			}
 		}
 	}
@@ -98,29 +150,59 @@ bool FOpenVDBModule::CloseVoxelDatabase(const FString &vdbName, bool isFinal, bo
 	catch (...)
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
-	}
-
-	VdbHandlePrivatePtr->IsDatabaseOpen = !isClosed;
-	if (isFinal)
-	{
-		VdbRegistry.Remove(vdbName);
 	}
 	return isClosed;
 }
 
-bool FOpenVDBModule::WriteChanges(const FString &vdbName, bool isFinal, bool asyncWrite)
+bool FOpenVDBModule::WriteChanges(const FString &vdbName)
 {
-	bool isFileChanged = false;
+	//Try to start a write job immediately
+	bool isJobStarted = false; //True if the job is started immediately or if a timer is set for it
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
 	try
 	{
-		if (asyncWrite)
+		const bool isFinal = false; //Final writing is only used by the database class destructor
+		const openvdb::io::Queue::Id jobID = VdbHandlePrivatePtr->AddAsyncWriteJob(isFinal);
+		VdbHandlePrivatePtr->GetWriteChangesAsyncTimerCallback(jobID)();
+	}
+	catch (const openvdb::Exception &e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule OpenVDB exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::exception& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.what()));
+	}
+	catch (const std::string& e)
+	{
+		UE_LOG(LogOpenVDBModule, Error, TEXT("OpenVDBModule exception: %s"), UTF8_TO_TCHAR(e.c_str()));
+	}
+	catch (...)
+	{
+		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
+	}
+	return isJobStarted;
+}
+
+bool FOpenVDBModule::WriteChanges(const FString &vdbName, FTimerManager * TimerManager, FTimerHandle &TimerHandle, float WaitSeconds)
+{
+	//Try to start a write job after waiting for some time
+	bool isJobStarted = false; //True if the job is started immediately or if a timer is set for it
+	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr = VdbRegistry.FindChecked(vdbName);
+	try
+	{
+		const bool isFinal = false; //Final writing is only used by the database class destructor
+		const openvdb::io::Queue::Id jobID = VdbHandlePrivatePtr->AddAsyncWriteJob(isFinal);
+		if (TimerManager->TimerExists(TimerHandle))
 		{
-			isFileChanged = VdbHandlePrivatePtr->WriteChangesAsync(isFinal);
+			if (WaitSeconds > 0.0f && TimerManager->GetTimerRemaining(TimerHandle) > WaitSeconds)
+			{
+				TimerManager->SetTimer(TimerHandle, WaitSeconds, false);
+			}
 		}
 		else
 		{
-			isFileChanged = VdbHandlePrivatePtr->WriteChanges(isFinal);
+			TimerManager->SetTimer(TimerHandle, VdbHandlePrivatePtr->GetWriteChangesAsyncTimerCallback(jobID), WaitSeconds, false);
 		}
 	}
 	catch (const openvdb::Exception &e)
@@ -139,7 +221,7 @@ bool FOpenVDBModule::WriteChanges(const FString &vdbName, bool isFinal, bool asy
 	{
 		UE_LOG(LogOpenVDBModule, Fatal, TEXT("OpenVDBModule unexpected exception"));
 	}
-	return isFileChanged;
+	return isJobStarted;
 }
 
 FString FOpenVDBModule::AddGrid(const FString &vdbName, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FProcMeshSection> &sectionBuffers)

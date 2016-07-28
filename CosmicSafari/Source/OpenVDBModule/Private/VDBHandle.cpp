@@ -1,6 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "OpenVDBModule.h"
+#include "ComponentTask.h"
+
+TArray<FComponentTask> Tasks;
 
 UVdbHandle::UVdbHandle(const FObjectInitializer& ObjectInitializer)
 	: VdbName(GetFName().ToString())
@@ -19,7 +22,8 @@ UVdbHandle::UVdbHandle(const FObjectInitializer& ObjectInitializer)
 	ThreadedGridOps = true;
 	IsOpen = false;
 	bWantsInitializeComponent = true;
-	OnCloseWriteChangesAsync = true;
+	SetComponentTickEnabled(true);
+	PrimaryComponentTick.TickInterval = 5.0f;
 }
 
 void UVdbHandle::InitializeComponent()
@@ -28,69 +32,93 @@ void UVdbHandle::InitializeComponent()
 	RegisterComponent();
 }
 
+void UVdbHandle::BeginPlay()
+{
+	OpenVoxelDatabaseGuard();
+}
+
+void UVdbHandle::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+{
+	//Cleanup finished tasks (starting from the back of the array and removing each finished task)
+	for (int32 i = Tasks.Num() - 1; i >= 0; i--)
+	{
+		if (Tasks[i].IsTaskFinished())
+		{
+			check(!Tasks[i].IsTaskRunning());
+			Tasks.RemoveAt(i);
+		}
+	}
+}
+
 void UVdbHandle::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	//if(EndPlayReason != EEndPlayReason::LevelTransition)
-	//CloseVoxelDatabaseGuard(OnCloseWriteChangesAsync); TODO: Ever need to close and update the database here?
+	//CloseVoxelDatabaseGuard(); TODO: Ever need to close and update the database here?
 }
 
 void UVdbHandle::BeginDestroy()
 {
-	const bool isFinal = true;
-	CloseVoxelDatabaseGuard(isFinal, OnCloseWriteChangesAsync);
+	CloseVoxelDatabaseGuard();
 	Super::BeginDestroy();
+}
+
+void UVdbHandle::RunVoxelDatabaseTask(const FString &ThreadName, TFunction<void(void)> &&Task)
+{
+	//Launch the thread
+	const int32 idx = Tasks.Add(FComponentTask(Task));
+	Tasks[idx].CreateThread(ThreadName);
 }
 
 FString UVdbHandle::AddGrid(const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FProcMeshSection> &sectionBuffers)
 {
-	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::CheckVoxelDatabaseIn(VdbName);
 	const FString gridID = FOpenVDBModule::AddGrid(VdbName, gridName, regionIndex, voxelSize, sectionBuffers);
 	return gridID;
 }
 
 void UVdbHandle::ReadGridTree(const FString &gridID, FIntVector &startIndex, FIntVector &endIndex)
 {
-	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::CheckVoxelDatabaseIn(VdbName);
 	FOpenVDBModule::ReadGridTree(VdbName, gridID, startIndex, endIndex);
 }
 
 bool UVdbHandle::FillTreePerlin(const FString &gridID, FIntVector &startFill, FIntVector &endFill)
 {
-	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::CheckVoxelDatabaseIn(VdbName);
 	const bool isChanged = FOpenVDBModule::FillTreePerlin(VdbName, gridID, startFill, endFill, PerlinSeed, PerlinFrequency, PerlinLacunarity, PerlinPersistence, PerlinOctaveCount, ThreadedGridOps);
 	return isChanged;
 }
 
 bool UVdbHandle::ExtractIsoSurface(const FString &gridID, TArray<TEnumAsByte<EVoxelType>> &sectionMaterialIDs, FBox &gridDimensions, FVector &initialLocation)
 {
-	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::CheckVoxelDatabaseIn(VdbName);
 	const bool hasActiveVoxels = FOpenVDBModule::ExtractIsoSurface(VdbName, gridID, MeshMethod, sectionMaterialIDs, gridDimensions, initialLocation, ThreadedGridOps);
 	return hasActiveVoxels;
 }
 
 void UVdbHandle::MeshGrid(const FString &gridID)
 {
-	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::CheckVoxelDatabaseIn(VdbName);
 	FOpenVDBModule::MeshGrid(VdbName, gridID, MeshMethod);
 }
 
 TArray<FString> UVdbHandle::GetAllGridIDs()
 {
-	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::CheckVoxelDatabaseIn(VdbName);
 	const TArray<FString> GridIDs = FOpenVDBModule::GetAllGridIDs(VdbName); //TODO: Return as const &
 	return GridIDs;
 }
 
 void UVdbHandle::RemoveGrid(const FString &gridID)
 {
-	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::CheckVoxelDatabaseIn(VdbName);
 	FOpenVDBModule::RemoveGrid(VdbName, gridID);
 }
 
 bool UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 {
+	FOpenVDBModule::CheckVoxelDatabaseIn(VdbName);
 	bool isScaleValid = false;
-	OpenVoxelDatabaseGuard();
 	if (regionScale.X > 0 && regionScale.Y > 0 && regionScale.Z > 0)
 	{
 		FOpenVDBModule::SetRegionScale(VdbName, regionScale);
@@ -101,43 +129,42 @@ bool UVdbHandle::SetRegionScale(const FIntVector &regionScale)
 
 void UVdbHandle::GetVoxelCoord(const FString &gridID, const FVector &worldLocation, FIntVector &outVoxelCoord)
 {
-	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::CheckVoxelDatabaseIn(VdbName);
 	FOpenVDBModule::GetVoxelCoord(VdbName, gridID, worldLocation, outVoxelCoord);
 }
 
 bool UVdbHandle::GetGridDimensions(const FString &gridID, FVector &startLocation)
 {
-	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::CheckVoxelDatabaseIn(VdbName);
 	const bool hasActiveVoxels = FOpenVDBModule::GetGridDimensions(VdbName, gridID, startLocation);
 	return hasActiveVoxels;
 }
 
 bool UVdbHandle::GetGridDimensions(const FString &gridID, FBox &worldBounds)
 {
-	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::CheckVoxelDatabaseIn(VdbName);
 	const bool hasActiveVoxels = FOpenVDBModule::GetGridDimensions(VdbName, gridID, worldBounds);
 	return hasActiveVoxels;
 }
 
 bool UVdbHandle::GetGridDimensions(const FString &gridID, FBox &worldBounds, FVector &startLocation)
 {
-	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::CheckVoxelDatabaseIn(VdbName);
 	const bool hasActiveVoxels = FOpenVDBModule::GetGridDimensions(VdbName, gridID, worldBounds, startLocation);
 	return hasActiveVoxels;
 }
 
 FIntVector UVdbHandle::GetRegionIndex(const FVector &worldLocation)
 {
-	OpenVoxelDatabaseGuard();
+	FOpenVDBModule::CheckVoxelDatabaseIn(VdbName);
 	const FIntVector regionIndex = FOpenVDBModule::GetRegionIndex(VdbName, worldLocation);
 	return regionIndex;
 }
 
-void UVdbHandle::WriteAllGrids(bool isAsync)
+void UVdbHandle::WriteAllGrids()
 {
-	OpenVoxelDatabaseGuard();
-	const bool isFinal = false; //Never final from this level
-	FOpenVDBModule::WriteChanges(VdbName, isFinal, isAsync);
+	FOpenVDBModule::CheckVoxelDatabaseIn(VdbName);
+	FOpenVDBModule::WriteChanges(VdbName);
 }
 
 void UVdbHandle::OpenVoxelDatabaseGuard()
@@ -150,12 +177,12 @@ void UVdbHandle::OpenVoxelDatabaseGuard()
 	}
 }
 
-void UVdbHandle::CloseVoxelDatabaseGuard(bool isFinal, bool isAsync)
+void UVdbHandle::CloseVoxelDatabaseGuard()
 {
 	if (IsOpen)
 	{
-		const bool isFinal = false;
-		FOpenVDBModule::CloseVoxelDatabase(VdbName, isFinal, isAsync);
+		const bool saveChanges = false;
+		FOpenVDBModule::CloseVoxelDatabase(VdbName, saveChanges);
 		IsOpen = false;
 	}
 }

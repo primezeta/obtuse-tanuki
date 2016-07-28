@@ -18,8 +18,11 @@ public:
 	}
 
 	static bool OpenVoxelDatabase(const FString &vdbName, const FString &vdbFilepath, bool enableGridStats, bool enableDelayLoad);
-	static bool CloseVoxelDatabase(const FString &vdbName, bool isFinal, bool asyncWrite);
-	static bool WriteChanges(const FString &vdbName, bool isFinal, bool asyncWrite);
+	static bool CloseVoxelDatabase(const FString &vdbName, bool saveChanges);
+	static bool CheckVoxelDatabaseIn(const FString &vdbName);
+	static bool CheckVoxelDatabaseOut(const FString &vdbName);
+	static bool WriteChanges(const FString &vdbName);
+	static bool WriteChanges(const FString &vdbName, FTimerManager * TimerManager, FTimerHandle &TimerHandle, float WaitSeconds);
 	static FString AddGrid(const FString &vdbName, const FString &gridName, const FIntVector &regionIndex, const FVector &voxelSize, TArray<FProcMeshSection> &sectionBuffers);
 	static void ReadGridTree(const FString &vdbName, const FString &gridID, FIntVector &startIndex, FIntVector &endIndex);
 	static bool FillTreePerlin(const FString &vdbName, const FString &gridID, FIntVector &startFill, FIntVector &endFill, int32 seed, float frequency, float lacunarity, float persistence, int32 octaveCount, bool threaded = true);
