@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<ItemGroup>
+		<None Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealVersionSelector\UnrealVersionSelector.Target.cs" />
+		<None Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealVersionSelector\UnrealVersionSelector.Build.cs" />
+		<Filter Include="Private">
+			<UniqueIdentifier>{6711AA74-6B2D-434E-9A52-9E02A0C32540}</UniqueIdentifier>
+		</Filter>
+		<ClCompile Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealVersionSelector\Private\PlatformInstallation.cpp">
+			<Filter>Private</Filter>
+		</ClCompile >
+		<ClInclude Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealVersionSelector\Private\PlatformInstallation.h">
+			<Filter>Private</Filter>
+		</ClInclude >
+		<ClCompile Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealVersionSelector\Private\UnrealVersionSelector.cpp">
+			<Filter>Private</Filter>
+		</ClCompile >
+		<ClInclude Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealVersionSelector\Private\UnrealVersionSelector.h">
+			<Filter>Private</Filter>
+		</ClInclude >
+		<Filter Include="Private\GenericPlatform">
+			<UniqueIdentifier>{C72A31E1-DCB8-41FF-8D4F-76EC1C27ED64}</UniqueIdentifier>
+		</Filter>
+		<ClCompile Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealVersionSelector\Private\GenericPlatform\GenericPlatformInstallation.cpp">
+			<Filter>Private\GenericPlatform</Filter>
+		</ClCompile >
+		<ClInclude Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealVersionSelector\Private\GenericPlatform\GenericPlatformInstallation.h">
+			<Filter>Private\GenericPlatform</Filter>
+		</ClInclude >
+		<Filter Include="Private\Windows">
+			<UniqueIdentifier>{552A1E89-C562-478F-9E7C-762B5DA710DD}</UniqueIdentifier>
+		</Filter>
+		<ClCompile Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealVersionSelector\Private\Windows\WindowsPlatformInstallation.cpp">
+			<Filter>Private\Windows</Filter>
+		</ClCompile >
+		<ClInclude Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealVersionSelector\Private\Windows\WindowsPlatformInstallation.h">
+			<Filter>Private\Windows</Filter>
+		</ClInclude >
+		<Filter Include="Private\Windows\Resources">
+			<UniqueIdentifier>{F980CB7C-D63A-4A51-A1D2-FB1FDFC9825E}</UniqueIdentifier>
+		</Filter>
+		<None Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealVersionSelector\Private\Windows\Resources\Icon.ico">
+			<Filter>Private\Windows\Resources</Filter>
+		</None >
+		<ClInclude Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealVersionSelector\Private\Windows\Resources\Resource.h">
+			<Filter>Private\Windows\Resources</Filter>
+		</ClInclude >
+		<ResourceCompile Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealVersionSelector\Private\Windows\Resources\Resource.rc">
+			<Filter>Private\Windows\Resources</Filter>
+		</ResourceCompile >
+		<ClInclude Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\UnrealVersionSelector\Private\Windows\Resources\VersionResource.inl">
+			<Filter>Private\Windows\Resources</Filter>
+		</ClInclude >
+	</ItemGroup>
+</Project>

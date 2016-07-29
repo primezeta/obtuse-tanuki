@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<ItemGroup>
+		<None Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\ParallelExecutor\ParallelExecutor.Target.cs" />
+		<None Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\ParallelExecutor\ParallelExecutor.Build.cs" />
+		<Filter Include="Private">
+			<UniqueIdentifier>{3413C24B-9717-4A5B-AD91-8DFD7533928E}</UniqueIdentifier>
+		</Filter>
+		<ClCompile Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\ParallelExecutor\Private\BuildGraph.cpp">
+			<Filter>Private</Filter>
+		</ClCompile >
+		<ClInclude Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\ParallelExecutor\Private\BuildGraph.h">
+			<Filter>Private</Filter>
+		</ClInclude >
+		<ClCompile Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\ParallelExecutor\Private\ParallelExecutor.cpp">
+			<Filter>Private</Filter>
+		</ClCompile >
+		<ClInclude Include="..\..\..\..\..\GitHub\UnrealEngine\Engine\Source\Programs\ParallelExecutor\Private\ParallelExecutor.h">
+			<Filter>Private</Filter>
+		</ClInclude >
+	</ItemGroup>
+</Project>
