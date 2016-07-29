@@ -1,0 +1,31 @@
+https://docs.unrealengine.com/latest/INT/Programming/Development/CodingStandard/index.html
+Use tabs set to width 4 for indention, spaces for alignment
+First letter of each word in variable capitalized and no underscores
+Typename prefixes: Template T, UObject U, AActor A, SWidget S, interface I, enum E, bool b, most anything else F, typedefs prefixed according to resulting type
+No prefixes in C#
+Type and variable names nouns, method names verb describing effect or return type if no effect
+Long descriptive names
+No single line multi declarations
+Functions returning a bool should ask a question
+Prefix variable with "Out" if pass-by-reference return (if is bool, prefix by "bOut")
+Function w/no return value start with strong verb followed by an Object (avoid ambiguous verbs such as "Handle" and "Process")
+Use portable basic types e.g. int32, uint32, PTRINT for an integer that may hold a pointer
+Descriptive comments that don't just repeat code
+Const correctness
+JavaDoc class, state, method, variable comments
+static_assert for compile time warning
+Use override, final, nullptr
+Do not use auto except for lambdas, iterator declaration, and complex template code
+Lambdas: keep short, prefer [&] capture over [=] capture, careful of capturing something that goes out of scope
+Use strongly typed enums "class enum : uint8" not "enum", ENUM_CLASS_FLAGS(EnumType) for enum flags
+MoveTemp to explicitly use move semantics
+Don't use "using" except inside another namespace or function
+UCLASS, USTRUCT, etc do not support namespaces
+Do not rely on being included through another header; include everything you need
+Use inline functions sparingly and FORCEINLINE even less often (e.g. small accessors or if profiling shows a benefit)
+Leave a blank line at the end of the file for gcc
+Do not use (int32)float_var, instead use appTrunc()
+Don't use inlining or templates for functions which are likely to change over a hot reload
+Only use statics for things which are expected to remain constant over a hot reload
+To facilitate find-in-files use "FShaderType* Type" not "FShaderType *Type"
+No shadowed variables
