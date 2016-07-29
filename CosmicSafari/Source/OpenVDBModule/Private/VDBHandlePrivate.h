@@ -4,7 +4,12 @@
 #pragma warning(1:4211 4800 4503 4146)
 #include <openvdb/openvdb.h>
 #include <openvdb/io/Queue.h>
+#include <openvdb/io/Stream.h>
 #include <openvdb/tools/Prune.h>
+#include <boost/interprocess/file_mapping.hpp>
+#include <boost/interprocess/mapped_region.hpp>
+#include <boost/iostreams/device/array.hpp>
+#include <boost/iostreams/stream.hpp>
 #include "GridOps.h"
 #include "GridMetadata.h"
 

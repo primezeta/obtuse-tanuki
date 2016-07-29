@@ -2,6 +2,8 @@
 #include "EngineMinimal.h"
 #include "VoxelData.generated.h"
 
+//TODO: Replace TEnumAsByte usage because according to https://docs.unrealengine.com/latest/INT/Programming/Development/CodingStandard/index.html
+//don't have to use TEnumAsByte if enum class is a uint8.
 UENUM(BlueprintType)
 enum class EVoxelType : uint8
 {
@@ -19,6 +21,9 @@ enum class EMeshType : uint8
 	MESH_TYPE_CUBES 		 UMETA(DisplayName = "Mesh as basic cubes"),
 	MESH_TYPE_MARCHING_CUBES UMETA(DisplayName = "Mesh with marching cubes"),
 };
+
+//Interesting:
+//ENUM_CLASS_FLAGS(EnumType)
 
 UENUM(BlueprintType)		//"BlueprintType" is essential to include
 enum class EGridState : uint8

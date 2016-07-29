@@ -1,5 +1,6 @@
 #include "OpenVDBModule.h"
 #include "VDBHandlePrivate.h"
+#include "ArchiveVoxelDatabase.h"
 
 DEFINE_LOG_CATEGORY(LogOpenVDBModule)
 typedef TMap<FString, TSharedPtr<VdbHandlePrivateType>> VdbRegistryType;
@@ -8,6 +9,10 @@ static AsyncIONotifierType AsyncIO;
 
 bool FOpenVDBModule::OpenVoxelDatabase(const FString &vdbName, const FString &vdbFilepath, bool enableGridStats, bool enableDelayLoad)
 {
+	FVoxelDatabaseWriter testwriter(TEXT(""));
+	FVoxelDatabaseReader testreader(TEXT(""));
+	FVoxelDatabaseMemoryMappedReader testmappedreader(TEXT(""));
+
 	bool isOpened = false;
 	TSharedPtr<VdbHandlePrivateType> VdbHandlePrivatePtr;
 	try
